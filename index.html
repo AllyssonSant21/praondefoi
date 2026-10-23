@@ -123,6 +123,28 @@
   .msg:empty{display:none}
   .hl{color:var(--accent)}
 
+  /* controles */
+  .ctrlbar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3)}
+  .ctrl-select{width:auto;min-width:200px;max-width:100%;border-radius:999px;font-weight:600;padding-right:34px}
+  .ctrlbar .note{font-size:13px;color:var(--muted)}
+  .by{font-size:12px;color:var(--muted);margin-top:2px}
+  .cat-inline{display:none}
+  @media (max-width:560px){
+    #tableWrap .table th:nth-child(3), #rows td:nth-child(3){display:none}
+    .cat-inline{display:inline-flex;margin-top:4px}
+    #tableWrap .table th:first-child, #rows td:first-child{width:48px}
+  }
+  .invite{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);padding:var(--space-4) var(--space-6);border-color:rgba(255,200,61,.45)}
+  .dlg-back{position:fixed;inset:0;z-index:40;background:rgba(5,9,18,.72);display:grid;place-items:center;padding:16px;overflow:auto}
+  .dlg{width:min(520px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-6);background:var(--surface)}
+  .dlg-sec{display:flex;flex-direction:column;gap:var(--space-2)}
+  .dlg-sec h3{font-family:var(--font-heading);font-weight:900;font-size:13px;letter-spacing:.08em;text-transform:uppercase;margin:0;color:var(--muted)}
+  .dlg .row{display:flex;gap:var(--space-2);align-items:center}
+  .dlg .row .input{flex:1;min-width:0}
+  .dlg .hint{margin:0;font-size:13px;color:var(--muted)}
+  .person{display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);padding:8px 0;border-bottom:1px solid rgba(244,240,230,.08);font-size:14px;word-break:break-all}
+  .code{font-family:var(--font-heading);font-weight:900;font-size:38px;letter-spacing:.08em;color:var(--accent);line-height:1}
+
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:calc(100% - 32px);background:var(--red);color:var(--text);padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:50}
 </style>
 </head>
@@ -204,6 +226,8 @@
     <button class="btn btn-secondary btn-sm" data-logout type="button">Sair</button>
   </div>
 
+  <section id="invites" hidden style="display:flex;flex-direction:column;gap:var(--space-3);"></section>
+
   <header style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--space-4);">
     <div style="display:flex;flex-direction:column;gap:2px;">
       <span style="display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);"><img src="logo/logo-simbolo.svg" alt="" width="22" height="22">Pra onde foi?</span>
@@ -216,6 +240,16 @@
       <button class="btn btn-ghost" id="export" style="margin-left:var(--space-2);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>Baixar planilha Excel</button>
     </div>
   </header>
+
+  <section class="ctrlbar" aria-label="Controle">
+    <select class="input ctrl-select" id="ctrlSelect" aria-label="Escolher controle"></select>
+    <span class="note" id="ctrlInfo"></span>
+    <span style="display:flex;flex-wrap:wrap;gap:var(--space-2);margin-left:auto;">
+      <button class="btn btn-secondary btn-sm" id="ctrlManage" type="button" hidden>Pessoas e convites</button>
+      <button class="btn btn-secondary btn-sm" id="ctrlNew" type="button">+ Novo controle</button>
+      <button class="btn btn-ghost btn-sm" id="ctrlJoin" type="button">Entrar com código</button>
+    </span>
+  </section>
 
   <section class="stats">
     <div class="blueprint stat">
@@ -362,6 +396,20 @@
 </div>
 </div>
 
+<!-- ============ JANELA: PESSOAS E CONVITES ============ -->
+<div class="dlg-back" id="dlg" hidden>
+  <div class="blueprint dlg" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3);">
+      <div>
+        <span class="kicker" style="color:var(--accent);">Controle compartilhado</span>
+        <h2 id="dlgTitle" style="font-size:24px;text-transform:uppercase;margin-top:2px;"></h2>
+      </div>
+      <button class="btn btn-secondary btn-icon" id="dlgClose" type="button" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div id="dlgBody" style="display:flex;flex-direction:column;gap:var(--space-6);"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="alert" hidden></div>
 
 <script>
@@ -406,9 +454,9 @@ function parseAmount(s){
   const n = parseFloat(s);
   return isFinite(n) ? Math.round(n*100)/100 : NaN;
 }
-const fromRow = r => ({id:r.id, type:r.tipo, desc:r.descricao, cat:r.categoria, amount:Number(r.valor), date:r.data});
+const fromRow = r => ({id:r.id, type:r.tipo, desc:r.descricao, cat:r.categoria, amount:Number(r.valor), date:r.data, uid:r.user_id});
 const toRow = e => ({tipo:e.type, descricao:e.desc, categoria:e.cat, valor:e.amount, data:e.date});
-const COLS = 'id,tipo,descricao,categoria,valor,data';
+const COLS = 'id,tipo,descricao,categoria,valor,data,user_id';
 
 // ---------- telas ----------
 const VIEWS = ['viewSetup','viewLoading','viewAuth','viewWait','viewApp','viewAdmin'];
@@ -425,6 +473,7 @@ const sb = configured && window.supabase ? window.supabase.createClient(SUPABASE
 const now = new Date();
 const state = {
   entries: [],
+  controles: [], cid: null, members: [], invites: [],
   y: now.getFullYear(), m: now.getMonth(),
   type: 'exp',
   budget: Number(localStorage.getItem(BKEY) || 0) || 0
@@ -540,7 +589,8 @@ $('waitRetry').onclick = async () => {
 
 async function handleSession(session, force){
   if (!session){
-    currentUser = null; profile = null; state.entries = [];
+    currentUser = null; profile = null; state.entries = []; state.controles = []; state.cid = null; state.members = []; state.invites = [];
+    $('dlg').hidden = true;
     $('authPass').value = '';
     show('viewAuth');
     if (authMode === 'nova') setAuthMode('entrar');
@@ -572,26 +622,96 @@ async function handleSession(session, force){
     loadUsers();
     return;
   }
-  await loadEntries();
+  if (!(await loadControles())) return;
+  await Promise.all([loadMembers(), loadEntries(), loadInvites()]);
   show('viewApp');
   render();
 }
 
+/* ======================= CONTROLES ======================= */
+const ctrlKey = () => `pof-controle-${currentUser ? currentUser.id : ''}`;
+const current = () => state.controles.find(c => c.id === state.cid) || null;
+const isShared = () => { const c = current(); return !!c && !c.pessoal; };
+const nameOf = uid => {
+  if (currentUser && uid === currentUser.id) return 'você';
+  const m = state.members.find(x => x.user_id === uid);
+  return m ? displayName(m.login) : 'ex-participante';
+};
+function rpcMsg(error){
+  const msg = (error && error.message) || '';
+  if (/failed to fetch|network/i.test(msg)) return 'Sem conexão com o servidor. Verifique a internet.';
+  return msg || 'Algo deu errado.';
+}
+
+async function loadControles(){
+  const g = await sb.rpc('garantir_controle_pessoal');
+  if (g.error){
+    if (g.error.code === 'PGRST202' || /could not find the function|does not exist/i.test(g.error.message || '')){
+      waitScreen('Falta<br>atualizar', 'O banco ainda não tem os controles compartilhados. Rode o arquivo supabase-controles.sql no SQL Editor do Supabase e toque em "Verificar de novo".');
+    } else toast(rpcMsg(g.error));
+    return false;
+  }
+  const { data, error } = await sb.rpc('meus_controles');
+  if (error){ toast(rpcMsg(error)); return false; }
+  state.controles = data || [];
+  let wanted = state.cid;
+  try { wanted = wanted || localStorage.getItem(ctrlKey()); } catch(e){}
+  const pessoal = state.controles.find(c => c.pessoal);
+  state.cid = state.controles.some(c => c.id === wanted) ? wanted : (pessoal ? pessoal.id : (state.controles[0] || {}).id);
+  return true;
+}
+function selectControle(id){
+  state.cid = id;
+  try { localStorage.setItem(ctrlKey(), id); } catch(e){}
+}
+async function loadMembers(){
+  if (!state.cid){ state.members = []; return; }
+  const { data, error } = await sb.rpc('participantes', { cid: state.cid });
+  state.members = error ? [] : (data || []);
+}
+async function loadInvites(){
+  const { data, error } = await sb.rpc('meus_convites');
+  state.invites = error ? [] : (data || []);
+  renderInvites();
+}
+
 /* ======================= DADOS ======================= */
+let loadSeq = 0;
 async function loadEntries(){
+  const seq = ++loadSeq;
+  if (!state.cid){ state.entries = []; return true; }
+  const { y, m } = state;
+  const start = `${y}-${pad(m+1)}-01`;
+  const nd = new Date(y, m + 1, 1);
+  const end = `${nd.getFullYear()}-${pad(nd.getMonth()+1)}-01`;
   const all = [];
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE){
     const { data, error } = await sb.from('lancamentos').select(COLS)
+      .eq('controle_id', state.cid).gte('data', start).lt('data', end)
       .order('data', { ascending: false }).order('criado_em', { ascending: false })
       .range(from, from + PAGE - 1);
     if (error){ toast('Não foi possível carregar os lançamentos.'); return false; }
     all.push(...data);
     if (data.length < PAGE) break;
   }
+  if (seq !== loadSeq) return false;           // o usuário já trocou de mês/controle
   state.entries = all.map(fromRow);
   return true;
 }
+async function fetchAllEntries(){
+  const all = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE){
+    const { data, error } = await sb.from('lancamentos').select(COLS).eq('controle_id', state.cid)
+      .order('data', { ascending: true }).range(from, from + PAGE - 1);
+    if (error) return null;
+    all.push(...data);
+    if (data.length < PAGE) break;
+  }
+  return all.map(fromRow);
+}
+async function refresh(){ if (await loadEntries()) render(); }
 
 // dados antigos guardados só neste navegador (versão offline)
 function localPending(){
@@ -604,15 +724,16 @@ function localPending(){
 }
 $('importLocal').onclick = async () => {
   const list = localPending();
-  if (!list.length) return;
-  if (!confirm(`Enviar ${plural(list.length,'lançamento')} salvos neste aparelho para a sua conta?`)) return;
+  const pessoal = state.controles.find(c => c.pessoal);
+  if (!list.length || !pessoal) return;
+  if (!confirm(`Enviar ${plural(list.length,'lançamento')} salvos neste aparelho para o seu "Meu controle"?`)) return;
   $('importLocal').disabled = true;
-  const { error } = await sb.from('lancamentos').insert(list.map(toRow));
+  const { error } = await sb.from('lancamentos').insert(list.map(e => ({ ...toRow(e), controle_id: pessoal.id })));
   $('importLocal').disabled = false;
   if (error) return toast('Não foi possível enviar. Tente de novo.');
   try { localStorage.setItem(IMPORTED_KEY, '1'); } catch(e){}
-  await loadEntries();
-  render();
+  selectControle(pessoal.id);
+  await loadMembers(); await refresh();
   toast(`${plural(list.length,'lançamento')} enviados.`);
 };
 
@@ -631,24 +752,24 @@ $('form').addEventListener('submit', async e => {
   const desc = $('desc').value.trim(), amount = parseAmount($('amount').value);
   if (!desc) return showError('Escreva uma descrição.');
   if (!(amount > 0)) return showError('Informe um valor maior que zero.');
+  if (!state.cid) return showError('Escolha um controle primeiro.');
   const entry = { type: state.type, desc, cat: $('cat').value, amount, date: $('date').value || todayISO() };
   $('addBtn').disabled = true;
-  const { data, error } = await sb.from('lancamentos').insert(toRow(entry)).select(COLS).single();
+  const { data, error } = await sb.from('lancamentos').insert({ ...toRow(entry), controle_id: state.cid }).select(COLS).single();
   $('addBtn').disabled = false;
   if (error) return showError('Não foi possível salvar. Verifique a conexão e tente de novo.');
-  state.entries.push(fromRow(data));
   const [y,m] = entry.date.split('-').map(Number);
-  state.y = y; state.m = m - 1;
   $('desc').value = ''; $('amount').value = '';
-  render();
+  if (y === state.y && m - 1 === state.m){ state.entries.push(fromRow(data)); render(); }
+  else { state.y = y; state.m = m - 1; await refresh(); }
   $('desc').focus();
 });
 
 /* ======================= NAVEGAÇÃO ======================= */
-function shift(n){ const d = new Date(state.y, state.m + n, 1); state.y = d.getFullYear(); state.m = d.getMonth(); render(); }
+function shift(n){ const d = new Date(state.y, state.m + n, 1); state.y = d.getFullYear(); state.m = d.getMonth(); render(); refresh(); }
 $('prev').onclick = () => shift(-1);
 $('next').onclick = () => shift(1);
-$('today').onclick = () => { const d = new Date(); state.y = d.getFullYear(); state.m = d.getMonth(); render(); };
+$('today').onclick = () => { const d = new Date(); state.y = d.getFullYear(); state.m = d.getMonth(); render(); refresh(); };
 $('rows').addEventListener('click', async e => {
   const b = e.target.closest('[data-del]');
   if (!b) return;
@@ -656,16 +777,83 @@ $('rows').addEventListener('click', async e => {
   const before = state.entries;
   state.entries = state.entries.filter(x => x.id !== id);
   render();
-  const { error } = await sb.from('lancamentos').delete().eq('id', id);
-  if (error){ state.entries = before; render(); toast('Não foi possível excluir. Tente de novo.'); }
+  const { error, count } = await sb.from('lancamentos').delete({ count: 'exact' }).eq('id', id);
+  if (error || count === 0){ state.entries = before; render(); toast('Não foi possível excluir. Tente de novo.'); }
+});
+
+$('ctrlSelect').addEventListener('change', async e => {
+  selectControle(e.target.value);
+  state.entries = []; state.members = [];
+  render();
+  await loadMembers(); await refresh();
+});
+$('ctrlNew').onclick = async () => {
+  const nome = prompt('Nome do novo controle (ex.: Casa, Família, Viagem):');
+  if (nome === null || !nome.trim()) return;
+  const { data, error } = await sb.rpc('criar_controle', { p_nome: nome.trim() });
+  if (error) return toast(rpcMsg(error));
+  await loadControles(); selectControle(data); await loadMembers(); await refresh();
+  openManage();
+};
+$('ctrlJoin').onclick = async () => {
+  const cod = prompt('Digite o código que você recebeu (ex.: K7P-4QX):');
+  if (cod === null || !cod.trim()) return;
+  const { data, error } = await sb.rpc('entrar_com_codigo', { p_codigo: cod });
+  if (error) return toast(rpcMsg(error));
+  await loadControles(); selectControle(data); await loadMembers(); await refresh();
+  const c = current(); toast(`Você entrou em "${c ? c.nome : 'controle'}".`);
+};
+$('ctrlManage').onclick = () => openManage();
+
+$('invites').addEventListener('click', async e => {
+  const b = e.target.closest('[data-inv]');
+  if (!b) return;
+  b.disabled = true;
+  const aceitar = b.dataset.ok === '1';
+  const { data, error } = await sb.rpc('responder_convite', { conv: b.dataset.inv, aceitar });
+  if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+  await loadInvites();
+  if (aceitar && data){
+    await loadControles(); selectControle(data); await loadMembers(); await refresh();
+    const c = current(); toast(`Agora você participa de "${c ? c.nome : 'controle'}".`);
+  }
 });
 
 // ao voltar para o app (ex.: trocou de aba ou de aparelho), busca os dados atualizados
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState !== 'visible' || !profile || profile.status !== 'aprovado') return;
-  if (!$('viewApp').hidden){ if (await loadEntries()) render(); }
+  if (!$('viewApp').hidden){
+    if (await loadControles()){ await loadMembers(); await refresh(); }
+    loadInvites();
+  }
   if (!$('viewAdmin').hidden) loadUsers();
 });
+
+function renderInvites(){
+  const list = state.invites || [];
+  $('invites').hidden = list.length === 0;
+  $('invites').innerHTML = list.map(v => `
+    <div class="blueprint invite">
+      <div style="min-width:0;">
+        <span class="kicker" style="color:var(--accent);">Convite</span>
+        <div style="font-weight:600;"><b>${esc(displayName(v.de_login) || 'Alguém')}</b> te convidou para o controle <b>"${esc(v.controle_nome)}"</b></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" data-inv="${esc(v.id)}" data-ok="1">Aceitar</button>
+        <button class="btn btn-secondary btn-sm" data-inv="${esc(v.id)}" data-ok="0">Recusar</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderCtrlBar(){
+  const c = current();
+  $('ctrlSelect').innerHTML = state.controles.map(x =>
+    `<option value="${esc(x.id)}"${x.id === state.cid ? ' selected' : ''}>${esc(x.nome)}${x.pessoal ? ' (pessoal)' : ''}</option>`).join('');
+  $('ctrlManage').hidden = !c || c.pessoal;
+  $('ctrlInfo').textContent = !c ? '' : c.pessoal
+    ? 'Só você vê'
+    : `Compartilhado · ${plural(c.participantes,'pessoa')}${c.sou_dono ? ' · você é o dono' : ''}`;
+}
 
 function render(){
   const {entries, y, m} = state;
@@ -675,7 +863,9 @@ function render(){
   const inc = month.filter(e => e.type === 'inc').reduce((s,e) => s + e.amount, 0);
   const exp = expList.reduce((s,e) => s + e.amount, 0);
   const bal = inc - exp;
+  const shared = isShared();
 
+  renderCtrlBar();
   $('monthTitle').textContent = `${MONTHS[m]} ${y}`;
   document.title = `${MONTHS[m]} ${y} · Pra Onde Foi?`;
   $('incVal').textContent = brl(inc); $('incNote').textContent = plural(month.length - expList.length,'lançamento');
@@ -700,14 +890,17 @@ function render(){
 
   $('tableWrap').hidden = month.length === 0;
   $('empty').hidden = month.length > 0;
-  $('rows').innerHTML = month.map(e => `
+  $('rows').innerHTML = month.map(e => {
+    const mine = currentUser && e.uid === currentUser.id;
+    return `
     <tr>
       <td style="color:var(--muted);">${e.date.slice(8,10)}/${e.date.slice(5,7)}</td>
-      <td>${esc(e.desc)}</td>
+      <td>${esc(e.desc)}${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<span class="tag cat-inline ${e.type === 'inc' ? 'tag-accent' : 'tag-neutral'}">${esc(e.cat)}</span></td>
       <td><span class="tag ${e.type === 'inc' ? 'tag-accent' : 'tag-neutral'}">${esc(e.cat)}</span></td>
       <td style="text-align:right;white-space:nowrap;font-weight:500;color:${e.type === 'inc' ? 'var(--accent)' : 'var(--text)'};">${e.type === 'inc' ? '+ ' : '− '}${brl(e.amount)}</td>
-      <td style="text-align:right;"><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="width:28px;height:28px;color:var(--muted);" aria-label="Excluir"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></td>
-    </tr>`).join('');
+      <td style="text-align:right;">${mine ? `<button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="width:28px;height:28px;color:var(--muted);" aria-label="Excluir"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</td>
+    </tr>`;
+  }).join('');
 
   const byCat = {};
   expList.forEach(e => { byCat[e.cat] = (byCat[e.cat] || 0) + e.amount; });
@@ -723,28 +916,185 @@ function render(){
     </div>`).join('') : '<span style="font-size:14px;color:var(--muted);">Sem saídas neste mês.</span>';
 }
 
+/* ======================= PESSOAS E CONVITES ======================= */
+const fmtDateTime = iso => new Date(iso).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+function closeDlg(){ $('dlg').hidden = true; }
+$('dlgClose').onclick = closeDlg;
+$('dlg').addEventListener('click', e => { if (e.target.id === 'dlg') closeDlg(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('dlg').hidden) closeDlg(); });
+
+async function openManage(){
+  const c = current();
+  if (!c || c.pessoal) return;
+  $('dlgTitle').textContent = c.nome;
+  $('dlgBody').innerHTML = '<span class="kicker">Carregando…</span>';
+  $('dlg').hidden = false;
+  await loadMembers();
+  let pend = [];
+  if (c.sou_dono){
+    const { data } = await sb.rpc('convites_enviados', { cid: c.id });
+    pend = data || [];
+  }
+  if ($('dlg').hidden || state.cid !== c.id) return;
+  const dono = c.sou_dono;
+  const people = state.members.map(p => {
+    const me = currentUser && p.user_id === currentUser.id;
+    return `<div class="person">
+      <span>${esc(displayName(p.login) || 'conta excluída')}${me ? ' <span class="by">(você)</span>' : ''}</span>
+      <span style="display:flex;gap:6px;align-items:center;">
+        ${p.eh_dono ? '<span class="tag tag-accent">Dono</span>' : ''}
+        ${dono && !me ? `<button class="btn btn-danger btn-sm" data-a="remover" data-id="${esc(p.user_id)}" data-name="${esc(displayName(p.login))}">Remover</button>` : ''}
+      </span>
+    </div>`;
+  }).join('');
+  const codeActive = c.codigo && c.codigo_expira && new Date(c.codigo_expira) > new Date();
+  $('dlgBody').innerHTML = `
+    ${dono ? `
+    <div class="dlg-sec">
+      <h3>Nome</h3>
+      <div class="row"><input class="input" id="dlgName" maxlength="40" value="${esc(c.nome)}"><button class="btn btn-secondary" data-a="renomear">Salvar</button></div>
+    </div>` : ''}
+    <div class="dlg-sec">
+      <h3>Participantes · ${state.members.length}</h3>
+      ${people}
+      ${pend.map(v => `<div class="person"><span>${esc(displayName(v.login))} <span class="by">(convite enviado)</span></span>
+        <button class="btn btn-secondary btn-sm" data-a="cancelarConvite" data-id="${esc(v.id)}">Cancelar</button></div>`).join('')}
+    </div>
+    ${dono ? `
+    <div class="dlg-sec">
+      <h3>Convidar pelo usuário</h3>
+      <p class="hint">A pessoa precisa ter conta aprovada no app. O convite aparece para ela na próxima vez que entrar.</p>
+      <div class="row"><input class="input" id="dlgInvite" placeholder="Ex.: maria ou maria@gmail.com" autocapitalize="none" autocorrect="off" spellcheck="false"><button class="btn btn-primary" data-a="convidar">Convidar</button></div>
+    </div>
+    <div class="dlg-sec">
+      <h3>Código de convite</h3>
+      ${codeActive ? `
+        <div class="code">${esc(c.codigo)}</div>
+        <p class="hint">Vale até ${fmtDateTime(c.codigo_expira)}. Quem digitar em "Entrar com código" entra neste controle.</p>
+        <div class="row" style="flex-wrap:wrap;">
+          <button class="btn btn-primary" data-a="compartilhar">Enviar código</button>
+          <button class="btn btn-secondary" data-a="gerar">Gerar outro</button>
+          <button class="btn btn-secondary" data-a="cancelarCodigo">Cancelar código</button>
+        </div>` : `
+        <p class="hint">Gere um código para mandar pelo WhatsApp. Ele vale por 48 horas.</p>
+        <div class="row"><button class="btn btn-primary" data-a="gerar">Gerar código</button></div>`}
+    </div>` : `
+    <p class="hint">Só o dono (${esc(displayName((state.members.find(p => p.eh_dono) || {}).login) || '—')}) pode convidar pessoas e mudar o nome.</p>`}
+    <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
+      <div class="row" style="flex-wrap:wrap;">
+        <button class="btn btn-secondary" data-a="sair">Sair do controle</button>
+        ${dono ? '<button class="btn btn-danger" data-a="excluir">Excluir controle</button>' : ''}
+      </div>
+      <p class="hint">Ao sair, os lançamentos que você fez continuam no controle.</p>
+    </div>`;
+}
+
+async function afterChange(reopen){
+  await loadControles(); await loadMembers(); await refresh();
+  if (reopen) openManage(); else closeDlg();
+}
+
+$('dlgBody').addEventListener('click', async e => {
+  const b = e.target.closest('[data-a]');
+  if (!b) return;
+  const c = current(); if (!c) return;
+  const a = b.dataset.a;
+  let res;
+  if (a === 'renomear'){
+    const n = $('dlgName').value.trim(); if (!n) return;
+    b.disabled = true; res = await sb.rpc('renomear_controle', { cid: c.id, p_nome: n });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    toast('Nome salvo.'); return afterChange(true);
+  }
+  if (a === 'convidar'){
+    const typed = $('dlgInvite').value.trim();
+    const login = toLoginEmail(typed);
+    if (!login) return toast('Digite o usuário ou o e-mail da pessoa.');
+    b.disabled = true; res = await sb.rpc('convidar', { cid: c.id, p_login: login });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    toast(`Convite enviado para ${typed}.`); return afterChange(true);
+  }
+  if (a === 'cancelarConvite'){
+    b.disabled = true; res = await sb.rpc('cancelar_convite', { conv: b.dataset.id });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    return afterChange(true);
+  }
+  if (a === 'gerar'){
+    if (c.codigo && !confirm('Gerar outro código? O código atual deixa de funcionar.')) return;
+    b.disabled = true; res = await sb.rpc('gerar_codigo', { cid: c.id });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    return afterChange(true);
+  }
+  if (a === 'cancelarCodigo'){
+    b.disabled = true; res = await sb.rpc('cancelar_codigo', { cid: c.id });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    return afterChange(true);
+  }
+  if (a === 'compartilhar'){
+    const texto = `Bora controlar os gastos juntos no Pra Onde Foi? 💸\n\n1. Abra ${REDIRECT}\n2. Entre com a sua conta\n3. Toque em "Entrar com código" e digite: ${c.codigo}\n\n(O código vale até ${fmtDateTime(c.codigo_expira)}.)`;
+    if (navigator.share){ try { await navigator.share({ text: texto }); return; } catch(err){ if (err && err.name === 'AbortError') return; } }
+    try { await navigator.clipboard.writeText(texto); toast('Mensagem copiada! É só colar no WhatsApp.'); }
+    catch(err){ prompt('Copie a mensagem abaixo:', texto); }
+    return;
+  }
+  if (a === 'remover'){
+    if (!confirm(`Remover ${b.dataset.name} deste controle?\n\nOs lançamentos que essa pessoa fez continuam aqui.`)) return;
+    b.disabled = true; res = await sb.rpc('remover_participante', { cid: c.id, alvo: b.dataset.id });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    return afterChange(true);
+  }
+  if (a === 'sair'){
+    const others = state.members.length - 1;
+    const aviso = c.sou_dono
+      ? (others > 0 ? 'Você é o dono. Ao sair, o controle passa para quem participa há mais tempo.' : 'Você é a única pessoa aqui. Ao sair, o controle e todos os lançamentos dele serão apagados.')
+      : 'Os lançamentos que você fez continuam no controle.';
+    if (!confirm(`Sair de "${c.nome}"?\n\n${aviso}`)) return;
+    b.disabled = true; res = await sb.rpc('sair_controle', { cid: c.id });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    state.cid = null; try { localStorage.removeItem(ctrlKey()); } catch(err){}
+    toast(`Você saiu de "${c.nome}".`); return afterChange(false);
+  }
+  if (a === 'excluir'){
+    if (!confirm(`Excluir o controle "${c.nome}"?\n\nTodos os lançamentos dele serão apagados para todo mundo. Não dá para desfazer.`)) return;
+    b.disabled = true; res = await sb.rpc('excluir_controle', { cid: c.id });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    state.cid = null; try { localStorage.removeItem(ctrlKey()); } catch(err){}
+    toast('Controle excluído.'); return afterChange(false);
+  }
+});
+
 /* ======================= PLANILHA EXCEL ======================= */
-$('export').onclick = () => {
+$('export').onclick = async () => {
   if (!window.XLSX){ alert('Não foi possível gerar a planilha. Verifique a conexão e tente de novo.'); return; }
+  const c = current(); if (!c) return;
+  $('export').disabled = true;
+  const entries = await fetchAllEntries();
+  $('export').disabled = false;
+  if (!entries) return toast('Não foi possível buscar os lançamentos.');
+  const shared = !c.pessoal;
   const money = '"R$" #,##0.00;-"R$" #,##0.00';
   const wb = XLSX.utils.book_new();
   const fmtCol = (ws, cols) => {
     const r = XLSX.utils.decode_range(ws['!ref']);
-    for (let row = 1; row <= r.e.r; row++) cols.forEach(c => { const cell = ws[XLSX.utils.encode_cell({r:row,c})]; if (cell && cell.t === 'n') cell.z = money; });
+    for (let row = 1; row <= r.e.r; row++) cols.forEach(col => { const cell = ws[XLSX.utils.encode_cell({r:row,c:col})]; if (cell && cell.t === 'n') cell.z = money; });
   };
-  const all = [...state.entries].sort((a,b) => a.date.localeCompare(b.date)).map(e => ({
-    'Data': e.date.split('-').reverse().join('/'),
-    'Tipo': e.type === 'inc' ? 'Entrada' : 'Saída',
-    'Descrição': e.desc, 'Categoria': e.cat,
-    'Valor': e.type === 'inc' ? e.amount : -e.amount
-  }));
+  const all = entries.map(e => {
+    const row = {
+      'Data': e.date.split('-').reverse().join('/'),
+      'Tipo': e.type === 'inc' ? 'Entrada' : 'Saída',
+      'Descrição': e.desc, 'Categoria': e.cat,
+      'Valor': e.type === 'inc' ? e.amount : -e.amount
+    };
+    if (shared) row['Quem lançou'] = nameOf(e.uid);
+    return row;
+  });
   const ws1 = XLSX.utils.json_to_sheet(all.length ? all : [{Data:'',Tipo:'',Descrição:'',Categoria:'',Valor:''}]);
-  ws1['!cols'] = [{wch:12},{wch:10},{wch:34},{wch:16},{wch:14}];
+  ws1['!cols'] = [{wch:12},{wch:10},{wch:34},{wch:16},{wch:14},{wch:18}];
   fmtCol(ws1,[4]);
   XLSX.utils.book_append_sheet(wb, ws1, 'Lançamentos');
 
   const byMonth = {};
-  state.entries.forEach(e => { const k = e.date.slice(0,7); byMonth[k] = byMonth[k] || {inc:0,exp:0}; byMonth[k][e.type] += e.amount; });
+  entries.forEach(e => { const k = e.date.slice(0,7); byMonth[k] = byMonth[k] || {inc:0,exp:0}; byMonth[k][e.type] += e.amount; });
   const months = Object.keys(byMonth).sort().map(k => {
     const [y,m] = k.split('-').map(Number), v = byMonth[k];
     return {'Mês': `${MONTHS[m-1]} ${y}`, 'Entradas': v.inc, 'Saídas': v.exp, 'Saldo': v.inc - v.exp};
@@ -755,7 +1105,8 @@ $('export').onclick = () => {
     fmtCol(ws2,[1,2,3]);
     XLSX.utils.book_append_sheet(wb, ws2, 'Resumo por mês');
   }
-  XLSX.writeFile(wb, 'pra-onde-foi.xlsx');
+  const slug = c.nome.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'controle';
+  XLSX.writeFile(wb, `pra-onde-foi-${slug}.xlsx`);
 };
 
 /* ======================= ADMINISTRAÇÃO ======================= */
@@ -824,7 +1175,7 @@ $('userRows').addEventListener('click', async e => {
     return;
   }
   if (act === 'excluir'){
-    if (!confirm(`Excluir a conta ${b.dataset.email}?\n\nA pessoa perde o acesso e todos os lançamentos dela são apagados. Não dá para desfazer.`)) return;
+    if (!confirm(`Excluir a conta ${b.dataset.email}?\n\nA pessoa perde o acesso e o "Meu controle" dela é apagado. Nos controles compartilhados, os lançamentos que ela fez continuam lá. Não dá para desfazer.`)) return;
     b.disabled = true;
     ({ error } = await sb.rpc('admin_excluir_usuario', { alvo: id }));
   } else {
