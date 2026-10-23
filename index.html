@@ -1,0 +1,855 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<meta name="description" content="Pra Onde Foi? — controle financeiro simples, para você e para a sua casa.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pra Onde Foi?">
+<title>Pra Onde Foi?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<style>
+  :root{
+    --bg:#0b1220;          /* azul-marinho da capa */
+    --surface:#111a2b;
+    --text:#f4f0e6;        /* creme */
+    --muted:#9aa4b8;
+    --accent:#ffc83d;      /* amarelo */
+    --red:#e5484d;         /* selo vermelho */
+    --ink:#0b1220;
+    --divider:rgba(244,240,230,.16);
+    --track:rgba(244,240,230,.10);
+    --font-heading:"Archivo",system-ui,sans-serif;
+    --font-body:"Inter",system-ui,sans-serif;
+    --space-1:3.4px;--space-2:6.8px;--space-3:10.2px;--space-4:13.6px;--space-6:20.4px;--space-8:27.2px;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  [hidden]{display:none !important}
+  body{margin:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:15px;line-height:1.55}
+  h1,h2{font-family:var(--font-heading);font-weight:900;line-height:1.05;letter-spacing:-.015em;margin:0}
+  button,input,select{font:inherit}
+  :focus{outline:none}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  ::selection{background:rgba(255,200,61,.35)}
+
+  .wrap{max-width:1120px;margin:0 auto;padding:var(--space-8) var(--space-6) 64px;display:flex;flex-direction:column;gap:var(--space-8)}
+
+  /* cartões */
+  .blueprint{position:relative;background:var(--surface);border:1px solid rgba(244,240,230,.08);border-radius:18px}
+
+  /* botões em pílula */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;font-family:var(--font-body);font-weight:600;font-size:14px;line-height:1.2;color:var(--text);background:transparent;border:1px solid var(--divider);border-radius:999px;padding:9px 16px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn-secondary:hover{background:rgba(244,240,230,.07)}
+  .btn-secondary:active{background:rgba(244,240,230,.14)}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:var(--ink)}
+  .btn-primary:hover{background:#ffd566}
+  .btn-primary:active{background:#e6b232}
+  .btn-ghost{color:var(--accent);border-color:transparent;padding-inline:var(--space-1)}
+  .btn-ghost:hover{background:rgba(255,200,61,.10)}
+  .btn-danger{color:#ff8a8d;border-color:rgba(229,72,77,.45)}
+  .btn-danger:hover{background:rgba(229,72,77,.14)}
+  .btn-icon{width:38px;height:38px;padding:0}
+  .btn-sm{padding:6px 12px;font-size:13px}
+  .seg button{white-space:nowrap}
+
+  /* lista de contas vira cartões no celular */
+  @media (max-width:640px){
+    #usersTable thead{display:none}
+    #usersTable tr{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:14px 2px;border-bottom:1px solid rgba(244,240,230,.08)}
+    #usersTable td{display:block;padding:0;border:0}
+    #usersTable td:nth-child(1){grid-column:1;font-weight:600}
+    #usersTable td:nth-child(2){grid-column:1;grid-row:2;font-size:13px}
+    #usersTable td:nth-child(3){grid-column:2;grid-row:1}
+    #usersTable td:nth-child(4){grid-column:1 / -1}
+    #usersTable td:nth-child(4)>div{justify-content:flex-start !important}
+    #usersTable tbody tr:hover{background:transparent}
+  }
+
+  /* formulário */
+  .field>label{display:block;font-size:12px;font-weight:500;margin-bottom:6px;color:rgba(244,240,230,.7)}
+  .input{width:100%;min-height:42px;padding:8px 12px;font-size:14px;color:var(--text);caret-color:var(--accent);background:var(--bg);border:1px solid var(--divider);border-radius:10px;color-scheme:dark}
+  .input::placeholder{color:#5f6a80}
+  .input:hover{border-color:rgba(244,240,230,.45)}
+  .input:focus-visible{border-color:var(--accent);outline-offset:0}
+  .seg{display:inline-flex;gap:2px;padding:3px;background:var(--bg);border:1px solid var(--divider);border-radius:999px}
+  .seg button{border:0;background:transparent;color:var(--text);padding:7px 16px;font-size:13px;font-weight:600;border-radius:999px;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:var(--ink)}
+  .seg button[aria-pressed="false"]:hover{background:rgba(244,240,230,.07)}
+
+  /* tabela */
+  .table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+  .table th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:rgba(244,240,230,.6);padding:var(--space-2);border-bottom:1px solid var(--divider);font-weight:500}
+  .table td{padding:var(--space-2);border-bottom:1px solid rgba(244,240,230,.08)}
+  .table tbody tr:hover{background:rgba(244,240,230,.04)}
+  .tag{display:inline-flex;align-items:center;font-size:11px;font-weight:600;letter-spacing:.02em;padding:3px 10px;border-radius:999px;white-space:nowrap}
+  .tag-accent{background:var(--accent);color:var(--ink)}
+  .tag-neutral{background:rgba(244,240,230,.10);color:var(--text)}
+  .tag-red{background:rgba(229,72,77,.18);color:#ff8a8d}
+
+  .kicker{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .big{font-family:var(--font-heading);font-weight:900;font-size:34px;line-height:1;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--space-6)}
+  .stat{padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-2)}
+  .stat .note{font-size:13px;color:var(--muted)}
+  .stat-bal{background:var(--accent);color:var(--ink);border-color:var(--accent)}
+  .stat-bal .kicker,.stat-bal .note{color:rgba(11,18,32,.7)}
+  .stat-bal.neg{background:var(--red);border-color:var(--red);color:var(--text)}
+  .stat-bal.neg .kicker,.stat-bal.neg .note{color:rgba(244,240,230,.85)}
+
+  /* barra do usuário */
+  .userbar{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:var(--space-2);font-size:13px;color:var(--muted);margin-bottom:calc(var(--space-8) * -0.5)}
+  .userbar .who{margin-right:var(--space-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60vw}
+
+  /* telas centralizadas (login, espera) */
+  .center{min-height:100vh;display:grid;place-items:center;padding:var(--space-6)}
+  .auth-box{width:min(420px,100%);display:flex;flex-direction:column;gap:var(--space-6)}
+  .auth-title{font-size:clamp(40px,11vw,56px);line-height:.92;text-transform:uppercase;letter-spacing:-.02em}
+  .auth-lead{font-size:17px;font-weight:600;line-height:1.35;margin:0}
+  .auth-card{padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4)}
+  .msg{font-size:13px;margin:0}
+  .msg.err{color:#ff8a8d}
+  .msg.ok{color:var(--accent)}
+  .msg:empty{display:none}
+  .hl{color:var(--accent)}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:calc(100% - 32px);background:var(--red);color:var(--text);padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:50}
+</style>
+</head>
+<body>
+
+<!-- ============ FALTA CONFIGURAR ============ -->
+<div id="viewSetup" class="center" hidden>
+  <div class="auth-box">
+    <h1 class="auth-title">Quase<br>pronto</h1>
+    <div class="blueprint auth-card">
+      <p class="auth-lead">Falta conectar o <span class="hl">Supabase</span>.</p>
+      <p style="margin:0;font-size:14px;color:var(--muted);">Abra este arquivo num editor de texto e preencha <b style="color:var(--text)">SUPABASE_URL</b> e <b style="color:var(--text)">SUPABASE_ANON_KEY</b> no começo do código (Supabase → Project Settings → API).</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CARREGANDO ============ -->
+<div id="viewLoading" class="center">
+  <span class="kicker">Carregando…</span>
+</div>
+
+<!-- ============ LOGIN / CADASTRO ============ -->
+<div id="viewAuth" class="center" hidden>
+  <div class="auth-box">
+    <div style="display:flex;flex-direction:column;gap:var(--space-3);">
+      <img src="logo/logo-simbolo.svg" alt="" width="64" height="64" style="display:block;margin-bottom:var(--space-2);">
+      <span style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);">Acesso restrito</span>
+      <h1 class="auth-title">Pra onde<br>foi<span class="hl">?</span></h1>
+      <p class="auth-lead">Descubra para onde vai o seu dinheiro, <span class="hl">em qualquer lugar</span>.</p>
+    </div>
+    <div class="blueprint auth-card">
+      <div class="seg" id="authSeg" role="group" aria-label="Acesso" style="align-self:flex-start;">
+        <button type="button" data-mode="entrar" aria-pressed="true">Entrar</button>
+        <button type="button" data-mode="criar" aria-pressed="false">Criar conta</button>
+      </div>
+      <h2 id="authHeading" style="font-size:20px;text-transform:uppercase;" hidden></h2>
+      <form id="authForm" novalidate style="display:flex;flex-direction:column;gap:var(--space-4);">
+        <div class="field" id="authEmailWrap">
+          <label for="authEmail">Usuário ou e-mail</label>
+          <input class="input" id="authEmail" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Ex.: maria ou maria@gmail.com">
+        </div>
+        <div class="field" id="authPassWrap">
+          <label for="authPass" id="authPassLabel">Senha</label>
+          <input class="input" id="authPass" type="password" autocomplete="current-password" placeholder="Mínimo de 6 caracteres">
+        </div>
+        <button class="btn btn-primary" id="authSubmit" type="submit" style="min-height:42px;">Entrar</button>
+      </form>
+      <p class="msg" id="authMsg" role="status"></p>
+      <div style="display:flex;justify-content:space-between;gap:var(--space-2);">
+        <button class="btn btn-ghost btn-sm" id="forgot" type="button">Esqueci minha senha</button>
+        <button class="btn btn-ghost btn-sm" id="backLogin" type="button" hidden>Voltar para entrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AGUARDANDO / BLOQUEADO ============ -->
+<div id="viewWait" class="center" hidden>
+  <div class="auth-box">
+    <h1 class="auth-title" id="waitTitle">Cadastro<br>em análise</h1>
+    <div class="blueprint auth-card">
+      <p class="auth-lead" id="waitText"></p>
+      <span style="font-size:13px;color:var(--muted);" id="waitEmail"></span>
+      <div style="display:flex;flex-wrap:wrap;gap:var(--space-2);">
+        <button class="btn btn-primary" id="waitRetry" type="button">Verificar de novo</button>
+        <button class="btn btn-secondary" data-logout type="button">Sair</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="viewApp" hidden>
+<div class="wrap">
+
+  <div class="userbar">
+    <span class="who" id="userEmail"></span>
+    <button class="btn btn-secondary btn-sm" data-changepass type="button">Trocar senha</button>
+    <button class="btn btn-secondary btn-sm" data-logout type="button">Sair</button>
+  </div>
+
+  <header style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--space-4);">
+    <div style="display:flex;flex-direction:column;gap:2px;">
+      <span style="display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);"><img src="logo/logo-simbolo.svg" alt="" width="22" height="22">Pra onde foi?</span>
+      <h1 id="monthTitle" style="font-size:44px;line-height:1;text-transform:uppercase;letter-spacing:.01em;">Mês</h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:var(--space-2);">
+      <button class="btn btn-secondary btn-icon" id="prev" aria-label="Mês anterior"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+      <button class="btn btn-secondary" id="today">Hoje</button>
+      <button class="btn btn-secondary btn-icon" id="next" aria-label="Próximo mês"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+      <button class="btn btn-ghost" id="export" style="margin-left:var(--space-2);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>Baixar planilha Excel</button>
+    </div>
+  </header>
+
+  <section class="stats">
+    <div class="blueprint stat">
+      <span class="kicker">Entradas</span>
+      <span class="big" id="incVal" style="color:var(--accent);">R$ 0,00</span>
+      <span class="note" id="incNote"></span>
+    </div>
+    <div class="blueprint stat">
+      <span class="kicker">Saídas</span>
+      <span class="big" id="expVal">R$ 0,00</span>
+      <span class="note" id="expNote"></span>
+    </div>
+    <div class="blueprint stat stat-bal" id="balCard">
+      <span class="kicker">Saldo do mês</span>
+      <span class="big" id="balVal">R$ 0,00</span>
+      <span class="note" id="balNote"></span>
+    </div>
+  </section>
+
+  <section id="budget" hidden style="display:flex;flex-direction:column;gap:var(--space-2);">
+    <div style="display:flex;justify-content:space-between;gap:var(--space-4);font-size:13px;">
+      <span id="budgetLimit" style="color:var(--muted);"></span>
+      <span id="budgetLabel"></span>
+    </div>
+    <div style="height:8px;background:var(--track);border-radius:999px;overflow:hidden;">
+      <div id="budgetFill" style="height:100%;width:0;background:var(--accent);border-radius:999px;"></div>
+    </div>
+  </section>
+
+  <section class="blueprint" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4);">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
+      <h2 style="font-size:22px;text-transform:uppercase;">Novo lançamento</h2>
+      <div class="seg" id="typeSeg" role="group" aria-label="Tipo">
+        <button type="button" data-type="exp" aria-pressed="true">Saída</button>
+        <button type="button" data-type="inc" aria-pressed="false">Entrada</button>
+      </div>
+    </div>
+    <form id="form" novalidate style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--space-4);align-items:end;">
+      <div class="field" style="grid-column:span 2;min-width:0;">
+        <label for="desc">Descrição</label>
+        <input class="input" id="desc" placeholder="Ex.: Mercado da semana" autocomplete="off" maxlength="200">
+      </div>
+      <div class="field">
+        <label for="amount">Valor (R$)</label>
+        <input class="input" id="amount" inputmode="decimal" placeholder="0,00" style="font-variant-numeric:tabular-nums;">
+      </div>
+      <div class="field">
+        <label for="cat">Categoria</label>
+        <select class="input" id="cat"></select>
+      </div>
+      <div class="field">
+        <label for="date">Data</label>
+        <input class="input" id="date" type="date">
+      </div>
+      <button class="btn btn-primary" id="addBtn" type="submit" style="min-height:42px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Adicionar
+      </button>
+    </form>
+    <span id="error" style="font-size:13px;color:#ff8a8d;" hidden></span>
+  </section>
+
+  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:var(--space-8);align-items:start;">
+    <div style="display:flex;flex-direction:column;gap:var(--space-3);grid-column:span 2;min-width:0;">
+      <div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--space-3);">
+        <h2 style="font-size:22px;text-transform:uppercase;">Lançamentos</h2>
+        <button class="btn btn-ghost" id="importLocal" hidden></button>
+      </div>
+      <div id="tableWrap" style="overflow-x:auto;">
+        <table class="table">
+          <thead><tr><th style="width:72px;">Dia</th><th>Descrição</th><th>Categoria</th><th style="text-align:right;">Valor</th><th style="width:44px;"></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div id="empty" hidden style="padding:var(--space-8) 0;color:var(--muted);font-size:14px;">Nenhum lançamento neste mês. Use o formulário acima para adicionar o primeiro.</div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--space-4);">
+      <h2 style="font-size:22px;text-transform:uppercase;">Para onde foi</h2>
+      <div id="cats" style="display:flex;flex-direction:column;gap:var(--space-4);"></div>
+    </div>
+  </section>
+</div>
+</div>
+
+<!-- ============ ADMINISTRAÇÃO ============ -->
+<div id="viewAdmin" hidden>
+<div class="wrap">
+  <div class="userbar">
+    <span class="who" id="adminEmail"></span>
+    <button class="btn btn-secondary btn-sm" data-changepass type="button">Trocar senha</button>
+    <button class="btn btn-secondary btn-sm" data-logout type="button">Sair</button>
+  </div>
+
+  <header style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--space-4);">
+    <div style="display:flex;flex-direction:column;gap:2px;">
+      <span style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);">Administração</span>
+      <h1 style="font-size:44px;line-height:1;text-transform:uppercase;letter-spacing:.01em;">Quem entra</h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:var(--space-2);">
+      <button class="btn btn-secondary" id="adminRefresh" type="button">Atualizar</button>
+    </div>
+  </header>
+
+  <section class="stats">
+    <div class="blueprint stat">
+      <span class="kicker">Aguardando</span>
+      <span class="big" id="cntPend" style="color:var(--accent);">0</span>
+      <span class="note">precisam da sua aprovação</span>
+    </div>
+    <div class="blueprint stat">
+      <span class="kicker">Com acesso</span>
+      <span class="big" id="cntOk">0</span>
+      <span class="note">contas aprovadas</span>
+    </div>
+    <div class="blueprint stat">
+      <span class="kicker">Bloqueados</span>
+      <span class="big" id="cntBlock">0</span>
+      <span class="note">sem acesso ao app</span>
+    </div>
+  </section>
+
+  <section class="blueprint" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4);">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
+      <h2 style="font-size:22px;text-transform:uppercase;">Contas</h2>
+      <div class="seg" id="adminSeg" role="group" aria-label="Filtrar" style="max-width:100%;overflow-x:auto;">
+        <button type="button" data-filter="pendente" aria-pressed="true">Aguardando</button>
+        <button type="button" data-filter="aprovado" aria-pressed="false">Com acesso</button>
+        <button type="button" data-filter="bloqueado" aria-pressed="false">Bloqueados</button>
+        <button type="button" data-filter="todos" aria-pressed="false">Todos</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="table" id="usersTable">
+        <thead><tr><th>Usuário</th><th style="width:120px;">Cadastro</th><th style="width:120px;">Situação</th><th style="text-align:right;">Ações</th></tr></thead>
+        <tbody id="userRows"></tbody>
+      </table>
+    </div>
+    <div id="usersEmpty" hidden style="padding:var(--space-6) 0;color:var(--muted);font-size:14px;">Ninguém por aqui.</div>
+    <p style="margin:0;font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:flex-start;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:2px;color:var(--accent);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      Aqui você vê apenas o usuário e a situação de cada conta. Os lançamentos ficam protegidos pelo banco de dados e só o dono consegue ver.
+    </p>
+  </section>
+</div>
+</div>
+
+<div class="toast" id="toast" role="alert" hidden></div>
+
+<script>
+/* =====================================================================
+   CONFIGURAÇÃO — cole aqui os dados do seu projeto Supabase
+   (Project Settings → API). A chave "anon public" pode ficar no código.
+   NUNCA coloque aqui a chave "service_role".
+   ===================================================================== */
+const SUPABASE_URL = 'https://syffvgczgukoickcprni.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_r8xTsMwtJbJ64IVZP5-RBw_S53BVlkr';
+
+const KEY = 'cf-lancamentos-v1';        // dados antigos, salvos só neste aparelho
+const IMPORTED_KEY = 'cf-importado-v1';
+const BKEY = 'cf-orcamento-v1';
+const CATS = {
+  exp: ['Mercado','Moradia','Contas','Transporte','Saúde','Lazer','Educação','Outros'],
+  inc: ['Salário','Renda extra','Outros']
+};
+const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const brl = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const pad = n => String(n).padStart(2,'0');
+const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const plural = (n,w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const $ = id => document.getElementById(id);
+const REDIRECT = location.origin + location.pathname;
+
+// Login por nome de usuário: o Supabase exige e-mail, então "maria"
+// vira "maria@usuarios.local" por baixo dos panos (nenhum e-mail é enviado).
+const USER_DOMAIN = 'usuarios.local';
+function toLoginEmail(input){
+  const v = String(input || '').trim().toLowerCase();
+  if (v.includes('@')) return /^\S+@\S+\.\S+$/.test(v) ? v : null;
+  return /^[a-z0-9._-]{3,30}$/.test(v) ? `${v}@${USER_DOMAIN}` : null;
+}
+const isUsernameLogin = email => String(email || '').endsWith('@' + USER_DOMAIN);
+const displayName = email => isUsernameLogin(email) ? email.slice(0, -(USER_DOMAIN.length + 1)) : (email || '');
+
+function parseAmount(s){
+  s = String(s || '').replace(/[^\d.,]/g,'');
+  if (s.includes(',')) s = s.replace(/\./g,'').replace(',','.');
+  const n = parseFloat(s);
+  return isFinite(n) ? Math.round(n*100)/100 : NaN;
+}
+const fromRow = r => ({id:r.id, type:r.tipo, desc:r.descricao, cat:r.categoria, amount:Number(r.valor), date:r.data});
+const toRow = e => ({tipo:e.type, descricao:e.desc, categoria:e.cat, valor:e.amount, data:e.date});
+const COLS = 'id,tipo,descricao,categoria,valor,data';
+
+// ---------- telas ----------
+const VIEWS = ['viewSetup','viewLoading','viewAuth','viewWait','viewApp','viewAdmin'];
+function show(v){ VIEWS.forEach(id => { $(id).hidden = id !== v; }); window.scrollTo(0,0); }
+let toastTimer;
+function toast(msg){
+  $('toast').textContent = msg; $('toast').hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, 4500);
+}
+
+const configured = !SUPABASE_URL.startsWith('COLE') && !SUPABASE_ANON_KEY.startsWith('COLE');
+const sb = configured && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+const now = new Date();
+const state = {
+  entries: [],
+  y: now.getFullYear(), m: now.getMonth(),
+  type: 'exp',
+  budget: Number(localStorage.getItem(BKEY) || 0) || 0
+};
+let currentUser = null, profile = null;
+
+/* ======================= LOGIN ======================= */
+let authMode = 'entrar', recovering = false;
+function authMsg(text, kind){ $('authMsg').textContent = text || ''; $('authMsg').className = 'msg ' + (kind || ''); }
+function setAuthMode(m){
+  authMode = m;
+  document.querySelectorAll('#authSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+  const special = m === 'esqueci' || m === 'nova';
+  $('authSeg').hidden = special;
+  $('authHeading').hidden = !special;
+  $('authHeading').textContent = m === 'nova' ? 'Crie uma nova senha' : 'Recuperar senha';
+  $('authEmailWrap').hidden = m === 'nova';
+  $('authPassWrap').hidden = m === 'esqueci';
+  $('authPassLabel').textContent = m === 'nova' ? 'Nova senha' : 'Senha';
+  $('authPass').autocomplete = (m === 'criar' || m === 'nova') ? 'new-password' : 'current-password';
+  $('authSubmit').textContent = {entrar:'Entrar', criar:'Criar conta', esqueci:'Enviar link de recuperação', nova:'Salvar nova senha'}[m];
+  $('forgot').hidden = m !== 'entrar';
+  $('backLogin').hidden = m !== 'esqueci';
+  authMsg('');
+}
+document.querySelectorAll('#authSeg button').forEach(b => b.addEventListener('click', () => setAuthMode(b.dataset.mode)));
+$('forgot').onclick = () => setAuthMode('esqueci');
+$('backLogin').onclick = () => setAuthMode('entrar');
+
+function translateError(err){
+  const msg = (err && (err.message || err.error_description)) || String(err);
+  if (/invalid login credentials/i.test(msg)) return 'Usuário ou senha incorretos.';
+  if (/not confirmed/i.test(msg)) return 'Confirme seu e-mail pelo link que enviamos antes de entrar.';
+  if (/already registered|already been registered|already exists/i.test(msg)) return 'Esse usuário já existe. Use "Entrar" ou escolha outro nome.';
+  if (/email address .* invalid|invalid email/i.test(msg)) return 'Esse nome de usuário não foi aceito. Tente só letras e números.';
+  if (/rate limit|security purposes|too many/i.test(msg)) return 'Muitas tentativas seguidas. Espere um minuto e tente de novo.';
+  if (/password should|at least 6/i.test(msg)) return 'A senha precisa ter pelo menos 6 caracteres.';
+  if (/same password|different from the old/i.test(msg)) return 'A nova senha precisa ser diferente da anterior.';
+  if (/failed to fetch|network/i.test(msg)) return 'Sem conexão com o servidor. Verifique a internet.';
+  return 'Algo deu errado: ' + msg;
+}
+
+$('authForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const typed = $('authEmail').value.trim(), pass = $('authPass').value;
+  const email = toLoginEmail(typed);
+  if (authMode !== 'nova' && !email)
+    return authMsg(typed.includes('@') ? 'Digite um e-mail válido.' : 'O usuário precisa ter de 3 a 30 caracteres, só letras, números, ponto, hífen ou _ (sem espaço nem acento).', 'err');
+  if (authMode === 'esqueci' && isUsernameLogin(email))
+    return authMsg('Contas com nome de usuário não recebem e-mail. Peça ao administrador uma senha temporária e depois troque em "Trocar senha".', 'err');
+  if (authMode !== 'esqueci' && pass.length < 6) return authMsg('A senha precisa ter pelo menos 6 caracteres.', 'err');
+  const btn = $('authSubmit'); btn.disabled = true; authMsg('');
+  try {
+    if (authMode === 'entrar'){
+      const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+      if (error) throw error;
+    } else if (authMode === 'criar'){
+      const { data, error } = await sb.auth.signUp({ email, password: pass, options: { emailRedirectTo: REDIRECT } });
+      if (error) throw error;
+      if (!data.session){
+        setAuthMode('entrar');
+        authMsg(`Conta criada! Enviamos um link de confirmação para ${typed}. Confirme e depois entre aqui.`, 'ok');
+      }
+    } else if (authMode === 'esqueci'){
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: REDIRECT });
+      if (error) throw error;
+      authMsg('Se esse e-mail tiver conta, enviamos um link para criar uma nova senha.', 'ok');
+    } else if (authMode === 'nova'){
+      const { error } = await sb.auth.updateUser({ password: pass });
+      if (error) throw error;
+      recovering = false;
+      $('authPass').value = '';
+      const { data: { session } } = await sb.auth.getSession();
+      await handleSession(session, true);
+      toast('Senha alterada.');
+    }
+  } catch (err) {
+    authMsg(translateError(err), 'err');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.querySelectorAll('[data-changepass]').forEach(b => b.addEventListener('click', async () => {
+  const nova = prompt('Digite a nova senha (mínimo de 6 caracteres):');
+  if (nova === null) return;
+  if (nova.length < 6) return toast('A senha precisa ter pelo menos 6 caracteres.');
+  const confirma = prompt('Digite a nova senha de novo para confirmar:');
+  if (confirma === null) return;
+  if (confirma !== nova) return toast('As senhas não conferem. Tente de novo.');
+  const { error } = await sb.auth.updateUser({ password: nova });
+  if (error) return toast(translateError(error));
+  alert('Senha alterada com sucesso.');
+}));
+
+document.querySelectorAll('[data-logout]').forEach(b => b.addEventListener('click', async () => {
+  await sb.auth.signOut();
+}));
+
+/* ======================= SESSÃO ======================= */
+function waitScreen(title, text){
+  $('waitTitle').innerHTML = title;
+  $('waitText').textContent = text;
+  $('waitEmail').textContent = currentUser ? `Conta: ${displayName(currentUser.email)}` : '';
+  show('viewWait');
+}
+$('waitRetry').onclick = async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  handleSession(session, true);
+};
+
+async function handleSession(session, force){
+  if (!session){
+    currentUser = null; profile = null; state.entries = [];
+    $('authPass').value = '';
+    show('viewAuth');
+    if (authMode === 'nova') setAuthMode('entrar');
+    return;
+  }
+  if (!force && currentUser && currentUser.id === session.user.id && profile) return;
+  currentUser = session.user;
+  if ($('viewApp').hidden && $('viewAdmin').hidden) show('viewLoading');
+
+  const { data, error } = await sb.from('perfis').select('id,email,status,is_admin').eq('id', currentUser.id).maybeSingle();
+  if (error || !data){
+    profile = null;
+    return waitScreen('Algo não<br>carregou', error
+      ? 'Não foi possível carregar sua conta. Verifique a internet e tente de novo.'
+      : 'Seu perfil ainda não existe. Confira se o script do banco (supabase-setup.sql) foi executado.');
+  }
+  profile = data;
+  if (profile.status === 'pendente')
+    return waitScreen('Cadastro<br>em análise', 'Sua conta foi criada e está aguardando a liberação do administrador. Assim que for aprovada, é só tocar em "Verificar de novo".');
+  if (profile.status === 'bloqueado')
+    return waitScreen('Acesso<br>bloqueado', 'Seu acesso foi suspenso pelo administrador.');
+
+  $('userEmail').textContent = displayName(profile.email);
+  $('adminEmail').textContent = displayName(profile.email);
+  if (profile.is_admin){
+    // conta master: só administração, sem controle financeiro
+    show('viewAdmin');
+    renderAdmin();
+    loadUsers();
+    return;
+  }
+  await loadEntries();
+  show('viewApp');
+  render();
+}
+
+/* ======================= DADOS ======================= */
+async function loadEntries(){
+  const all = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE){
+    const { data, error } = await sb.from('lancamentos').select(COLS)
+      .order('data', { ascending: false }).order('criado_em', { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (error){ toast('Não foi possível carregar os lançamentos.'); return false; }
+    all.push(...data);
+    if (data.length < PAGE) break;
+  }
+  state.entries = all.map(fromRow);
+  return true;
+}
+
+// dados antigos guardados só neste navegador (versão offline)
+function localPending(){
+  try {
+    if (localStorage.getItem(IMPORTED_KEY)) return [];
+    const s = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (!s || s.isSample || !Array.isArray(s.entries)) return [];
+    return s.entries.filter(e => e && e.desc && e.amount > 0 && /^\d{4}-\d{2}-\d{2}$/.test(e.date));
+  } catch(e){ return []; }
+}
+$('importLocal').onclick = async () => {
+  const list = localPending();
+  if (!list.length) return;
+  if (!confirm(`Enviar ${plural(list.length,'lançamento')} salvos neste aparelho para a sua conta?`)) return;
+  $('importLocal').disabled = true;
+  const { error } = await sb.from('lancamentos').insert(list.map(toRow));
+  $('importLocal').disabled = false;
+  if (error) return toast('Não foi possível enviar. Tente de novo.');
+  try { localStorage.setItem(IMPORTED_KEY, '1'); } catch(e){}
+  await loadEntries();
+  render();
+  toast(`${plural(list.length,'lançamento')} enviados.`);
+};
+
+/* ======================= FORMULÁRIO ======================= */
+function fillCats(){
+  $('cat').innerHTML = CATS[state.type].map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  document.querySelectorAll('#typeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.type === state.type)));
+}
+document.querySelectorAll('#typeSeg button').forEach(b => b.addEventListener('click', () => { state.type = b.dataset.type; fillCats(); }));
+$('date').value = todayISO();
+['desc','amount'].forEach(id => $(id).addEventListener('input', () => { $('error').hidden = true; }));
+function showError(msg){ $('error').textContent = msg; $('error').hidden = false; }
+
+$('form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const desc = $('desc').value.trim(), amount = parseAmount($('amount').value);
+  if (!desc) return showError('Escreva uma descrição.');
+  if (!(amount > 0)) return showError('Informe um valor maior que zero.');
+  const entry = { type: state.type, desc, cat: $('cat').value, amount, date: $('date').value || todayISO() };
+  $('addBtn').disabled = true;
+  const { data, error } = await sb.from('lancamentos').insert(toRow(entry)).select(COLS).single();
+  $('addBtn').disabled = false;
+  if (error) return showError('Não foi possível salvar. Verifique a conexão e tente de novo.');
+  state.entries.push(fromRow(data));
+  const [y,m] = entry.date.split('-').map(Number);
+  state.y = y; state.m = m - 1;
+  $('desc').value = ''; $('amount').value = '';
+  render();
+  $('desc').focus();
+});
+
+/* ======================= NAVEGAÇÃO ======================= */
+function shift(n){ const d = new Date(state.y, state.m + n, 1); state.y = d.getFullYear(); state.m = d.getMonth(); render(); }
+$('prev').onclick = () => shift(-1);
+$('next').onclick = () => shift(1);
+$('today').onclick = () => { const d = new Date(); state.y = d.getFullYear(); state.m = d.getMonth(); render(); };
+$('rows').addEventListener('click', async e => {
+  const b = e.target.closest('[data-del]');
+  if (!b) return;
+  const id = b.dataset.del;
+  const before = state.entries;
+  state.entries = state.entries.filter(x => x.id !== id);
+  render();
+  const { error } = await sb.from('lancamentos').delete().eq('id', id);
+  if (error){ state.entries = before; render(); toast('Não foi possível excluir. Tente de novo.'); }
+});
+
+// ao voltar para o app (ex.: trocou de aba ou de aparelho), busca os dados atualizados
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible' || !profile || profile.status !== 'aprovado') return;
+  if (!$('viewApp').hidden){ if (await loadEntries()) render(); }
+  if (!$('viewAdmin').hidden) loadUsers();
+});
+
+function render(){
+  const {entries, y, m} = state;
+  const ym = `${y}-${pad(m+1)}`;
+  const month = entries.filter(e => e.date.startsWith(ym)).sort((a,b) => b.date.localeCompare(a.date));
+  const expList = month.filter(e => e.type === 'exp');
+  const inc = month.filter(e => e.type === 'inc').reduce((s,e) => s + e.amount, 0);
+  const exp = expList.reduce((s,e) => s + e.amount, 0);
+  const bal = inc - exp;
+
+  $('monthTitle').textContent = `${MONTHS[m]} ${y}`;
+  document.title = `${MONTHS[m]} ${y} · Pra Onde Foi?`;
+  $('incVal').textContent = brl(inc); $('incNote').textContent = plural(month.length - expList.length,'lançamento');
+  $('expVal').textContent = brl(exp); $('expNote').textContent = plural(expList.length,'lançamento');
+  $('balVal').textContent = brl(bal);
+  $('balNote').textContent = !month.length ? 'Sem lançamentos'
+    : bal >= 0 ? `Sobrou ${inc ? Math.round(bal/inc*100) : 0}% do que entrou` : 'Gastou mais do que entrou';
+  $('balCard').classList.toggle('neg', bal < 0);
+
+  const limit = state.budget;
+  $('budget').hidden = !(limit > 0);
+  if (limit > 0){
+    $('budgetLimit').textContent = `Orçamento do mês · ${brl(limit)}`;
+    $('budgetLabel').textContent = exp <= limit ? `Restam ${brl(limit - exp)}` : `Passou ${brl(exp - limit)}`;
+    $('budgetFill').style.width = `${Math.min(100, exp/limit*100)}%`;
+    $('budgetFill').style.background = exp > limit ? 'var(--red)' : 'var(--accent)';
+  }
+
+  const pending = localPending().length;
+  $('importLocal').hidden = !pending;
+  $('importLocal').textContent = `Enviar ${plural(pending,'lançamento')} deste aparelho`;
+
+  $('tableWrap').hidden = month.length === 0;
+  $('empty').hidden = month.length > 0;
+  $('rows').innerHTML = month.map(e => `
+    <tr>
+      <td style="color:var(--muted);">${e.date.slice(8,10)}/${e.date.slice(5,7)}</td>
+      <td>${esc(e.desc)}</td>
+      <td><span class="tag ${e.type === 'inc' ? 'tag-accent' : 'tag-neutral'}">${esc(e.cat)}</span></td>
+      <td style="text-align:right;white-space:nowrap;font-weight:500;color:${e.type === 'inc' ? 'var(--accent)' : 'var(--text)'};">${e.type === 'inc' ? '+ ' : '− '}${brl(e.amount)}</td>
+      <td style="text-align:right;"><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="width:28px;height:28px;color:var(--muted);" aria-label="Excluir"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></td>
+    </tr>`).join('');
+
+  const byCat = {};
+  expList.forEach(e => { byCat[e.cat] = (byCat[e.cat] || 0) + e.amount; });
+  const list = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
+  const max = list.length ? list[0][1] : 0;
+  $('cats').innerHTML = list.length ? list.map(([name,v]) => `
+    <div style="display:flex;flex-direction:column;gap:5px;">
+      <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
+        <span>${esc(name)}</span>
+        <span style="font-variant-numeric:tabular-nums;color:var(--muted);">${brl(v)} · ${Math.round(exp ? v/exp*100 : 0)}%</span>
+      </div>
+      <div style="height:6px;background:var(--track);border-radius:999px;overflow:hidden;"><div style="height:100%;width:${max ? v/max*100 : 0}%;background:var(--accent);border-radius:999px;"></div></div>
+    </div>`).join('') : '<span style="font-size:14px;color:var(--muted);">Sem saídas neste mês.</span>';
+}
+
+/* ======================= PLANILHA EXCEL ======================= */
+$('export').onclick = () => {
+  if (!window.XLSX){ alert('Não foi possível gerar a planilha. Verifique a conexão e tente de novo.'); return; }
+  const money = '"R$" #,##0.00;-"R$" #,##0.00';
+  const wb = XLSX.utils.book_new();
+  const fmtCol = (ws, cols) => {
+    const r = XLSX.utils.decode_range(ws['!ref']);
+    for (let row = 1; row <= r.e.r; row++) cols.forEach(c => { const cell = ws[XLSX.utils.encode_cell({r:row,c})]; if (cell && cell.t === 'n') cell.z = money; });
+  };
+  const all = [...state.entries].sort((a,b) => a.date.localeCompare(b.date)).map(e => ({
+    'Data': e.date.split('-').reverse().join('/'),
+    'Tipo': e.type === 'inc' ? 'Entrada' : 'Saída',
+    'Descrição': e.desc, 'Categoria': e.cat,
+    'Valor': e.type === 'inc' ? e.amount : -e.amount
+  }));
+  const ws1 = XLSX.utils.json_to_sheet(all.length ? all : [{Data:'',Tipo:'',Descrição:'',Categoria:'',Valor:''}]);
+  ws1['!cols'] = [{wch:12},{wch:10},{wch:34},{wch:16},{wch:14}];
+  fmtCol(ws1,[4]);
+  XLSX.utils.book_append_sheet(wb, ws1, 'Lançamentos');
+
+  const byMonth = {};
+  state.entries.forEach(e => { const k = e.date.slice(0,7); byMonth[k] = byMonth[k] || {inc:0,exp:0}; byMonth[k][e.type] += e.amount; });
+  const months = Object.keys(byMonth).sort().map(k => {
+    const [y,m] = k.split('-').map(Number), v = byMonth[k];
+    return {'Mês': `${MONTHS[m-1]} ${y}`, 'Entradas': v.inc, 'Saídas': v.exp, 'Saldo': v.inc - v.exp};
+  });
+  if (months.length){
+    const ws2 = XLSX.utils.json_to_sheet(months);
+    ws2['!cols'] = [{wch:18},{wch:14},{wch:14},{wch:14}];
+    fmtCol(ws2,[1,2,3]);
+    XLSX.utils.book_append_sheet(wb, ws2, 'Resumo por mês');
+  }
+  XLSX.writeFile(wb, 'pra-onde-foi.xlsx');
+};
+
+/* ======================= ADMINISTRAÇÃO ======================= */
+let users = [], adminFilter = 'pendente';
+const STATUS_TAG = {
+  pendente: '<span class="tag tag-accent">Aguardando</span>',
+  aprovado: '<span class="tag tag-neutral">Com acesso</span>',
+  bloqueado: '<span class="tag tag-red">Bloqueado</span>'
+};
+
+async function loadUsers(){
+  const { data, error } = await sb.from('perfis').select('id,email,status,is_admin,criado_em').order('criado_em', { ascending: false });
+  if (error){ toast('Não foi possível carregar as contas.'); return; }
+  users = data;
+  const n = users.filter(u => u.status === 'pendente').length;
+  if (!$('viewAdmin').hidden) renderAdmin();
+}
+
+function renderAdmin(){
+  const count = s => users.filter(u => u.status === s).length;
+  $('cntPend').textContent = count('pendente');
+  $('cntOk').textContent = count('aprovado');
+  $('cntBlock').textContent = count('bloqueado');
+  document.querySelectorAll('#adminSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.filter === adminFilter)));
+
+  const list = adminFilter === 'todos' ? users : users.filter(u => u.status === adminFilter);
+  $('usersEmpty').hidden = list.length > 0;
+  $('usersTable').hidden = list.length === 0;
+  $('usersEmpty').textContent = adminFilter === 'pendente' ? 'Ninguém aguardando aprovação.' : 'Ninguém por aqui.';
+  $('userRows').innerHTML = list.map(u => {
+    const me = currentUser && u.id === currentUser.id;
+    let actions = '';
+    if (me) actions = '<span style="font-size:13px;color:var(--muted);">Você · conta master</span>';
+    else {
+      if (u.status !== 'aprovado') actions += `<button class="btn btn-primary btn-sm" data-act="aprovado" data-id="${esc(u.id)}">${u.status === 'bloqueado' ? 'Desbloquear' : 'Aprovar'}</button>`;
+      if (u.status !== 'bloqueado') actions += `<button class="btn btn-secondary btn-sm" data-act="bloqueado" data-id="${esc(u.id)}">${u.status === 'pendente' ? 'Recusar' : 'Bloquear'}</button>`;
+      actions += `<button class="btn btn-secondary btn-sm" data-act="senha" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Nova senha</button>`;
+      actions += `<button class="btn btn-danger btn-sm" data-act="excluir" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Excluir</button>`;
+    }
+    return `<tr>
+      <td style="word-break:break-all;">${esc(displayName(u.email))}</td>
+      <td style="color:var(--muted);">${new Date(u.criado_em).toLocaleDateString('pt-BR')}</td>
+      <td>${me ? '<span class="tag tag-accent">Admin</span>' : STATUS_TAG[u.status]}</td>
+      <td><div style="display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;">${actions}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+$('adminRefresh').onclick = () => loadUsers();
+document.querySelectorAll('#adminSeg button').forEach(b => b.addEventListener('click', () => { adminFilter = b.dataset.filter; renderAdmin(); }));
+
+$('userRows').addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const id = b.dataset.id, act = b.dataset.act;
+  let error;
+  if (act === 'senha'){
+    const nova = prompt(`Senha temporária para ${b.dataset.email} (mínimo de 6 caracteres):`);
+    if (nova === null) return;
+    if (nova.length < 6) return toast('A senha precisa ter pelo menos 6 caracteres.');
+    b.disabled = true;
+    ({ error } = await sb.rpc('admin_definir_senha', { alvo: id, nova }));
+    b.disabled = false;
+    if (error) return toast('Não foi possível concluir: ' + error.message);
+    alert(`Senha de ${b.dataset.email} redefinida.\n\nPasse a senha temporária para a pessoa e peça que ela troque em "Trocar senha" assim que entrar.`);
+    return;
+  }
+  if (act === 'excluir'){
+    if (!confirm(`Excluir a conta ${b.dataset.email}?\n\nA pessoa perde o acesso e todos os lançamentos dela são apagados. Não dá para desfazer.`)) return;
+    b.disabled = true;
+    ({ error } = await sb.rpc('admin_excluir_usuario', { alvo: id }));
+  } else {
+    b.disabled = true;
+    ({ error } = await sb.rpc('admin_mudar_status', { alvo: id, novo: act }));
+  }
+  if (error){ b.disabled = false; return toast('Não foi possível concluir: ' + error.message); }
+  await loadUsers();
+});
+
+/* ======================= APP INSTALÁVEL ======================= */
+if ('serviceWorker' in navigator && location.protocol === 'https:'){
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+
+/* ======================= INÍCIO ======================= */
+fillCats();
+if (!sb){
+  show('viewSetup');
+} else {
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY'){ recovering = true; show('viewAuth'); setAuthMode('nova'); return; }
+    if (recovering || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') return;
+    // setTimeout evita travar o Supabase ao fazer consultas dentro deste aviso
+    setTimeout(() => handleSession(session, event === 'SIGNED_OUT'), 0);
+  });
+}
+</script>
+</body>
+</html>
