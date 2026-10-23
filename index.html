@@ -245,7 +245,7 @@
     <select class="input ctrl-select" id="ctrlSelect" aria-label="Escolher controle"></select>
     <span class="note" id="ctrlInfo"></span>
     <span style="display:flex;flex-wrap:wrap;gap:var(--space-2);margin-left:auto;">
-      <button class="btn btn-secondary btn-sm" id="ctrlManage" type="button" hidden>Gerenciar controle</button>
+      <button class="btn btn-secondary btn-sm" id="ctrlManage" type="button" hidden>Pessoas e convites</button>
       <button class="btn btn-secondary btn-sm" id="ctrlNew" type="button">+ Novo controle</button>
       <button class="btn btn-ghost btn-sm" id="ctrlJoin" type="button">Entrar com código</button>
     </span>
@@ -981,12 +981,11 @@ async function openManage(){
     </div>` : `
     <p class="hint">Só o dono (${esc(displayName((state.members.find(p => p.eh_dono) || {}).login) || '—')}) pode convidar pessoas e mudar o nome.</p>`}
     <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
-      <h3>${dono ? 'Sair ou excluir' : 'Sair'}</h3>
       <div class="row" style="flex-wrap:wrap;">
         <button class="btn btn-secondary" data-a="sair">Sair do controle</button>
         ${dono ? '<button class="btn btn-danger" data-a="excluir">Excluir controle</button>' : ''}
       </div>
-      <p class="hint">Ao sair, os lançamentos que você fez continuam no controle.${dono ? ' Excluir apaga o controle e todos os lançamentos dele, para todo mundo.' : ''}</p>
+      <p class="hint">Ao sair, os lançamentos que você fez continuam no controle.</p>
     </div>`;
 }
 
