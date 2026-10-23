@@ -461,7 +461,8 @@ function translateError(err){
   if (/already registered|already been registered|already exists/i.test(msg)) return 'Esse usuário já existe. Use "Entrar" ou escolha outro nome.';
   if (/email address .* invalid|invalid email/i.test(msg)) return 'Esse nome de usuário não foi aceito. Tente só letras e números.';
   if (/rate limit|security purposes|too many/i.test(msg)) return 'Muitas tentativas seguidas. Espere um minuto e tente de novo.';
-  if (/password should|at least 6/i.test(msg)) return 'A senha precisa ter pelo menos 6 caracteres.';
+  if (/should contain|weak|pwned|leaked|compromised/i.test(msg)) return 'O Supabase recusou essa senha pelas regras dele: ' + msg;
+  if (/at least \d+ characters|password should be at least/i.test(msg)) return 'A senha é curta demais para as regras do Supabase: ' + msg;
   if (/same password|different from the old/i.test(msg)) return 'A nova senha precisa ser diferente da anterior.';
   if (/failed to fetch|network/i.test(msg)) return 'Sem conexão com o servidor. Verifique a internet.';
   return 'Algo deu errado: ' + msg;
