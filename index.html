@@ -460,7 +460,8 @@ function translateError(err){
   if (/not confirmed/i.test(msg)) return 'Confirme seu e-mail pelo link que enviamos antes de entrar.';
   if (/already registered|already been registered|already exists/i.test(msg)) return 'Esse usuário já existe. Use "Entrar" ou escolha outro nome.';
   if (/email address .* invalid|invalid email/i.test(msg)) return 'Esse nome de usuário não foi aceito. Tente só letras e números.';
-  if (/rate limit|security purposes|too many/i.test(msg)) return 'Muitas tentativas seguidas. Espere um minuto e tente de novo.';
+  if (/email rate limit/i.test(msg)) return 'O Supabase atingiu o limite de envio de e-mails. Desligue "Confirm email" em Authentication → Sign In / Providers → Email e tente de novo em alguns minutos.';
+  if (/rate limit|security purposes|too many/i.test(msg)) return 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo. (' + msg + ')';
   if (/should contain|weak|pwned|leaked|compromised/i.test(msg)) return 'O Supabase recusou essa senha pelas regras dele: ' + msg;
   if (/at least \d+ characters|password should be at least/i.test(msg)) return 'A senha é curta demais para as regras do Supabase: ' + msg;
   if (/same password|different from the old/i.test(msg)) return 'A nova senha precisa ser diferente da anterior.';
