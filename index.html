@@ -597,6 +597,7 @@ $('waitRetry').onclick = async () => {
 
 async function handleSession(session, force){
   if (!session){
+    stopRealtime();
     currentUser = null; profile = null; state.entries = []; state.controles = []; state.cid = null; state.members = []; state.invites = [];
     $('dlg').hidden = true;
     $('authPass').value = '';
@@ -634,6 +635,7 @@ async function handleSession(session, force){
   await Promise.all([loadMembers(), loadEntries(), loadInvites()]);
   show('viewApp');
   render();
+  startRealtime();
 }
 
 /* ======================= CONTROLES ======================= */
@@ -826,6 +828,37 @@ $('invites').addEventListener('click', async e => {
     const c = current(); toast(`Agora você participa de "${c ? c.nome : 'controle'}".`);
   }
 });
+
+/* ======================= TEMPO REAL ======================= */
+// Quando alguém do mesmo controle lança, apaga ou entra/sai, a tela atualiza sozinha.
+let rtChan = null, rtTimer = null, rtOk = false;
+function rtLater(fn){ clearTimeout(rtTimer); rtTimer = setTimeout(fn, 400); }
+async function rtReloadEntries(){ if ($('viewApp').hidden) return; await loadMembers(); await refresh(); }
+async function rtReloadAll(){
+  if ($('viewApp').hidden) return;
+  if (await loadControles()){ await loadMembers(); await refresh(); }
+}
+function startRealtime(){
+  stopRealtime();
+  if (!currentUser) return;
+  rtChan = sb.channel('pof-' + currentUser.id)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'lancamentos' }, p => {
+      const n = p.new || {}, o = p.old || {};
+      if (n.controle_id === state.cid || o.controle_id === state.cid || (o.id && state.entries.some(e => e.id === o.id)))
+        rtLater(rtReloadEntries);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'membros' }, () => rtLater(rtReloadAll))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'convites' }, () => loadInvites())
+    .subscribe(status => { rtOk = status === 'SUBSCRIBED'; });
+}
+function stopRealtime(){
+  if (rtChan){ sb.removeChannel(rtChan); rtChan = null; }
+  rtOk = false;
+}
+// plano B: se o tempo real cair, confere a cada 30 s enquanto o app estiver aberto
+setInterval(() => {
+  if (!rtOk && document.visibilityState === 'visible' && profile && !$('viewApp').hidden) rtReloadEntries();
+}, 30000);
 
 // ao voltar para o app (ex.: trocou de aba ou de aparelho), busca os dados atualizados
 document.addEventListener('visibilitychange', async () => {

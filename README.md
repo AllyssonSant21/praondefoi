@@ -10,6 +10,7 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
 - **Banco:** rode no SQL Editor do Supabase, nesta ordem:
   1. `supabase-setup.sql` — contas, aprovação e regras de segurança;
   2. `supabase-controles.sql` — controles compartilhados (casal/família).
+  3. `supabase-tempo-real.sql` — atualização na hora entre as pessoas do mesmo controle.
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.
 - **Marca:** pasta `logo/` (SVG e PNG).
 
