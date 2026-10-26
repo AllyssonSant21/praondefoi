@@ -193,6 +193,11 @@
     #tabSeg button,#bfTipo button,#bfModo button{flex:1 1 auto;padding-left:8px;padding-right:8px}
     .tabs-row{display:block}
   }
+  .stat-filtro{cursor:pointer;transition:border-color .15s,box-shadow .15s}
+  .stat-filtro:hover{border-color:rgba(244,240,230,.28)}
+  .stat-filtro.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .stat-filtro.on .kicker::after{content:" · filtrando";color:var(--accent)}
+  .stat-filtro{touch-action:manipulation;-webkit-user-select:none;user-select:none}
   /* toque mais fluido no celular */
   body{-webkit-tap-highlight-color:transparent}
   button,input,select,label,a,.bill{touch-action:manipulation}
@@ -321,12 +326,12 @@
 
 <div id="tabLanc" style="display:contents">
   <section class="stats">
-    <div class="blueprint stat">
+    <div class="blueprint stat stat-filtro" data-filtro="inc" role="button" tabindex="0" aria-pressed="false" title="Mostrar só as entradas">
       <span class="kicker">Entradas</span>
       <span class="big" id="incVal" style="color:var(--accent);">R$ 0,00</span>
       <span class="note" id="incNote"></span>
     </div>
-    <div class="blueprint stat">
+    <div class="blueprint stat stat-filtro" data-filtro="exp" role="button" tabindex="0" aria-pressed="false" title="Mostrar só as saídas">
       <span class="kicker">Saídas</span>
       <span class="big" id="expVal">R$ 0,00</span>
       <span class="note" id="expNote"></span>
@@ -384,6 +389,7 @@
     <div class="span2" style="display:flex;flex-direction:column;gap:var(--space-3);min-width:0;">
       <div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--space-3);">
         <h2 style="font-size:22px;text-transform:uppercase;">Lançamentos</h2>
+        <span class="by" id="filtroInfo" hidden style="margin:0;font-size:13px;">Mostrando só <b id="filtroNome" style="color:var(--text);"></b> · <button class="btn btn-ghost btn-sm" id="filtroLimpar" type="button" style="padding:8px 6px;margin:-8px 0;">limpar</button></span>
         <button class="btn btn-ghost" id="importLocal" hidden></button>
       </div>
       <div id="tableWrap" style="overflow-x:auto;">
@@ -881,6 +887,15 @@ $('form').addEventListener('submit', async e => {
   $('desc').focus();
 });
 
+/* ======================= FILTRO ENTRADAS / SAÍDAS ======================= */
+state.filtro = null;
+function toggleFiltro(f){ state.filtro = state.filtro === f ? null : f; render(); }
+document.querySelectorAll('.stat-filtro').forEach(el => {
+  el.addEventListener('click', () => toggleFiltro(el.dataset.filtro));
+  el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleFiltro(el.dataset.filtro); } });
+});
+$('filtroLimpar').onclick = () => { state.filtro = null; render(); };
+
 /* ======================= NAVEGAÇÃO ======================= */
 function shift(n){ const d = new Date(state.y, state.m + n, 1); state.y = d.getFullYear(); state.m = d.getMonth(); render(); refresh(); }
 $('prev').onclick = () => shift(-1);
@@ -1046,9 +1061,20 @@ function render(){
   $('importLocal').hidden = !pending;
   $('importLocal').textContent = `Enviar ${plural(pending,'lançamento')} deste aparelho`;
 
-  $('tableWrap').hidden = month.length === 0;
-  $('empty').hidden = month.length > 0;
-  $('rows').innerHTML = month.map(e => {
+  // filtro pelos cartões Entradas / Saídas (só a lista muda)
+  const f = state.filtro;
+  document.querySelectorAll('.stat-filtro').forEach(el => {
+    const on = el.dataset.filtro === f;
+    el.classList.toggle('on', on); el.setAttribute('aria-pressed', String(on));
+  });
+  $('filtroInfo').hidden = !f;
+  $('filtroNome').textContent = f === 'inc' ? 'entradas' : 'saídas';
+  const shown = f ? month.filter(e => e.type === f) : month;
+  $('tableWrap').hidden = shown.length === 0;
+  $('empty').hidden = shown.length > 0;
+  $('empty').textContent = !f ? 'Nenhum lançamento neste mês. Use o formulário acima para adicionar o primeiro.'
+    : f === 'inc' ? 'Nenhuma entrada neste mês.' : 'Nenhuma saída neste mês.';
+  $('rows').innerHTML = shown.map(e => {
     const mine = currentUser && e.uid === currentUser.id;
     return `
     <tr>
