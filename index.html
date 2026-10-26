@@ -203,6 +203,75 @@
   .dlg-back{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   .dlg{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px)}
   html.travado,html.travado body{overflow:hidden}
+  /* ===== tela de entrada ===== */
+  .auth-page{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:28px 18px 40px;
+    background:radial-gradient(900px 520px at 88% 6%, rgba(255,200,61,.11), transparent 62%),
+               radial-gradient(760px 520px at 0% 100%, rgba(229,72,77,.09), transparent 60%), var(--bg)}
+  .auth-grid{width:min(1080px,100%);display:grid;grid-template-columns:1fr;grid-template-areas:"head" "side" "feats";gap:28px}
+  .auth-head{grid-area:head;display:flex;flex-direction:column;gap:var(--space-3)}
+  .auth-side{grid-area:side;position:relative;width:min(440px,100%);justify-self:center}
+  .auth-feats{grid-area:feats;list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr;gap:14px}
+  .auth-logo{width:76px;height:76px;display:block}
+  .auth-kick{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .auth-feat{display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border-radius:16px;background:rgba(244,240,230,.035);border:1px solid rgba(244,240,230,.07)}
+  .auth-feat .ic{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:rgba(255,200,61,.12);color:var(--accent)}
+  .auth-feat b{display:block;font-size:15px;margin-bottom:2px}
+  .auth-feat span{font-size:13px;color:var(--muted);line-height:1.45}
+  .auth-preview{display:none}
+  .auth-foot{grid-area:auto;font-size:12px;color:var(--muted);text-align:center}
+  .auth-foot a{color:inherit}
+  .ou{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.12em}
+  .ou::before,.ou::after{content:"";flex:1;height:1px;background:var(--divider)}
+  @media (min-width:960px){
+    .auth-page{padding:48px 40px}
+    .auth-grid{grid-template-columns:minmax(0,1.15fr) minmax(380px,440px);grid-template-areas:"head side" "feats side";column-gap:72px;row-gap:34px;align-items:start}
+    .auth-head{align-self:end}
+    .auth-side{align-self:center;justify-self:end;width:100%;margin-top:40px}
+    .auth-logo{width:112px;height:112px}
+    .auth-head .auth-title{font-size:clamp(64px,6.4vw,92px)}
+    .auth-head .auth-lead{font-size:19px;max-width:30ch}
+    .auth-feats{grid-template-columns:1fr 1fr}
+    .auth-preview{display:flex;flex-direction:column;gap:4px;position:absolute;top:-58px;right:-22px;transform:rotate(4deg);
+      background:var(--accent);color:var(--ink);border-radius:18px;padding:14px 18px;box-shadow:0 18px 40px rgba(0,0,0,.45);z-index:2;pointer-events:none}
+    .auth-preview .k{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.7}
+    .auth-preview .v{font-family:var(--font-heading);font-weight:900;font-size:26px;line-height:1}
+    .auth-preview .n{font-size:12px;opacity:.75}
+    .auth-side .auth-card{padding:28px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+  }
+
+  /* ===== menu ☰ e perfil ===== */
+  .menu-btn{display:inline-flex;align-items:center;gap:10px;max-width:100%;padding:4px 12px 4px 4px;border:1px solid var(--divider);border-radius:999px;background:transparent;color:var(--text);cursor:pointer;font:inherit}
+  .menu-btn:hover{background:rgba(244,240,230,.07)}
+  .menu-btn .who{font-size:14px;font-weight:600;color:var(--text);max-width:46vw;margin:0}
+  .avatar{flex:none;width:32px;height:32px;border-radius:50%;background:var(--accent);color:var(--ink);display:inline-flex;align-items:center;justify-content:center;font-family:var(--font-heading);font-weight:900;font-size:13px;overflow:hidden;line-height:1}
+  .avatar img{width:100%;height:100%;object-fit:cover;display:block}
+  .avatar.sm{width:26px;height:26px;font-size:11px}
+  .avatar.lg{width:52px;height:52px;font-size:19px}
+  .avatar.xl{width:96px;height:96px;font-size:34px}
+  .drawer-back{position:fixed;inset:0;z-index:45;background:rgba(5,9,18,.62)}
+  .drawer{position:absolute;top:0;right:0;bottom:0;width:min(320px,86vw);background:var(--surface);border-left:1px solid var(--divider);
+    padding:calc(env(safe-area-inset-top) + 20px) 18px calc(env(safe-area-inset-bottom) + 18px);display:flex;flex-direction:column;gap:18px;overflow:auto;animation:gaveta .18s ease-out}
+  @keyframes gaveta{from{transform:translateX(28px);opacity:0}to{transform:none;opacity:1}}
+  @media (prefers-reduced-motion:reduce){.drawer{animation:none}}
+  .drawer-item{display:flex;align-items:center;gap:12px;width:100%;padding:13px 10px;border:0;border-radius:12px;background:transparent;color:var(--text);font:inherit;font-size:15px;font-weight:600;cursor:pointer;text-align:left}
+  .drawer-item:hover{background:rgba(244,240,230,.07)}
+  .drawer-item svg{color:var(--accent);flex:none}
+  .drawer-item.sair,.drawer-item.sair svg{color:#ff8a8d}
+  .ellip{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* ===== alinhamento dos campos (iPhone) ===== */
+  .field{min-width:0}
+  .input:not(textarea){height:44px;min-height:44px}
+  input[type=date].input{-webkit-appearance:none;appearance:none;display:flex;align-items:center;width:100%;min-width:0;max-width:100%;text-align:left;line-height:normal}
+  input[type=date].input::-webkit-date-and-time-value{text-align:left;margin:0}
+  input[type=date].input::-webkit-calendar-picker-indicator{filter:invert(.92);opacity:.75;cursor:pointer}
+  select.input{-webkit-appearance:none;appearance:none;padding-right:36px;background-repeat:no-repeat;background-position:right 12px center;background-size:14px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f4f0e6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")}
+  @media (max-width:560px){
+    .ctrl-select{width:100%}
+    .ctrlbar>span:last-child{margin-left:0 !important;width:100%}
+    .ctrlbar>span:last-child .btn{flex:1 1 auto}
+  }
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:calc(100% - 32px);background:var(--red);color:var(--text);padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:50}
   .toast.ok{background:var(--accent);color:var(--ink)}
 </style>
@@ -226,14 +295,22 @@
 </div>
 
 <!-- ============ LOGIN / CADASTRO ============ -->
-<div id="viewAuth" class="center" hidden>
-  <div class="auth-box">
-    <div style="display:flex;flex-direction:column;gap:var(--space-3);">
-      <img src="logo/logo-simbolo.svg" alt="" width="64" height="64" style="display:block;margin-bottom:var(--space-2);">
-      <span style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);">Acesso restrito</span>
+<div id="viewAuth" class="auth-page" hidden>
+  <div class="auth-grid">
+    <div class="auth-head">
+      <img class="auth-logo" src="logo/logo-simbolo.svg" alt="Pra Onde Foi?">
+      <span class="auth-kick">Controle financeiro</span>
       <h1 class="auth-title">Pra onde<br>foi<span class="hl">?</span></h1>
       <p class="auth-lead">Descubra para onde vai o seu dinheiro, <span class="hl">em qualquer lugar</span>.</p>
     </div>
+    <ul class="auth-feats">
+      <li class="auth-feat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16 14.2a5 5 0 0 1 6 4.8"/></svg></span><div><b>Sozinho, a dois ou em família</b><span>O seu controle pessoal e controles compartilhados com quem você escolher.</span></div></li>
+      <li class="auth-feat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="3"/><path d="M3 10h18M8 2.5v4M16 2.5v4"/><path d="m9 15 2 2 4-4"/></svg></span><div><b>Contas a pagar</b><span>Fixas, parceladas e divididas, com aviso de vencimento.</span></div></li>
+      <li class="auth-feat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg></span><div><b>Para onde foi</b><span>Gastos por categoria, mês a mês, com planilha no Excel.</span></div></li>
+      <li class="auth-feat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18h2"/></svg></span><div><b>No celular e no PC</b><span>Instale como app e veja tudo sincronizado.</span></div></li>
+    </ul>
+    <div class="auth-side">
+    <div class="auth-preview" aria-hidden="true"><span class="k">Saldo do mês</span><span class="v">R$ 3.787,65</span><span class="n">Sobrou 73% do que entrou</span></div>
     <div class="blueprint auth-card">
       <div class="seg" id="authSeg" role="group" aria-label="Acesso" style="align-self:flex-start;">
         <button type="button" data-mode="entrar" aria-pressed="true">Entrar</button>
@@ -249,13 +326,19 @@
           <label for="authPass" id="authPassLabel">Senha</label>
           <input class="input" id="authPass" type="password" autocomplete="current-password" placeholder="Mínimo de 6 caracteres">
         </div>
-        <button class="btn btn-primary" id="authSubmit" type="submit" style="min-height:42px;">Entrar</button>
+        <button class="btn btn-primary" id="authSubmit" type="submit" style="min-height:44px;">Entrar</button>
       </form>
       <p class="msg" id="authMsg" role="status"></p>
+      <div id="googleWrap" hidden style="display:flex;flex-direction:column;gap:var(--space-4);">
+        <div class="ou">ou</div>
+        <button class="btn btn-secondary" id="googleBtn" type="button" style="min-height:44px;">Entrar com Google</button>
+      </div>
       <div style="display:flex;justify-content:space-between;gap:var(--space-2);">
         <button class="btn btn-ghost btn-sm" id="forgot" type="button">Esqueci minha senha</button>
         <button class="btn btn-ghost btn-sm" id="backLogin" type="button" hidden>Voltar para entrar</button>
       </div>
+    </div>
+    <p class="auth-foot" style="margin:14px 0 0;"><a href="privacidade.html">Política de privacidade</a></p>
     </div>
   </div>
 </div>
@@ -280,16 +363,18 @@
 <div class="wrap">
 
   <div class="userbar">
-    <span class="who" id="userEmail"></span>
-    <button class="btn btn-secondary btn-sm" data-changepass type="button">Trocar senha</button>
-    <button class="btn btn-secondary btn-sm" data-logout type="button">Sair</button>
+    <button class="menu-btn" id="menuBtn" type="button" aria-label="Abrir menu" aria-haspopup="dialog">
+      <span class="avatar" id="meAvatar"></span>
+      <span class="who ellip" id="userEmail"></span>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
   </div>
 
   <section id="invites" hidden style="display:flex;flex-direction:column;gap:var(--space-3);"></section>
 
   <header style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--space-4);">
     <div style="display:flex;flex-direction:column;gap:2px;">
-      <span style="display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);"><img src="logo/logo-simbolo.svg" alt="" width="22" height="22">Pra onde foi?</span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-left:-8px;"><img src="logo/logo-simbolo.svg" alt="" width="56" height="56">Pra onde foi?</span>
       <h1 id="monthTitle" style="font-size:44px;line-height:1;text-transform:uppercase;letter-spacing:.01em;">Mês</h1>
     </div>
     <div style="display:flex;align-items:center;gap:var(--space-2);">
@@ -528,6 +613,26 @@
   </div>
 </div>
 
+<!-- ============ MENU ☰ ============ -->
+<div class="drawer-back" id="drawer" hidden>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-label="Menu">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="avatar lg" id="drAvatar"></span>
+      <div style="min-width:0;flex:1;">
+        <div class="ellip" id="drNome" style="font-weight:700;font-size:16px;"></div>
+        <div class="by ellip" id="drLogin" style="margin:0;"></div>
+      </div>
+      <button class="btn btn-secondary btn-icon" id="drClose" type="button" aria-label="Fechar menu"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <nav style="display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--divider);padding-top:10px;">
+      <button class="drawer-item" id="drPerfil" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Meu perfil</button>
+      <button class="drawer-item" data-changepass type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/></svg>Trocar senha</button>
+      <button class="drawer-item sair" data-logout type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>Sair</button>
+    </nav>
+    <p class="by" style="margin:auto 0 0;font-size:12px;">Pra Onde Foi? · <a href="privacidade.html" style="color:inherit;">Política de privacidade</a></p>
+  </aside>
+</div>
+
 <div class="toast" id="toast" role="alert" hidden></div>
 
 <script>
@@ -616,6 +721,7 @@ function setAuthMode(m){
   $('authSubmit').textContent = {entrar:'Entrar', criar:'Criar conta', esqueci:'Enviar link de recuperação', nova:'Salvar nova senha'}[m];
   $('forgot').hidden = m !== 'entrar';
   $('backLogin').hidden = m !== 'esqueci';
+  $('googleWrap').hidden = !googleOn || special;
   authMsg('');
 }
 document.querySelectorAll('#authSeg button').forEach(b => b.addEventListener('click', () => setAuthMode(b.dataset.mode)));
@@ -633,6 +739,10 @@ function translateError(err){
   if (/should contain|weak|pwned|leaked|compromised/i.test(msg)) return 'O Supabase recusou essa senha pelas regras dele: ' + msg;
   if (/at least \d+ characters|password should be at least/i.test(msg)) return 'A senha é curta demais para as regras do Supabase: ' + msg;
   if (/same password|different from the old/i.test(msg)) return 'A nova senha precisa ser diferente da anterior.';
+  if (/already linked|identity_already_exists|already exists for another user/i.test(msg)) return 'Essa conta Google já está ligada a outro usuário do app.';
+  if (/manual linking/i.test(msg)) return 'Falta ativar "Allow manual linking" no Supabase (Authentication → Sign In / Providers).';
+  if (/provider is not enabled|unsupported provider/i.test(msg)) return 'O login com Google ainda não foi ativado no Supabase.';
+  if (/access_denied|cancel/i.test(msg)) return 'O login com Google foi cancelado.';
   if (/failed to fetch|network/i.test(msg)) return 'Sem conexão com o servidor. Verifique a internet.';
   return 'Algo deu errado: ' + msg;
 }
@@ -706,6 +816,29 @@ $('waitRetry').onclick = async () => {
   handleSession(session, true);
 };
 
+/* ---------- Google ---------- */
+let googleOn = false;
+async function checarProvedores(){
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_ANON_KEY } });
+    const j = await r.json();
+    googleOn = !!(j && j.external && j.external.google);
+  } catch(e){ googleOn = false; }
+  $('googleWrap').hidden = !googleOn || authMode === 'esqueci' || authMode === 'nova';
+}
+$('googleBtn').onclick = async () => {
+  $('googleBtn').disabled = true;
+  const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: REDIRECT } });
+  if (error){ $('googleBtn').disabled = false; authMsg(translateError(error), 'err'); }
+};
+// erro devolvido pelo Google/Supabase na volta (ex.: cancelou, conta já ligada)
+let authErroVolta = null;
+(function(){
+  const q = new URLSearchParams(location.search.slice(1) + '&' + location.hash.slice(1));
+  const d = q.get('error_description') || q.get('error');
+  if (d){ authErroVolta = translateError({ message: d.replace(/\+/g, ' ') }); history.replaceState(null, '', REDIRECT); }
+})();
+
 async function handleSession(session, force){
   if (!session){
     stopRealtime();
@@ -714,13 +847,19 @@ async function handleSession(session, force){
     $('authPass').value = '';
     show('viewAuth');
     if (authMode === 'nova') setAuthMode('entrar');
+    if (authErroVolta){ authMsg(authErroVolta, 'err'); authErroVolta = null; }
     return;
   }
+  if (authErroVolta){ toast(authErroVolta); authErroVolta = null; }
   if (!force && currentUser && currentUser.id === session.user.id && profile) return;
   currentUser = session.user;
   if ($('viewApp').hidden && $('viewAdmin').hidden) show('viewLoading');
 
-  const { data, error } = await sb.from('perfis').select('id,email,status,is_admin').eq('id', currentUser.id).maybeSingle();
+  let { data, error } = await sb.from('perfis').select('id,email,status,is_admin,nome,foto,email_aviso,whatsapp,avisos').eq('id', currentUser.id).maybeSingle();
+  perfilNovo = !error;
+  if (error && (error.code === '42703' || /column/i.test(error.message || ''))){
+    ({ data, error } = await sb.from('perfis').select('id,email,status,is_admin').eq('id', currentUser.id).maybeSingle());
+  }
   if (error || !data){
     profile = null;
     return waitScreen('Algo não<br>carregou', error
@@ -733,7 +872,7 @@ async function handleSession(session, force){
   if (profile.status === 'bloqueado')
     return waitScreen('Acesso<br>bloqueado', 'Seu acesso foi suspenso pelo administrador.');
 
-  $('userEmail').textContent = displayName(profile.email);
+  renderMe();
   $('adminEmail').textContent = displayName(profile.email);
   if (profile.is_admin){
     // conta master: só administração, sem controle financeiro
@@ -756,7 +895,7 @@ const isShared = () => { const c = current(); return !!c && !c.pessoal; };
 const nameOf = uid => {
   if (currentUser && uid === currentUser.id) return 'você';
   const m = state.members.find(x => x.user_id === uid);
-  return m ? displayName(m.login) : 'ex-participante';
+  return m ? (m.nome || displayName(m.login)) : 'ex-participante';
 };
 function rpcMsg(error){
   const msg = (error && error.message) || '';
@@ -1007,7 +1146,7 @@ function renderInvites(){
     <div class="blueprint invite">
       <div style="min-width:0;">
         <span class="kicker" style="color:var(--accent);">Convite</span>
-        <div style="font-weight:600;"><b>${esc(displayName(v.de_login) || 'Alguém')}</b> te convidou para o controle <b>"${esc(v.controle_nome)}"</b></div>
+        <div style="font-weight:600;"><b>${esc(v.de_nome || displayName(v.de_login) || 'Alguém')}</b> te convidou para o controle <b>"${esc(v.controle_nome)}"</b></div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-primary btn-sm" data-inv="${esc(v.id)}" data-ok="1">Aceitar</button>
@@ -1320,8 +1459,8 @@ function openDlg2(kicker, title, html, ctx){
 function closeDlg2(){ $('dlg2').hidden = true; dlg2 = {}; }
 $('dlg2Close').onclick = closeDlg2;
 // com uma janela aberta, a tela de trás não rola junto
-const travaFundo = () => document.documentElement.classList.toggle('travado', !$('dlg').hidden || !$('dlg2').hidden);
-['dlg','dlg2'].forEach(id => new MutationObserver(travaFundo).observe($(id), { attributes: true, attributeFilter: ['hidden'] }));
+const travaFundo = () => document.documentElement.classList.toggle('travado', !$('dlg').hidden || !$('dlg2').hidden || !$('drawer').hidden);
+['dlg','dlg2','drawer'].forEach(id => new MutationObserver(travaFundo).observe($(id), { attributes: true, attributeFilter: ['hidden'] }));
 $('dlg2').addEventListener('click', e => { if (e.target.id === 'dlg2') closeDlg2(); });
 
 const findConta = id => state.contas.find(c => c.id === id);
@@ -1593,6 +1732,7 @@ $('dlg2Body').addEventListener('click', async e => {
   const b = e.target.closest('[data-act]');
   if (!b) return;
   const a = b.dataset.act, id = dlg2.id, mk = dlg2.mk;
+  if (a.startsWith('pf')) return;   // ações do perfil têm o próprio tratamento
   const c = findConta(id);
   let res;
   if (a === 'confirmPay'){
@@ -1644,6 +1784,140 @@ $('dlg2Body').addEventListener('click', async e => {
   }
 });
 
+
+/* ======================= MENU ☰ E PERFIL ======================= */
+let perfilNovo = true;   // false enquanto o banco não tiver os campos do perfil
+const iniciais = s => (String(s || '?').trim().split(/[\s._@-]+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('') || '?').toUpperCase();
+const avatarHtml = (nome, foto) => foto ? `<img src="${esc(foto)}" alt="" referrerpolicy="no-referrer">` : esc(iniciais(nome));
+const meuNome = () => profile ? (profile.nome || displayName(profile.email)) : '';
+const fmtWa = d => !d ? '' : d.length === 11 ? `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}` : d.length === 10 ? `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}` : d;
+function renderMe(){
+  if (!profile) return;
+  $('userEmail').textContent = meuNome();
+  $('meAvatar').innerHTML = avatarHtml(meuNome(), profile.foto);
+  $('drAvatar').innerHTML = avatarHtml(meuNome(), profile.foto);
+  $('drNome').textContent = meuNome();
+  $('drLogin').textContent = profile.nome ? displayName(profile.email) : (perfilNovo ? 'Complete seu perfil' : displayName(profile.email));
+}
+function openMenu(){ renderMe(); $('drawer').hidden = false; }
+function closeMenu(){ $('drawer').hidden = true; }
+$('menuBtn').onclick = openMenu;
+$('drClose').onclick = closeMenu;
+$('drawer').addEventListener('click', e => { if (e.target.id === 'drawer' || e.target.closest('.drawer-item')) closeMenu(); });
+$('drPerfil').addEventListener('click', () => openPerfil());
+
+function lerFoto(file){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+      const lado = Math.min(img.naturalWidth, img.naturalHeight);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#0b1220'; ctx.fillRect(0, 0, S, S);
+      ctx.drawImage(img, (img.naturalWidth - lado) / 2, (img.naturalHeight - lado) / 2, lado, lado, 0, 0, S, S);
+      URL.revokeObjectURL(url);
+      let q = 0.85, d = c.toDataURL('image/jpeg', q);
+      while (d.length > 140000 && q > 0.4){ q -= 0.15; d = c.toDataURL('image/jpeg', q); }
+      resolve(d);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Não foi possível abrir essa imagem.')); };
+    img.src = url;
+  });
+}
+
+async function openPerfil(){
+  if (!profile) return;
+  if (!perfilNovo){
+    return openDlg2('Minha conta', 'Meu perfil', `<p class="hint">Para usar o perfil, rode o arquivo <b>supabase-perfil.sql</b> no SQL Editor do Supabase e recarregue a página.</p>`, { tipo: 'perfil' });
+  }
+  let ids = currentUser.identities || [];
+  try { const r = await sb.auth.getUserIdentities(); if (r && r.data && r.data.identities) ids = r.data.identities; } catch(e){}
+  const temGoogle = ids.some(i => i.provider === 'google');
+  const temSenha = ids.some(i => i.provider === 'email');
+  const p = profile;
+  openDlg2('Minha conta', 'Meu perfil', `
+    <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+      <span class="avatar xl" id="pfAvatar">${avatarHtml(meuNome(), p.foto)}</span>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;">${p.foto ? 'Trocar foto' : 'Colocar foto'}<input type="file" id="pfFile" accept="image/*" hidden></label>
+        ${p.foto ? '<button class="btn btn-ghost btn-sm" type="button" data-act="pfRemover">Remover foto</button>' : ''}
+      </div>
+    </div>
+    <form id="perfilForm" novalidate style="display:flex;flex-direction:column;gap:var(--space-4);">
+      <div class="field">
+        <label for="pfNome">Nome</label>
+        <input class="input" id="pfNome" maxlength="40" autocomplete="name" placeholder="Como você quer aparecer" value="${esc(p.nome || '')}">
+        <p class="hint" style="margin:6px 0 0;">Aparece para quem divide controles com você.</p>
+      </div>
+      <div class="field">
+        <label>Usuário</label>
+        <div class="input ellip" style="display:flex;align-items:center;color:var(--muted);">${esc(displayName(p.email))}</div>
+      </div>
+      <div class="field">
+        <label for="pfEmail">E-mail para avisos</label>
+        <input class="input" id="pfEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="voce@email.com" value="${esc(p.email_aviso || '')}">
+      </div>
+      <div class="field">
+        <label for="pfWa">WhatsApp <span style="color:var(--muted);font-weight:400;">(opcional)</span></label>
+        <input class="input" id="pfWa" type="tel" inputmode="tel" autocomplete="tel" placeholder="(65) 99999-9999" value="${esc(fmtWa(p.whatsapp || ''))}">
+      </div>
+      <label class="chk"><input type="checkbox" id="pfAvisos"${p.avisos !== false ? ' checked' : ''}> Quero receber avisos de contas por e-mail</label>
+      <p class="hint" style="margin:-6px 0 0;">Os avisos por e-mail começam a sair quando o domínio do app estiver pronto.</p>
+      <button class="btn btn-primary" type="submit" id="pfSalvar" style="min-height:44px;">Salvar</button>
+    </form>
+    <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
+      <h3>Formas de entrar</h3>
+      <div class="person"><span>Usuário e senha</span>${temSenha ? '<span class="tag tag-neutral">Ativo</span>' : '<span class="by" style="margin:0;">não usa</span>'}</div>
+      <div class="person"><span>Conta Google</span>${temGoogle ? '<span class="tag tag-accent">Conectada ✓</span>'
+        : googleOn ? '<button class="btn btn-secondary btn-sm" type="button" data-act="pfGoogle">Conectar</button>'
+        : '<span class="by" style="margin:0;">em breve</span>'}</div>
+    </div>`, { tipo: 'perfil' });
+}
+
+$('dlg2Body').addEventListener('change', async e => {
+  if (e.target.id !== 'pfFile' || !e.target.files || !e.target.files[0]) return;
+  try {
+    const foto = await lerFoto(e.target.files[0]);
+    const { error } = await sb.rpc('salvar_foto', { p_foto: foto });
+    if (error) return toast(rpcMsg(error));
+    profile.foto = foto; renderMe();
+    if ($('pfAvatar')) $('pfAvatar').innerHTML = avatarHtml(meuNome(), foto);
+    toast('Foto atualizada.', true);
+    await loadMembers(); render();
+    openPerfil();
+  } catch(err){ toast(err.message || 'Não foi possível usar essa imagem.'); }
+});
+
+$('dlg2Body').addEventListener('click', async e => {
+  const b = e.target.closest('[data-act^="pf"]');
+  if (!b) return;
+  if (b.dataset.act === 'pfRemover'){
+    const { error } = await sb.rpc('salvar_foto', { p_foto: null });
+    if (error) return toast(rpcMsg(error));
+    profile.foto = null; renderMe(); await loadMembers(); render(); openPerfil();
+  }
+  if (b.dataset.act === 'pfGoogle'){
+    b.disabled = true;
+    const { error } = await sb.auth.linkIdentity({ provider: 'google', options: { redirectTo: REDIRECT } });
+    if (error){ b.disabled = false; toast(translateError(error)); }
+  }
+});
+
+$('dlg2Body').addEventListener('submit', async e => {
+  if (e.target.id !== 'perfilForm') return;
+  e.preventDefault();
+  const nome = $('pfNome').value.trim(), email = $('pfEmail').value.trim().toLowerCase();
+  const wa = $('pfWa').value.replace(/\D/g, ''), avisos = $('pfAvisos').checked;
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('Esse e-mail não parece válido.');
+  if (wa && (wa.length < 10 || wa.length > 13)) return toast('WhatsApp inválido. Use DDD + número, ex.: (65) 99999-9999.');
+  $('pfSalvar').disabled = true;
+  const { error } = await sb.rpc('salvar_perfil', { p_nome: nome, p_email: email, p_whatsapp: wa, p_avisos: avisos });
+  if (error){ $('pfSalvar').disabled = false; return toast(rpcMsg(error)); }
+  Object.assign(profile, { nome: nome || null, email_aviso: email || null, whatsapp: wa || null, avisos });
+  renderMe(); closeDlg2(); toast('Perfil salvo.', true);
+  await loadMembers(); render();
+});
+
 /* ======================= PESSOAS E CONVITES ======================= */
 const fmtDateTime = iso => new Date(iso).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
 function closeDlg(){ $('dlg').hidden = true; }
@@ -1651,7 +1925,7 @@ $('dlgClose').onclick = closeDlg;
 $('dlg').addEventListener('click', e => { if (e.target.id === 'dlg') closeDlg(); });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if (!$('dlg2').hidden) closeDlg2(); else if (!$('dlg').hidden) closeDlg();
+  if (!$('drawer').hidden) closeMenu(); else if (!$('dlg2').hidden) closeDlg2(); else if (!$('dlg').hidden) closeDlg();
 });
 
 async function openManage(){
@@ -1670,11 +1944,12 @@ async function openManage(){
   const dono = c.sou_dono;
   const people = state.members.map(p => {
     const me = currentUser && p.user_id === currentUser.id;
+    const nm = p.nome || displayName(p.login) || 'conta excluída';
     return `<div class="person">
-      <span>${esc(displayName(p.login) || 'conta excluída')}${me ? ' <span class="by">(você)</span>' : ''}</span>
+      <span style="display:flex;align-items:center;gap:10px;min-width:0;"><span class="avatar sm">${avatarHtml(nm, p.foto)}</span><span style="min-width:0;">${esc(nm)}${me ? ' <span class="by">(você)</span>' : ''}${p.nome && p.login ? `<span class="by" style="display:block;margin:0;">${esc(displayName(p.login))}</span>` : ''}</span></span>
       <span style="display:flex;gap:6px;align-items:center;">
         ${p.eh_dono ? '<span class="tag tag-accent">Dono</span>' : ''}
-        ${dono && !me ? `<button class="btn btn-danger btn-sm" data-a="remover" data-id="${esc(p.user_id)}" data-name="${esc(displayName(p.login))}">Remover</button>` : ''}
+        ${dono && !me ? `<button class="btn btn-danger btn-sm" data-a="remover" data-id="${esc(p.user_id)}" data-name="${esc(nm)}">Remover</button>` : ''}
       </span>
     </div>`;
   }).join('');
@@ -1849,7 +2124,8 @@ const STATUS_TAG = {
 };
 
 async function loadUsers(){
-  const { data, error } = await sb.from('perfis').select('id,email,status,is_admin,criado_em').order('criado_em', { ascending: false });
+  let { data, error } = await sb.from('perfis').select('id,email,status,is_admin,criado_em,nome').order('criado_em', { ascending: false });
+  if (error) ({ data, error } = await sb.from('perfis').select('id,email,status,is_admin,criado_em').order('criado_em', { ascending: false }));
   if (error){ toast('Não foi possível carregar as contas.'); return; }
   users = data;
   const n = users.filter(u => u.status === 'pendente').length;
@@ -1878,7 +2154,7 @@ function renderAdmin(){
       actions += `<button class="btn btn-danger btn-sm" data-act="excluir" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Excluir</button>`;
     }
     return `<tr>
-      <td style="word-break:break-all;">${esc(displayName(u.email))}</td>
+      <td style="word-break:break-all;">${esc(displayName(u.email))}${u.nome ? `<div class="by">${esc(u.nome)}</div>` : ''}</td>
       <td style="color:var(--muted);">${new Date(u.criado_em).toLocaleDateString('pt-BR')}</td>
       <td>${me ? '<span class="tag tag-accent">Admin</span>' : STATUS_TAG[u.status]}</td>
       <td><div style="display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;">${actions}</div></td>
@@ -1927,6 +2203,7 @@ fillCats();
 if (!sb){
   show('viewSetup');
 } else {
+  checarProvedores();
   sb.auth.onAuthStateChange((event, session) => {
     if (event === 'PASSWORD_RECOVERY'){ recovering = true; show('viewAuth'); setAuthMode('nova'); return; }
     if (recovering || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') return;
