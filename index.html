@@ -285,6 +285,7 @@
     <span class="note" id="ctrlInfo"></span>
     <span style="display:flex;flex-wrap:wrap;gap:var(--space-2);margin-left:auto;">
       <button class="btn btn-secondary btn-sm" id="ctrlManage" type="button" hidden>Pessoas e convites</button>
+      <button class="btn btn-secondary btn-sm" id="ctrlShare" type="button" hidden>Compartilhar controle</button>
       <button class="btn btn-secondary btn-sm" id="ctrlNew" type="button">+ Novo controle</button>
       <button class="btn btn-ghost btn-sm" id="ctrlJoin" type="button">Entrar com código</button>
     </span>
@@ -407,10 +408,7 @@
   <section class="blueprint" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-3);">
     <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
       <h2 style="font-size:22px;text-transform:uppercase;">Contas do mês</h2>
-      <span style="display:flex;flex-wrap:wrap;gap:var(--space-2);">
-      <button class="btn btn-secondary" id="billShare" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>Compartilhar controle</button>
       <button class="btn btn-primary" id="billNew" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Nova conta</button>
-      </span>
     </div>
     <div id="billList"></div>
     <div id="billEmpty" hidden style="padding:var(--space-6) 0;color:var(--muted);font-size:14px;"></div>
@@ -993,6 +991,7 @@ function renderCtrlBar(){
   $('ctrlSelect').innerHTML = state.controles.map(x =>
     `<option value="${esc(x.id)}"${x.id === state.cid ? ' selected' : ''}>${esc(x.nome)}${x.pessoal ? ' (pessoal)' : ''}</option>`).join('');
   $('ctrlManage').hidden = !c || c.pessoal;
+  $('ctrlShare').hidden = !c || !c.pessoal;
   $('ctrlInfo').textContent = !c ? '' : c.pessoal
     ? 'Só você vê'
     : `Compartilhado · ${plural(c.participantes,'pessoa')}${c.sou_dono ? ' · você é o dono' : ''}`;
@@ -1261,10 +1260,10 @@ $('billList').addEventListener('click', e => {
   if (row) openBill(row.dataset.bill);
 });
 $('billNew').onclick = () => openBillForm(null);
-$('billShare').onclick = () => {
+$('ctrlShare').onclick = () => {
   const c = current(); if (!c) return;
   if (!c.pessoal) return openManage();
-  if (!confirm('O "Meu controle" é só seu.\n\nPara dividir contas com alguém, crie um controle compartilhado (ex.: Casa, Apê) e convide a pessoa. Seus lançamentos pessoais continuam só seus.\n\nCriar agora?')) return;
+  if (!confirm('O "Meu controle" é só seu.\n\nPara dividir com alguém, crie um controle compartilhado (ex.: Casa, Apê) e convide a pessoa. Seus lançamentos pessoais continuam só seus.\n\nCriar agora?')) return;
   $('ctrlNew').click();
 };
 
