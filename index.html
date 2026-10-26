@@ -153,7 +153,38 @@
   .person{display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);padding:8px 0;border-bottom:1px solid rgba(244,240,230,.08);font-size:14px;word-break:break-all}
   .code{font-family:var(--font-heading);font-weight:900;font-size:38px;letter-spacing:.08em;color:var(--accent);line-height:1}
 
+  /* abas e contas a pagar */
+  .tabs-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3)}
+  .tabs{max-width:100%;overflow-x:auto}
+  .tabs button{padding:9px 18px;font-size:14px}
+  .badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:6px;border-radius:999px;background:var(--red);color:var(--text);font-size:11px;font-weight:700}
+  .alert{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);padding:var(--space-4) var(--space-6);border-color:rgba(229,72,77,.55)}
+  .alert b{color:#ff8a8d}
+  .bill{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:var(--space-4);align-items:center;padding:14px 4px;border-bottom:1px solid rgba(244,240,230,.08);cursor:pointer;border-radius:10px}
+  .bill:hover{background:rgba(244,240,230,.04)}
+  .bill-day{width:52px;height:52px;border-radius:14px;background:var(--bg);border:1px solid var(--divider);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;gap:3px}
+  .bill-day b{font-family:var(--font-heading);font-weight:900;font-size:20px}
+  .bill-day small{font-size:10px;font-weight:600;letter-spacing:.1em;color:var(--muted)}
+  .bill.late .bill-day{border-color:var(--red);color:#ff8a8d}
+  .bill.soon .bill-day{border-color:var(--accent);color:var(--accent)}
+  .bill.paid{opacity:.55}
+  .bill-name{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-weight:600;word-break:break-word}
+  .bill-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+  .bill-val{font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .prog{height:4px;background:var(--track);border-radius:999px;overflow:hidden;margin-top:6px;max-width:220px}
+  .prog>div{height:100%;background:var(--accent);border-radius:999px}
+  .kv{display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;padding:3px 0}
+  .kv span{color:var(--muted)}
+  .chk{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px}
+  .chk input{width:18px;height:18px;accent-color:var(--accent);margin:0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)}
+  @media (max-width:560px){
+    .bill{grid-template-columns:44px minmax(0,1fr);gap:var(--space-3)}
+    .bill-day{width:44px;height:44px}
+    .bill-side{grid-column:2;flex-direction:row;align-items:center;justify-content:space-between}
+  }
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:calc(100% - 32px);background:var(--red);color:var(--text);padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:50}
+  .toast.ok{background:var(--accent);color:var(--ink)}
 </style>
 </head>
 <body>
@@ -259,6 +290,19 @@
     </span>
   </section>
 
+  <div class="blueprint alert" id="billAlert" hidden>
+    <span>⚠️ <b id="billAlertText"></b></span>
+    <button class="btn btn-secondary btn-sm" id="billAlertGo" type="button">Ver contas</button>
+  </div>
+
+  <div class="tabs-row">
+    <div class="seg tabs" id="tabSeg" role="group" aria-label="Área">
+      <button type="button" data-tab="lanc" aria-pressed="true">Lançamentos</button>
+      <button type="button" data-tab="contas" aria-pressed="false">Contas a pagar<span class="badge" id="tabBadge" hidden></span></button>
+    </div>
+  </div>
+
+<div id="tabLanc" style="display:contents">
   <section class="stats">
     <div class="blueprint stat">
       <span class="kicker">Entradas</span>
@@ -340,6 +384,36 @@
     </div>
   </section>
 </div>
+
+<div id="tabContas" style="display:contents" hidden>
+  <section class="stats">
+    <div class="blueprint stat">
+      <span class="kicker">Total do mês</span>
+      <span class="big" id="billTotal">R$ 0,00</span>
+      <span class="note" id="billTotalNote"></span>
+    </div>
+    <div class="blueprint stat">
+      <span class="kicker">Já pago</span>
+      <span class="big" id="billPaid" style="color:var(--accent);">R$ 0,00</span>
+      <span class="note" id="billPaidNote"></span>
+    </div>
+    <div class="blueprint stat stat-bal" id="billLeftCard">
+      <span class="kicker">Falta pagar</span>
+      <span class="big" id="billLeft">R$ 0,00</span>
+      <span class="note" id="billLeftNote"></span>
+    </div>
+  </section>
+
+  <section class="blueprint" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-3);">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
+      <h2 style="font-size:22px;text-transform:uppercase;">Contas do mês</h2>
+      <button class="btn btn-primary" id="billNew" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Nova conta</button>
+    </div>
+    <div id="billList"></div>
+    <div id="billEmpty" hidden style="padding:var(--space-6) 0;color:var(--muted);font-size:14px;"></div>
+  </section>
+</div>
+</div>
 </div>
 
 <!-- ============ ADMINISTRAÇÃO ============ -->
@@ -418,6 +492,20 @@
   </div>
 </div>
 
+<!-- ============ JANELA: CONTAS A PAGAR ============ -->
+<div class="dlg-back" id="dlg2" hidden>
+  <div class="blueprint dlg" role="dialog" aria-modal="true" aria-labelledby="dlg2Title">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3);">
+      <div style="min-width:0;">
+        <span class="kicker" id="dlg2Kicker" style="color:var(--accent);"></span>
+        <h2 id="dlg2Title" style="font-size:24px;text-transform:uppercase;margin-top:2px;word-break:break-word;"></h2>
+      </div>
+      <button class="btn btn-secondary btn-icon" id="dlg2Close" type="button" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div id="dlg2Body" style="display:flex;flex-direction:column;gap:var(--space-6);"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="alert" hidden></div>
 
 <script>
@@ -470,8 +558,9 @@ const COLS = 'id,tipo,descricao,categoria,valor,data,user_id';
 const VIEWS = ['viewSetup','viewLoading','viewAuth','viewWait','viewApp','viewAdmin'];
 function show(v){ VIEWS.forEach(id => { $(id).hidden = id !== v; }); window.scrollTo(0,0); }
 let toastTimer;
-function toast(msg){
+function toast(msg, ok){
   $('toast').textContent = msg; $('toast').hidden = false;
+  $('toast').classList.toggle('ok', !!ok);
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, 4500);
 }
 
@@ -632,7 +721,7 @@ async function handleSession(session, force){
     return;
   }
   if (!(await loadControles())) return;
-  await Promise.all([loadMembers(), loadEntries(), loadInvites()]);
+  await Promise.all([loadMembers(), loadEntries(), loadInvites(), loadContas()]);
   show('viewApp');
   render();
   startRealtime();
@@ -721,7 +810,7 @@ async function fetchAllEntries(){
   }
   return all.map(fromRow);
 }
-async function refresh(){ if (await loadEntries()) render(); }
+async function refresh(){ const [ok] = await Promise.all([loadEntries(), loadContas()]); if (ok) render(); }
 
 // dados antigos guardados só neste navegador (versão offline)
 function localPending(){
@@ -788,12 +877,13 @@ $('rows').addEventListener('click', async e => {
   state.entries = state.entries.filter(x => x.id !== id);
   render();
   const { error, count } = await sb.from('lancamentos').delete({ count: 'exact' }).eq('id', id);
-  if (error || count === 0){ state.entries = before; render(); toast('Não foi possível excluir. Tente de novo.'); }
+  if (error || count === 0){ state.entries = before; render(); toast('Não foi possível excluir. Tente de novo.'); return; }
+  if (state.contas.length && await loadContas()) renderContas();   // se era o pagamento de uma conta, ela volta a ficar em aberto
 });
 
 $('ctrlSelect').addEventListener('change', async e => {
   selectControle(e.target.value);
-  state.entries = []; state.members = [];
+  state.entries = []; state.members = []; state.contas = []; state.pags = []; state.partes = {}; state.cmeses = {};
   render();
   await loadMembers(); await refresh();
 });
@@ -849,7 +939,16 @@ function startRealtime(){
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'membros' }, () => rtLater(rtReloadAll))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'convites' }, () => loadInvites())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'contas' }, () => rtContas())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'conta_partes' }, () => rtContas())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'conta_meses' }, () => rtContas())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pagamentos' }, () => rtContas())
     .subscribe(status => { rtOk = status === 'SUBSCRIBED'; });
+}
+let rtContasTimer = null;
+function rtContas(){
+  clearTimeout(rtContasTimer);
+  rtContasTimer = setTimeout(async () => { if (!$('viewApp').hidden && await loadContas()) renderContas(); }, 400);
 }
 function stopRealtime(){
   if (rtChan){ sb.removeChannel(rtChan); rtChan = null; }
@@ -947,6 +1046,8 @@ function render(){
   expList.forEach(e => { byCat[e.cat] = (byCat[e.cat] || 0) + e.amount; });
   const list = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
   const max = list.length ? list[0][1] : 0;
+  renderTabs();
+  renderContas();
   $('cats').innerHTML = list.length ? list.map(([name,v]) => `
     <div style="display:flex;flex-direction:column;gap:5px;">
       <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
@@ -957,12 +1058,549 @@ function render(){
     </div>`).join('') : '<span style="font-size:14px;color:var(--muted);">Sem saídas neste mês.</span>';
 }
 
+/* ======================= CONTAS A PAGAR ======================= */
+const MES_CURTO = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+const mkey = (y, m) => { const d = new Date(y, m, 1); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-01`; };
+const mdiff = (a, b) => (Number(b.slice(0,4)) - Number(a.slice(0,4))) * 12 + (Number(b.slice(5,7)) - Number(a.slice(5,7)));
+const mlabel = k => `${MONTHS[Number(k.slice(5,7)) - 1]} ${k.slice(0,4)}`;
+const r2 = n => Math.round(n * 100) / 100;
+const cents = n => Math.round(n * 100);
+const num = n => n.toFixed(2).replace('.', ',');
+const ddmm = d => `${pad(d.getDate())}/${pad(d.getMonth()+1)}`;
+const myId = () => currentUser ? currentUser.id : null;
+const quem = uid => uid === myId() ? 'você' : nameOf(uid);
+
+Object.assign(state, { tab: 'lanc', contas: [], partes: {}, cmeses: {}, pags: [], pagsMeses: [], contasOk: true });
+try { if (localStorage.getItem('pof-aba') === 'contas') state.tab = 'contas'; } catch(e){}
+
+function ocorre(c, mk){
+  if (c.tipo === 'unica') return mk === c.inicio;
+  const i = mdiff(c.inicio, mk);
+  if (c.tipo === 'parcelada') return i >= 0 && i < c.parcelas;
+  return i >= 0 && (!c.fim || mk <= c.fim);
+}
+
+// A conta num mês: valor, quanto já foi pago, parte de cada um, situação
+function instancia(c, mk){
+  const y = Number(mk.slice(0,4)), m = Number(mk.slice(5,7)) - 1;
+  const due = new Date(y, m, Math.min(c.dia, new Date(y, m + 1, 0).getDate()));
+  const ov = state.cmeses[c.id + '|' + mk];
+  const total = ov != null ? ov : Number(c.valor);
+  const pags = state.pags.filter(p => p.conta_id === c.id && p.mes === mk);
+  const pago = r2(pags.reduce((s, p) => s + Number(p.valor), 0));
+  const falta = Math.max(0, r2(total - pago));
+  const partes = state.partes[c.id] || [];
+  const soma = partes.reduce((s, p) => s + Number(p.peso), 0);
+  let resto = cents(total);
+  const parts = partes.map((p, i) => {
+    const share = i === partes.length - 1 ? resto / 100 : Math.round(cents(total) * Number(p.peso) / soma) / 100;
+    resto -= cents(share);
+    const pg = r2(pags.filter(x => x.user_id === p.user_id).reduce((s, x) => s + Number(x.valor), 0));
+    return { uid: p.user_id, share, pago: pg, falta: Math.max(0, r2(share - pg)) };
+  });
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const days = Math.round((due - hoje) / 86400000);
+  const paid = falta <= 0;
+  // meses de antes do cadastro (ex.: parcelada que já estava na 3ª) não contam como atrasados
+  const antes = c.criado_em && mk < c.criado_em.slice(0, 7) + '-01';
+  const st = paid ? 'paid' : antes ? 'ok' : days < 0 ? 'late' : days <= 3 ? 'soon' : 'ok';
+  const n = c.tipo === 'parcelada' ? mdiff(c.inicio, mk) + 1 : null;
+  return { c, mk, due, days, total, pago: Math.min(pago, total), falta, pags, parts, paid, st, n, ov: ov != null, antes };
+}
+const tipoTxt = i => i.c.tipo === 'parcelada' ? `${i.n}/${i.c.parcelas}` : i.c.tipo === 'fixa' ? 'Fixa' : 'Única';
+
+let contasSeq = 0;
+async function loadContas(){
+  const seq = ++contasSeq;
+  if (!state.cid){ state.contas = []; return true; }
+  const cid = state.cid;
+  const { data: cs, error } = await sb.from('contas').select('*').eq('controle_id', cid).order('dia').order('nome');
+  if (seq !== contasSeq) return false;
+  if (error){
+    const faltaBanco = ['42P01','PGRST205','PGRST200'].includes(error.code) || /does not exist|could not find the table|schema cache/i.test(error.message || '');
+    state.contasOk = !faltaBanco; state.contas = [];
+    return faltaBanco;
+  }
+  const t = new Date();
+  const meses = [...new Set([mkey(state.y, state.m), mkey(t.getFullYear(), t.getMonth()), mkey(t.getFullYear(), t.getMonth() - 1), mkey(t.getFullYear(), t.getMonth() - 2)])];
+  const ids = cs.map(c => c.id);
+  const vazio = Promise.resolve({ data: [] });
+  const [pr, mr, gr] = await Promise.all([
+    ids.length ? sb.from('conta_partes').select('conta_id,user_id,peso').in('conta_id', ids) : vazio,
+    ids.length ? sb.from('conta_meses').select('conta_id,mes,valor').in('conta_id', ids) : vazio,
+    ids.length ? sb.from('pagamentos').select('id,conta_id,mes,user_id,valor,data,criado_em').eq('controle_id', cid).in('mes', meses).order('criado_em') : vazio
+  ]);
+  if (seq !== contasSeq) return false;
+  if (pr.error || mr.error || gr.error){ toast('Não foi possível carregar as contas a pagar.'); return false; }
+  state.contasOk = true;
+  state.contas = cs;
+  state.partes = {};
+  pr.data.forEach(p => (state.partes[p.conta_id] = state.partes[p.conta_id] || []).push(p));
+  Object.values(state.partes).forEach(l => l.sort((a, b) => a.user_id.localeCompare(b.user_id)));
+  state.cmeses = {};
+  mr.data.forEach(x => { state.cmeses[x.conta_id + '|' + x.mes] = Number(x.valor); });
+  state.pags = gr.data;
+  state.pagsMeses = meses;
+  return true;
+}
+
+function alertas(){
+  const t = new Date();
+  let late = 0, hoje = 0, primeiro = null;
+  [-2, -1, 0].map(k => mkey(t.getFullYear(), t.getMonth() + k)).forEach(mk => {
+    if (!state.pagsMeses.includes(mk)) return;
+    state.contas.forEach(c => {
+      if (!ocorre(c, mk)) return;
+      const i = instancia(c, mk);
+      if (i.paid || i.antes || i.days > 0) return;
+      if (i.days < 0) late++; else hoje++;
+      if (!primeiro || mk < primeiro) primeiro = mk;
+    });
+  });
+  return { late, hoje, primeiro };
+}
+
+function renderTabs(){
+  document.querySelectorAll('#tabSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === state.tab)));
+  $('tabLanc').hidden = state.tab !== 'lanc';
+  $('tabContas').hidden = state.tab !== 'contas';
+  $('export').hidden = state.tab !== 'lanc';
+}
+function setTab(t){
+  state.tab = t;
+  try { localStorage.setItem('pof-aba', t); } catch(e){}
+  renderTabs();
+}
+document.querySelectorAll('#tabSeg button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+$('billAlertGo').onclick = () => {
+  const { primeiro } = alertas();
+  setTab('contas');
+  if (primeiro){ state.y = Number(primeiro.slice(0,4)); state.m = Number(primeiro.slice(5,7)) - 1; render(); refresh(); }
+};
+
+function partsLine(i){
+  return i.parts.map(p => `${esc(quem(p.uid))} ${p.falta <= 0 ? '<span style="color:var(--accent)">✓</span>' : 'falta ' + brl(p.falta)}`).join(' · ');
+}
+
+function renderContas(){
+  const { late, hoje } = alertas();
+  const n = late + hoje;
+  $('tabBadge').hidden = !n; $('tabBadge').textContent = n;
+  $('billAlert').hidden = !n;
+  $('billAlertText').textContent = [
+    late ? `${plural(late, 'conta')} ${late === 1 ? 'vencida' : 'vencidas'}` : '',
+    hoje ? `${hoje} ${hoje === 1 ? 'conta vence' : 'contas vencem'} hoje` : ''
+  ].filter(Boolean).join(' · ');
+
+  if (!state.contasOk){
+    $('billNew').disabled = true;
+    $('billList').innerHTML = '';
+    $('billEmpty').hidden = false;
+    $('billEmpty').textContent = 'As contas a pagar ainda não foram ativadas no banco. Rode o arquivo supabase-contas.sql no SQL Editor do Supabase e recarregue a página.';
+    ['billTotal','billPaid','billLeft'].forEach(id => { $(id).textContent = brl(0); });
+    ['billTotalNote','billPaidNote','billLeftNote'].forEach(id => { $(id).textContent = ''; });
+    return;
+  }
+  $('billNew').disabled = false;
+  const mk = mkey(state.y, state.m);
+  const me = myId();
+  const list = state.contas.filter(c => ocorre(c, mk)).map(c => instancia(c, mk))
+    .sort((a, b) => (a.paid - b.paid) || (a.due - b.due) || a.c.nome.localeCompare(b.c.nome));
+  const total = r2(list.reduce((s, i) => s + i.total, 0));
+  const pago = r2(list.reduce((s, i) => s + i.pago, 0));
+  const falta = r2(list.reduce((s, i) => s + i.falta, 0));
+  const pagas = list.filter(i => i.paid).length;
+  const minhas = list.filter(i => i.parts.some(p => p.uid === me));
+  const minhaFalta = r2(minhas.reduce((s, i) => s + i.parts.filter(p => p.uid === me).reduce((a, p) => a + Math.min(p.falta, i.falta), 0), 0));
+
+  $('billTotal').textContent = brl(total);
+  $('billTotalNote').textContent = plural(list.length, 'conta');
+  $('billPaid').textContent = brl(pago);
+  $('billPaidNote').textContent = list.length ? `${pagas} de ${list.length} ${list.length === 1 ? 'paga' : 'pagas'}` : '';
+  $('billLeft').textContent = brl(falta);
+  $('billLeftNote').textContent = !list.length ? 'Nenhuma conta neste mês'
+    : falta <= 0 ? 'Tudo pago ✓'
+    : minhas.length ? `Minha parte: falta ${brl(minhaFalta)}`
+    : `${plural(list.length - pagas, 'conta')} em aberto`;
+
+  $('billEmpty').hidden = list.length > 0;
+  $('billEmpty').textContent = 'Nenhuma conta neste mês. Toque em "Nova conta" para cadastrar aluguel, luz, cartão…';
+  $('billList').innerHTML = list.map(i => {
+    const c = i.c;
+    const tag = i.paid ? '<span class="tag tag-neutral">Paga ✓</span>'
+      : i.st === 'late' ? `<span class="tag tag-red">Vencida</span>`
+      : i.antes ? ''
+      : i.days === 0 ? '<span class="tag tag-accent">Vence hoje</span>'
+      : i.st === 'soon' ? `<span class="tag tag-accent">Vence em ${plural(i.days, 'dia')}</span>`
+      : i.pago > 0 ? '<span class="tag tag-neutral">Parcial</span>' : '';
+    const linha2 = [esc(c.categoria), `vence ${ddmm(i.due)}`, (!i.paid && i.pago > 0) ? `pago ${brl(i.pago)} de ${brl(i.total)}` : ''].filter(Boolean).join(' · ');
+    return `
+    <div class="bill ${i.st}" data-bill="${esc(c.id)}">
+      <div class="bill-day"><b>${i.due.getDate()}</b><small>${MES_CURTO[i.due.getMonth()]}</small></div>
+      <div style="min-width:0;">
+        <div class="bill-name">${esc(c.nome)} <span class="tag tag-neutral">${tipoTxt(i)}</span></div>
+        <div class="by">${linha2}</div>
+        ${i.parts.length ? `<div class="by">${partsLine(i)}</div>` : ''}
+        ${!i.paid && i.pago > 0 ? `<div class="prog"><div style="width:${Math.min(100, i.pago / i.total * 100)}%"></div></div>` : ''}
+      </div>
+      <div class="bill-side">
+        <span class="bill-val">${brl(i.total)}</span>
+        <span style="display:flex;gap:6px;align-items:center;">${tag}${i.paid ? '' : `<button class="btn btn-primary btn-sm" data-pay="${esc(c.id)}" type="button">Pagar</button>`}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+$('billList').addEventListener('click', e => {
+  const pay = e.target.closest('[data-pay]');
+  if (pay) return openPay(pay.dataset.pay);
+  const row = e.target.closest('[data-bill]');
+  if (row) openBill(row.dataset.bill);
+});
+$('billNew').onclick = () => openBillForm(null);
+
+/* ---------- janela ---------- */
+let dlg2 = {};   // o que está aberto na janela: { tipo, id, mk }
+function openDlg2(kicker, title, html, ctx){
+  $('dlg2Kicker').textContent = kicker;
+  $('dlg2Title').textContent = title;
+  $('dlg2Body').innerHTML = html;
+  $('dlg2').hidden = false;
+  dlg2 = ctx || {};
+}
+function closeDlg2(){ $('dlg2').hidden = true; dlg2 = {}; }
+$('dlg2Close').onclick = closeDlg2;
+$('dlg2').addEventListener('click', e => { if (e.target.id === 'dlg2') closeDlg2(); });
+
+const findConta = id => state.contas.find(c => c.id === id);
+
+function openPay(id){
+  const c = findConta(id); if (!c) return;
+  const mk = mkey(state.y, state.m);
+  const i = instancia(c, mk);
+  if (i.paid) return toast('Essa conta já está paga.');
+  const minha = i.parts.find(p => p.uid === myId());
+  const minhaFalta = minha ? Math.min(minha.falta, i.falta) : 0;
+  const sugere = minhaFalta > 0 ? minhaFalta : i.falta;
+  openDlg2(`Pagar · ${mlabel(mk)}`, c.nome + (i.n ? ` ${i.n}/${c.parcelas}` : ''), `
+    <div class="dlg-sec">
+      <div class="kv"><span>Valor do mês</span><b>${brl(i.total)}</b></div>
+      ${i.pago > 0 ? `<div class="kv"><span>Já pago</span><b>${brl(i.pago)}</b></div>` : ''}
+      <div class="kv"><span>Falta pagar</span><b style="color:var(--accent);">${brl(i.falta)}</b></div>
+      ${i.parts.length ? `<div class="kv"><span>Divisão</span><b style="text-align:right;font-weight:500;">${partsLine(i)}</b></div>` : ''}
+    </div>
+    <div class="dlg-sec" style="gap:var(--space-3);">
+      <div class="field">
+        <label for="payVal">Quanto você está pagando (R$)</label>
+        <input class="input" id="payVal" inputmode="decimal" value="${num(sugere)}" style="font-variant-numeric:tabular-nums;">
+      </div>
+      ${minhaFalta > 0 && minhaFalta < i.falta ? `
+      <div class="row" style="flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" type="button" data-fill="${num(minhaFalta)}">Minha parte · ${brl(minhaFalta)}</button>
+        <button class="btn btn-secondary btn-sm" type="button" data-fill="${num(i.falta)}">Tudo que falta · ${brl(i.falta)}</button>
+      </div>` : ''}
+      <div class="field">
+        <label for="payDate">Data do pagamento</label>
+        <input class="input" id="payDate" type="date" value="${todayISO()}">
+      </div>
+      <p class="hint">Dá para pagar só uma parte. O valor entra como saída em Lançamentos, no seu nome.</p>
+    </div>
+    <button class="btn btn-primary" type="button" data-act="confirmPay" style="min-height:42px;">Confirmar pagamento</button>`,
+    { tipo: 'pay', id, mk });
+}
+
+function openBill(id){
+  const c = findConta(id); if (!c) return closeDlg2();
+  const mk = mkey(state.y, state.m);
+  if (!ocorre(c, mk)) return closeDlg2();
+  const i = instancia(c, mk);
+  const mine = c.criado_por === myId();
+  const tipoLonga = c.tipo === 'parcelada' ? `Parcela ${i.n} de ${c.parcelas}`
+    : c.tipo === 'fixa' ? `Todo mês desde ${mlabel(c.inicio)}${c.fim ? ` até ${mlabel(c.fim)}` : ''}`
+    : `Só em ${mlabel(c.inicio)}`;
+  const status = i.paid ? 'Paga ✓' : i.st === 'late' ? '<span style="color:#ff8a8d;">Vencida</span>'
+    : i.antes ? (i.pago > 0 ? `Parcial · falta ${brl(i.falta)}` : 'Em aberto')
+    : i.days === 0 ? '<span style="color:var(--accent);">Vence hoje</span>'
+    : i.pago > 0 ? `Parcial · falta ${brl(i.falta)}` : `Em aberto · vence em ${plural(i.days, 'dia')}`;
+  openDlg2(`Conta · ${mlabel(mk)}`, c.nome, `
+    <div class="dlg-sec">
+      <div class="kv"><span>Valor ${i.ov ? 'deste mês (ajustado)' : 'do mês'}</span><b>${brl(i.total)}</b></div>
+      <div class="kv"><span>Vencimento</span><b>${ddmm(i.due)}</b></div>
+      <div class="kv"><span>Situação</span><b>${status}</b></div>
+      <div class="kv"><span>Tipo</span><b>${tipoLonga}</b></div>
+      <div class="kv"><span>Categoria</span><b>${esc(c.categoria)}</b></div>
+      ${isShared() ? `<div class="kv"><span>Criada por</span><b>${esc(quem(c.criado_por))}</b></div>` : ''}
+    </div>
+    ${i.parts.length ? `
+    <div class="dlg-sec">
+      <h3>Divisão</h3>
+      ${i.parts.map(p => `<div class="person"><span>${esc(quem(p.uid))}</span><span>${brl(p.share)} ${p.falta <= 0 ? '<span class="tag tag-accent">Pago ✓</span>' : p.pago > 0 ? `<span class="tag tag-neutral">falta ${brl(p.falta)}</span>` : '<span class="tag tag-neutral">em aberto</span>'}</span></div>`).join('')}
+    </div>` : ''}
+    <div class="dlg-sec">
+      <h3>Pagamentos deste mês</h3>
+      ${i.pags.length ? i.pags.map(p => {
+        const d = p.data.split('-');
+        return `<div class="person"><span>${d[2]}/${d[1]} · ${esc(quem(p.user_id))} · <b>${brl(Number(p.valor))}</b></span>
+          ${p.user_id === myId() ? `<button class="btn btn-secondary btn-sm" type="button" data-act="undo" data-id="${esc(p.id)}">Desfazer</button>` : ''}</div>`;
+      }).join('') : '<p class="hint">Nenhum pagamento ainda.</p>'}
+    </div>
+    <div class="row" style="flex-wrap:wrap;">
+      ${i.paid ? '' : '<button class="btn btn-primary" type="button" data-act="pay">Pagar</button>'}
+      ${mine ? '<button class="btn btn-secondary" type="button" data-act="edit">Editar</button>' : ''}
+      ${mine && c.tipo !== 'unica' ? '<button class="btn btn-secondary" type="button" data-act="monthVal">Valor só deste mês</button>' : ''}
+    </div>
+    ${mine ? `
+    <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
+      <h3>Encerrar ou excluir</h3>
+      <div class="row" style="flex-wrap:wrap;">
+        ${c.tipo === 'fixa' ? '<button class="btn btn-secondary" type="button" data-act="end">Encerrar a partir deste mês</button>' : ''}
+        <button class="btn btn-danger" type="button" data-act="del">Excluir conta</button>
+      </div>
+      <p class="hint">${c.tipo === 'fixa' ? 'Encerrar mantém os meses anteriores. ' : ''}Excluir apaga a conta em todos os meses. As saídas que já foram lançadas continuam em Lançamentos.</p>
+    </div>` : `<p class="hint">Só ${esc(quem(c.criado_por))} (quem criou) pode editar ou excluir esta conta.</p>`}`,
+    { tipo: 'bill', id, mk });
+}
+
+/* ---------- nova / editar conta ---------- */
+let bf = {};   // estado do formulário
+function openBillForm(c){
+  const mk = mkey(state.y, state.m);
+  const shared = isShared();
+  const partes = c ? (state.partes[c.id] || []) : [];
+  const iguais = partes.every(p => Number(p.peso) === Number((partes[0] || {}).peso));
+  bf = { c, tipo: c ? c.tipo : 'fixa', dividir: partes.length > 0, modo: partes.length && !iguais ? 'valores' : 'iguais' };
+  const cats = CATS.exp.includes(c && c.categoria) || !c ? CATS.exp : [c.categoria, ...CATS.exp];
+  const parcAtual = c && c.tipo === 'parcelada' ? Math.max(1, Math.min(c.parcelas, mdiff(c.inicio, mk) + 1)) : 1;
+  const membros = state.members.length ? state.members : [{ user_id: myId(), login: currentUser.email }];
+  const peso = uid => { const p = partes.find(x => x.user_id === uid); return p ? Number(p.peso) : 0; };
+  openDlg2(c ? 'Editar conta' : `Nova conta · a partir de ${mlabel(mk)}`, c ? c.nome : 'Nova conta', `
+    <form id="billForm" novalidate style="display:flex;flex-direction:column;gap:var(--space-4);">
+      <div class="field">
+        <label for="bfNome">Nome</label>
+        <input class="input" id="bfNome" maxlength="60" placeholder="Ex.: Aluguel, Luz, Cartão" value="${c ? esc(c.nome) : ''}" autocomplete="off">
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="bfValor">Valor (R$)</label>
+          <input class="input" id="bfValor" inputmode="decimal" placeholder="0,00" value="${c ? num(Number(c.valor)) : ''}">
+        </div>
+        <div class="field">
+          <label for="bfDia">Vence todo dia</label>
+          <input class="input" id="bfDia" type="number" inputmode="numeric" min="1" max="31" placeholder="Ex.: 10" value="${c ? c.dia : ''}">
+        </div>
+      </div>
+      <div class="field">
+        <label for="bfCat">Categoria</label>
+        <select class="input" id="bfCat">${cats.map(x => `<option${c && c.categoria === x ? ' selected' : (!c && x === 'Contas' ? ' selected' : '')}>${esc(x)}</option>`).join('')}</select>
+      </div>
+      <div class="field">
+        <label>Tipo</label>
+        <div class="seg" id="bfTipo" role="group" aria-label="Tipo de conta" style="max-width:100%;overflow-x:auto;">
+          <button type="button" data-tipo="fixa">Fixa</button>
+          <button type="button" data-tipo="parcelada">Parcelada</button>
+          <button type="button" data-tipo="unica">Só este mês</button>
+        </div>
+      </div>
+      <div class="grid2" id="bfParc">
+        <div class="field">
+          <label for="bfParcTot">Total de parcelas</label>
+          <input class="input" id="bfParcTot" type="number" inputmode="numeric" min="2" max="240" placeholder="Ex.: 10" value="${c && c.parcelas ? c.parcelas : ''}">
+        </div>
+        <div class="field">
+          <label for="bfParcAt">Parcela deste mês</label>
+          <input class="input" id="bfParcAt" type="number" inputmode="numeric" min="1" max="240" value="${parcAtual}">
+        </div>
+      </div>
+      <p class="hint" id="bfTipoHint" style="margin:0;font-size:13px;color:var(--muted);"></p>
+      ${shared ? `
+      <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;gap:var(--space-3);">
+        <label class="chk"><input type="checkbox" id="bfDiv"${bf.dividir ? ' checked' : ''}> Dividir entre participantes</label>
+        <div id="bfDivBox" style="display:flex;flex-direction:column;gap:var(--space-2);">
+          <div class="seg" id="bfModo" role="group" aria-label="Como dividir" style="align-self:flex-start;">
+            <button type="button" data-modo="iguais">Partes iguais</button>
+            <button type="button" data-modo="valores">Valor de cada um</button>
+          </div>
+          ${membros.map(p => `
+          <div class="person" style="word-break:normal;">
+            <label class="chk" style="min-width:0;"><input type="checkbox" data-pu="${esc(p.user_id)}"${!c || !partes.length || peso(p.user_id) ? ' checked' : ''}> <span style="overflow:hidden;text-overflow:ellipsis;">${esc(quem(p.user_id))}</span></label>
+            <span class="by" data-ps="${esc(p.user_id)}" style="margin:0;white-space:nowrap;"></span>
+            <input class="input" data-pv="${esc(p.user_id)}" inputmode="decimal" placeholder="0,00" value="${peso(p.user_id) && bf.modo === 'valores' ? num(peso(p.user_id)) : ''}" style="width:120px;flex:none;">
+          </div>`).join('')}
+          <p class="hint" id="bfDivHint"></p>
+        </div>
+      </div>` : ''}
+      <button class="btn btn-primary" type="submit" id="bfSave" style="min-height:42px;">${c ? 'Salvar alterações' : 'Adicionar conta'}</button>
+    </form>`, { tipo: 'form', id: c ? c.id : null, mk });
+  bfUpdate();
+}
+
+function bfUpdate(){
+  const mk = dlg2.mk;
+  document.querySelectorAll('#bfTipo button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tipo === bf.tipo)));
+  $('bfParc').hidden = bf.tipo !== 'parcelada';
+  const ini = bf.c && bf.c.tipo === bf.tipo && bf.tipo !== 'parcelada' ? bf.c.inicio : mk;
+  $('bfTipoHint').textContent = bf.tipo === 'fixa' ? `Aparece todo mês a partir de ${mlabel(ini)}, até você encerrar.`
+    : bf.tipo === 'unica' ? `Aparece só em ${mlabel(ini)}.`
+    : 'Aparece mês a mês até a última parcela.';
+  if (!$('bfDiv')) return;
+  const on = $('bfDiv').checked;
+  $('bfDivBox').hidden = !on;
+  if (!on) return;
+  document.querySelectorAll('#bfModo button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.modo === bf.modo)));
+  const valor = parseAmount($('bfValor').value);
+  const iguais = bf.modo === 'iguais';
+  const marcados = [...document.querySelectorAll('[data-pu]')].filter(x => x.checked).map(x => x.dataset.pu);
+  document.querySelectorAll('[data-pu]').forEach(x => { x.disabled = !iguais; x.style.visibility = iguais ? '' : 'hidden'; });
+  document.querySelectorAll('[data-pv]').forEach(x => { x.hidden = iguais; });
+  document.querySelectorAll('[data-ps]').forEach(x => {
+    x.hidden = !iguais;
+    x.textContent = marcados.includes(x.dataset.ps) && valor > 0 ? brl(valor / marcados.length) : '';
+  });
+  const hint = $('bfDivHint');
+  if (iguais){
+    hint.style.color = '';
+    hint.textContent = marcados.length ? `Cada um paga ${valor > 0 ? brl(valor / marcados.length) : 'a mesma parte'}.` : 'Marque quem divide a conta.';
+  } else {
+    const soma = r2([...document.querySelectorAll('[data-pv]')].reduce((s, x) => s + (parseAmount(x.value) || 0), 0));
+    const ok = valor > 0 && Math.abs(soma - valor) < 0.005;
+    hint.style.color = ok ? '' : '#ff8a8d';
+    hint.textContent = `Soma das partes: ${brl(soma)} de ${valor > 0 ? brl(valor) : 'R$ —'}`;
+  }
+}
+
+$('dlg2Body').addEventListener('input', e => { if (dlg2.tipo === 'form') bfUpdate(); });
+$('dlg2Body').addEventListener('change', e => { if (dlg2.tipo === 'form') bfUpdate(); });
+
+$('dlg2Body').addEventListener('submit', async e => {
+  if (e.target.id !== 'billForm') return;
+  e.preventDefault();
+  const c = bf.c, mk = dlg2.mk;
+  const nome = $('bfNome').value.trim();
+  const valor = parseAmount($('bfValor').value);
+  const dia = parseInt($('bfDia').value, 10);
+  if (!nome) return toast('Dê um nome para a conta.');
+  if (!(valor > 0)) return toast('Informe o valor da conta.');
+  if (!(dia >= 1 && dia <= 31)) return toast('O dia do vencimento vai de 1 a 31.');
+  let inicio = c && c.tipo === bf.tipo && bf.tipo !== 'parcelada' ? c.inicio : mk;
+  let parcelas = null;
+  if (bf.tipo === 'parcelada'){
+    parcelas = parseInt($('bfParcTot').value, 10);
+    const at = parseInt($('bfParcAt').value, 10);
+    if (!(parcelas >= 2 && parcelas <= 240)) return toast('O total de parcelas vai de 2 a 240.');
+    if (!(at >= 1 && at <= parcelas)) return toast(`A parcela deste mês vai de 1 a ${parcelas}.`);
+    const d = new Date(state.y, state.m - (at - 1), 1);
+    inicio = mkey(d.getFullYear(), d.getMonth());
+  }
+  let partes = [];
+  if ($('bfDiv') && $('bfDiv').checked){
+    if (bf.modo === 'iguais'){
+      partes = [...document.querySelectorAll('[data-pu]')].filter(x => x.checked).map(x => ({ user_id: x.dataset.pu, peso: 1 }));
+      if (!partes.length) return toast('Marque quem divide a conta.');
+    } else {
+      partes = [...document.querySelectorAll('[data-pv]')].map(x => ({ user_id: x.dataset.pv, peso: parseAmount(x.value) || 0 })).filter(p => p.peso > 0);
+      const soma = r2(partes.reduce((s, p) => s + p.peso, 0));
+      if (!partes.length) return toast('Coloque o valor de cada pessoa.');
+      if (Math.abs(soma - valor) >= 0.005) return toast(`A soma das partes (${brl(soma)}) precisa dar o valor da conta (${brl(valor)}).`);
+    }
+  }
+  const btn = $('bfSave'); btn.disabled = true;
+  const { error } = await sb.rpc('salvar_conta', {
+    p_id: c ? c.id : null, cid: state.cid, p_nome: nome, p_categoria: $('bfCat').value, p_valor: valor,
+    p_dia: dia, p_tipo: bf.tipo, p_inicio: inicio, p_parcelas: parcelas, p_partes: partes
+  });
+  if (error){ btn.disabled = false; return toast(rpcMsg(error)); }
+  closeDlg2();
+  toast(c ? 'Conta atualizada.' : 'Conta adicionada.', true);
+  if (await loadContas()) renderContas();
+});
+
+$('dlg2Body').addEventListener('click', async e => {
+  const fill = e.target.closest('[data-fill]');
+  if (fill){ $('payVal').value = fill.dataset.fill; return; }
+  const tb = e.target.closest('#bfTipo button');
+  if (tb){ bf.tipo = tb.dataset.tipo; return bfUpdate(); }
+  const mb = e.target.closest('#bfModo button');
+  if (mb){
+    bf.modo = mb.dataset.modo;
+    if (bf.modo === 'valores'){
+      // começa preenchido com a divisão igual entre os marcados
+      const valor = parseAmount($('bfValor').value);
+      const marc = [...document.querySelectorAll('[data-pu]')].filter(x => x.checked).map(x => x.dataset.pu);
+      const vazios = [...document.querySelectorAll('[data-pv]')].every(x => !x.value.trim());
+      if (vazios && valor > 0 && marc.length){
+        let resto = cents(valor);
+        marc.forEach((uid, k) => {
+          const v = k === marc.length - 1 ? resto / 100 : Math.round(cents(valor) / marc.length) / 100;
+          resto -= cents(v);
+          const inp = document.querySelector(`[data-pv="${uid}"]`); if (inp) inp.value = num(v);
+        });
+      }
+    }
+    return bfUpdate();
+  }
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const a = b.dataset.act, id = dlg2.id, mk = dlg2.mk;
+  const c = findConta(id);
+  let res;
+  if (a === 'confirmPay'){
+    const v = parseAmount($('payVal').value);
+    if (!(v > 0)) return toast('Informe um valor maior que zero.');
+    b.disabled = true;
+    res = await sb.rpc('pagar_conta', { conta: id, p_mes: mk, p_valor: v, p_data: $('payDate').value || todayISO() });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    closeDlg2();
+    toast(`Pagamento de ${brl(v)} registrado e lançado como saída.`, true);
+    return refresh();
+  }
+  if (!c) return closeDlg2();
+  if (a === 'pay') return openPay(id);
+  if (a === 'edit') return openBillForm(c);
+  if (a === 'undo'){
+    if (!confirm('Desfazer este pagamento?\n\nA saída que ele criou em Lançamentos também será apagada.')) return;
+    b.disabled = true;
+    res = await sb.rpc('desfazer_pagamento', { pag: b.dataset.id });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    toast('Pagamento desfeito.', true);
+    await refresh(); return openBill(id);
+  }
+  if (a === 'monthVal'){
+    const i = instancia(c, mk);
+    const v = prompt(`Valor de "${c.nome}" só em ${mlabel(mk)} (R$).\nDeixe em branco para voltar ao valor normal (${brl(Number(c.valor))}).`, num(i.total));
+    if (v === null) return;
+    const val = v.trim() ? parseAmount(v) : null;
+    if (val !== null && !(val > 0)) return toast('Informe um valor maior que zero.');
+    res = await sb.rpc('valor_do_mes', { conta: id, p_mes: mk, p_valor: val });
+    if (res.error) return toast(rpcMsg(res.error));
+    if (await loadContas()) renderContas();
+    return openBill(id);
+  }
+  if (a === 'end'){
+    if (!confirm(`Encerrar "${c.nome}" a partir de ${mlabel(mk)}?\n\nEla deixa de aparecer deste mês em diante. Os meses anteriores continuam como estão.`)) return;
+    res = await sb.rpc('encerrar_conta', { conta: id, p_mes: mk });
+    if (res.error) return toast(rpcMsg(res.error));
+    closeDlg2(); toast('Conta encerrada.', true);
+    if (await loadContas()) renderContas();
+    return;
+  }
+  if (a === 'del'){
+    if (!confirm(`Excluir "${c.nome}" de todos os meses?\n\nAs saídas já lançadas continuam em Lançamentos. Não dá para desfazer.`)) return;
+    res = await sb.rpc('excluir_conta', { conta: id });
+    if (res.error) return toast(rpcMsg(res.error));
+    closeDlg2(); toast('Conta excluída.', true);
+    if (await loadContas()) renderContas();
+  }
+});
+
 /* ======================= PESSOAS E CONVITES ======================= */
 const fmtDateTime = iso => new Date(iso).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
 function closeDlg(){ $('dlg').hidden = true; }
 $('dlgClose').onclick = closeDlg;
 $('dlg').addEventListener('click', e => { if (e.target.id === 'dlg') closeDlg(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('dlg').hidden) closeDlg(); });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!$('dlg2').hidden) closeDlg2(); else if (!$('dlg').hidden) closeDlg();
+});
 
 async function openManage(){
   const c = current();

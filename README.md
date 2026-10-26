@@ -11,6 +11,7 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   1. `supabase-setup.sql` — contas, aprovação e regras de segurança;
   2. `supabase-controles.sql` — controles compartilhados (casal/família).
   3. `supabase-tempo-real.sql` — atualização na hora entre as pessoas do mesmo controle.
+  4. `supabase-contas.sql` — aba Contas a pagar (fixas, parceladas, divisão e pagamento parcial).
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.
 - **Marca:** pasta `logo/` (SVG e PNG).
 
