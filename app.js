@@ -1,0 +1,1577 @@
+// Pra Onde Foi? — código do app
+/* =====================================================================
+   CONFIGURAÇÃO — cole aqui os dados do seu projeto Supabase
+   (Project Settings → API). A chave "anon public" pode ficar no código.
+   NUNCA coloque aqui a chave "service_role".
+   ===================================================================== */
+const SUPABASE_URL = 'https://syffvgczgukoickcprni.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_r8xTsMwtJbJ64IVZP5-RBw_S53BVlkr';
+
+const KEY = 'cf-lancamentos-v1';        // dados antigos, salvos só neste aparelho
+const IMPORTED_KEY = 'cf-importado-v1';
+const BKEY = 'cf-orcamento-v1';
+const CATS = {
+  exp: ['Mercado','Moradia','Contas','Transporte','Saúde','Lazer','Educação','Outros'],
+  inc: ['Salário','Renda extra','Outros']
+};
+const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const brl = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const pad = n => String(n).padStart(2,'0');
+const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const plural = (n,w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const $ = id => document.getElementById(id);
+const REDIRECT = location.origin + location.pathname;
+
+// Login por nome de usuário: o Supabase exige e-mail, então "maria"
+// vira "maria@usuarios.local" por baixo dos panos (nenhum e-mail é enviado).
+const USER_DOMAIN = 'usuarios.local';
+function toLoginEmail(input){
+  const v = String(input || '').trim().toLowerCase();
+  if (v.includes('@')) return /^\S+@\S+\.\S+$/.test(v) ? v : null;
+  return /^[a-z0-9._-]{3,30}$/.test(v) ? `${v}@${USER_DOMAIN}` : null;
+}
+const isUsernameLogin = email => String(email || '').endsWith('@' + USER_DOMAIN);
+const displayName = email => isUsernameLogin(email) ? email.slice(0, -(USER_DOMAIN.length + 1)) : (email || '');
+
+function parseAmount(s){
+  s = String(s || '').replace(/[^\d.,]/g,'');
+  if (s.includes(',')) s = s.replace(/\./g,'').replace(',','.');
+  const n = parseFloat(s);
+  return isFinite(n) ? Math.round(n*100)/100 : NaN;
+}
+const fromRow = r => ({id:r.id, type:r.tipo, desc:r.descricao, cat:r.categoria, amount:Number(r.valor), date:r.data, uid:r.user_id});
+const toRow = e => ({tipo:e.type, descricao:e.desc, categoria:e.cat, valor:e.amount, data:e.date});
+const COLS = 'id,tipo,descricao,categoria,valor,data,user_id';
+
+// ---------- telas ----------
+const VIEWS = ['viewSetup','viewLoading','viewAuth','viewWait','viewApp','viewAdmin'];
+function show(v){ VIEWS.forEach(id => { $(id).hidden = id !== v; }); window.scrollTo(0,0); }
+let toastTimer;
+function toast(msg, ok){
+  $('toast').textContent = msg; $('toast').hidden = false;
+  $('toast').classList.toggle('ok', !!ok);
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, 4500);
+}
+
+const configured = !SUPABASE_URL.startsWith('COLE') && !SUPABASE_ANON_KEY.startsWith('COLE');
+const sb = configured && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+const now = new Date();
+const state = {
+  entries: [],
+  controles: [], cid: null, members: [], invites: [],
+  y: now.getFullYear(), m: now.getMonth(),
+  type: 'exp',
+  budget: Number(localStorage.getItem(BKEY) || 0) || 0
+};
+let currentUser = null, profile = null;
+
+/* ======================= LOGIN ======================= */
+let authMode = 'entrar', recovering = false;
+function authMsg(text, kind){ $('authMsg').textContent = text || ''; $('authMsg').className = 'msg ' + (kind || ''); }
+function setAuthMode(m){
+  authMode = m;
+  document.querySelectorAll('#authSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+  const special = m === 'esqueci' || m === 'nova';
+  $('authSeg').hidden = special;
+  $('authHeading').hidden = !special;
+  $('authHeading').textContent = m === 'nova' ? 'Crie uma nova senha' : 'Recuperar senha';
+  $('authEmailWrap').hidden = m === 'nova';
+  $('authPassWrap').hidden = m === 'esqueci';
+  $('authPassLabel').textContent = m === 'nova' ? 'Nova senha' : 'Senha';
+  $('authPass').autocomplete = (m === 'criar' || m === 'nova') ? 'new-password' : 'current-password';
+  $('authSubmit').textContent = {entrar:'Entrar', criar:'Criar conta', esqueci:'Enviar link de recuperação', nova:'Salvar nova senha'}[m];
+  $('forgot').hidden = m !== 'entrar';
+  $('backLogin').hidden = m !== 'esqueci';
+  $('googleWrap').hidden = !googleOn || special;
+  authMsg('');
+}
+document.querySelectorAll('#authSeg button').forEach(b => b.addEventListener('click', () => setAuthMode(b.dataset.mode)));
+$('forgot').onclick = () => setAuthMode('esqueci');
+$('backLogin').onclick = () => setAuthMode('entrar');
+
+function translateError(err){
+  const msg = (err && (err.message || err.error_description)) || String(err);
+  if (/invalid login credentials/i.test(msg)) return 'Usuário ou senha incorretos.';
+  if (/not confirmed/i.test(msg)) return 'Confirme seu e-mail pelo link que enviamos antes de entrar.';
+  if (/already registered|already been registered|already exists/i.test(msg)) return 'Esse usuário já existe. Use "Entrar" ou escolha outro nome.';
+  if (/email address .* invalid|invalid email/i.test(msg)) return 'Esse nome de usuário não foi aceito. Tente só letras e números.';
+  if (/email rate limit/i.test(msg)) return 'O Supabase atingiu o limite de envio de e-mails. Desligue "Confirm email" em Authentication → Sign In / Providers → Email e tente de novo em alguns minutos.';
+  if (/rate limit|security purposes|too many/i.test(msg)) return 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo. (' + msg + ')';
+  if (/should contain|weak|pwned|leaked|compromised/i.test(msg)) return 'O Supabase recusou essa senha pelas regras dele: ' + msg;
+  if (/at least \d+ characters|password should be at least/i.test(msg)) return 'A senha é curta demais para as regras do Supabase: ' + msg;
+  if (/same password|different from the old/i.test(msg)) return 'A nova senha precisa ser diferente da anterior.';
+  if (/already linked|identity_already_exists|already exists for another user/i.test(msg)) return 'Essa conta Google já está ligada a outro usuário do app.';
+  if (/manual linking/i.test(msg)) return 'Falta ativar "Allow manual linking" no Supabase (Authentication → Sign In / Providers).';
+  if (/provider is not enabled|unsupported provider/i.test(msg)) return 'O login com Google ainda não foi ativado no Supabase.';
+  if (/access_denied|cancel/i.test(msg)) return 'O login com Google foi cancelado.';
+  if (/failed to fetch|network/i.test(msg)) return 'Sem conexão com o servidor. Verifique a internet.';
+  return 'Algo deu errado: ' + msg;
+}
+
+$('authForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const typed = $('authEmail').value.trim(), pass = $('authPass').value;
+  const email = toLoginEmail(typed);
+  if (authMode !== 'nova' && !email)
+    return authMsg(typed.includes('@') ? 'Digite um e-mail válido.' : 'O usuário precisa ter de 3 a 30 caracteres, só letras, números, ponto, hífen ou _ (sem espaço nem acento).', 'err');
+  if (authMode === 'esqueci' && isUsernameLogin(email))
+    return authMsg('Contas com nome de usuário não recebem e-mail. Peça ao administrador uma senha temporária e depois troque em "Trocar senha".', 'err');
+  if (authMode !== 'esqueci' && pass.length < 6) return authMsg('A senha precisa ter pelo menos 6 caracteres.', 'err');
+  const btn = $('authSubmit'); btn.disabled = true; authMsg('');
+  try {
+    if (authMode === 'entrar'){
+      const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+      if (error) throw error;
+    } else if (authMode === 'criar'){
+      const { data, error } = await sb.auth.signUp({ email, password: pass, options: { emailRedirectTo: REDIRECT } });
+      if (error) throw error;
+      if (!data.session){
+        setAuthMode('entrar');
+        authMsg(`Conta criada! Enviamos um link de confirmação para ${typed}. Confirme e depois entre aqui.`, 'ok');
+      }
+    } else if (authMode === 'esqueci'){
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: REDIRECT });
+      if (error) throw error;
+      authMsg('Se esse e-mail tiver conta, enviamos um link para criar uma nova senha.', 'ok');
+    } else if (authMode === 'nova'){
+      const { error } = await sb.auth.updateUser({ password: pass });
+      if (error) throw error;
+      recovering = false;
+      $('authPass').value = '';
+      const { data: { session } } = await sb.auth.getSession();
+      await handleSession(session, true);
+      toast('Senha alterada.');
+    }
+  } catch (err) {
+    authMsg(translateError(err), 'err');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.querySelectorAll('[data-changepass]').forEach(b => b.addEventListener('click', async () => {
+  const nova = prompt('Digite a nova senha (mínimo de 6 caracteres):');
+  if (nova === null) return;
+  if (nova.length < 6) return toast('A senha precisa ter pelo menos 6 caracteres.');
+  const confirma = prompt('Digite a nova senha de novo para confirmar:');
+  if (confirma === null) return;
+  if (confirma !== nova) return toast('As senhas não conferem. Tente de novo.');
+  const { error } = await sb.auth.updateUser({ password: nova });
+  if (error) return toast(translateError(error));
+  alert('Senha alterada com sucesso.');
+}));
+
+document.querySelectorAll('[data-logout]').forEach(b => b.addEventListener('click', async () => {
+  await sb.auth.signOut();
+}));
+
+/* ======================= SESSÃO ======================= */
+function waitScreen(title, text){
+  $('waitTitle').innerHTML = title;
+  $('waitText').textContent = text;
+  $('waitEmail').textContent = currentUser ? `Conta: ${displayName(currentUser.email)}` : '';
+  show('viewWait');
+}
+$('waitRetry').onclick = async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  handleSession(session, true);
+};
+
+/* ---------- Google ---------- */
+let googleOn = false;
+async function checarProvedores(){
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_ANON_KEY } });
+    const j = await r.json();
+    googleOn = !!(j && j.external && j.external.google);
+  } catch(e){ googleOn = false; }
+  $('googleWrap').hidden = !googleOn || authMode === 'esqueci' || authMode === 'nova';
+}
+$('googleBtn').onclick = async () => {
+  $('googleBtn').disabled = true;
+  const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: REDIRECT } });
+  if (error){ $('googleBtn').disabled = false; authMsg(translateError(error), 'err'); }
+};
+// erro devolvido pelo Google/Supabase na volta (ex.: cancelou, conta já ligada)
+let authErroVolta = null;
+(function(){
+  const q = new URLSearchParams(location.search.slice(1) + '&' + location.hash.slice(1));
+  const d = q.get('error_description') || q.get('error');
+  if (d){ authErroVolta = translateError({ message: d.replace(/\+/g, ' ') }); history.replaceState(null, '', REDIRECT); }
+})();
+
+async function handleSession(session, force){
+  if (!session){
+    stopRealtime();
+    currentUser = null; profile = null; state.entries = []; state.controles = []; state.cid = null; state.members = []; state.invites = [];
+    $('dlg').hidden = true;
+    $('authPass').value = '';
+    show('viewAuth');
+    if (authMode === 'nova') setAuthMode('entrar');
+    if (authErroVolta){ authMsg(authErroVolta, 'err'); authErroVolta = null; }
+    return;
+  }
+  if (authErroVolta){ toast(authErroVolta); authErroVolta = null; }
+  if (!force && currentUser && currentUser.id === session.user.id && profile) return;
+  currentUser = session.user;
+  if ($('viewApp').hidden && $('viewAdmin').hidden) show('viewLoading');
+
+  let { data, error } = await sb.from('perfis').select('id,email,status,is_admin,nome,foto,email_aviso,whatsapp,avisos').eq('id', currentUser.id).maybeSingle();
+  perfilNovo = !error;
+  if (error && (error.code === '42703' || /column/i.test(error.message || ''))){
+    ({ data, error } = await sb.from('perfis').select('id,email,status,is_admin').eq('id', currentUser.id).maybeSingle());
+  }
+  if (error || !data){
+    profile = null;
+    return waitScreen('Algo não<br>carregou', error
+      ? 'Não foi possível carregar sua conta. Verifique a internet e tente de novo.'
+      : 'Seu perfil ainda não existe. Confira se o script do banco (supabase-setup.sql) foi executado.');
+  }
+  profile = data;
+  if (profile.status === 'pendente')
+    return waitScreen('Cadastro<br>em análise', 'Sua conta foi criada e está aguardando a liberação do administrador. Assim que for aprovada, é só tocar em "Verificar de novo".');
+  if (profile.status === 'bloqueado')
+    return waitScreen('Acesso<br>bloqueado', 'Seu acesso foi suspenso pelo administrador.');
+
+  renderMe();
+  $('adminEmail').textContent = displayName(profile.email);
+  if (profile.is_admin){
+    // conta master: só administração, sem controle financeiro
+    show('viewAdmin');
+    renderAdmin();
+    loadUsers();
+    return;
+  }
+  if (!(await loadControles())) return;
+  await Promise.all([loadMembers(), loadEntries(), loadInvites(), loadContas()]);
+  show('viewApp');
+  render();
+  startRealtime();
+}
+
+/* ======================= CONTROLES ======================= */
+const ctrlKey = () => `pof-controle-${currentUser ? currentUser.id : ''}`;
+const current = () => state.controles.find(c => c.id === state.cid) || null;
+const isShared = () => { const c = current(); return !!c && !c.pessoal; };
+const nameOf = uid => {
+  if (currentUser && uid === currentUser.id) return 'você';
+  const m = state.members.find(x => x.user_id === uid);
+  return m ? (m.nome || displayName(m.login)) : 'ex-participante';
+};
+function rpcMsg(error){
+  const msg = (error && error.message) || '';
+  if (/failed to fetch|network/i.test(msg)) return 'Sem conexão com o servidor. Verifique a internet.';
+  return msg || 'Algo deu errado.';
+}
+
+async function loadControles(){
+  const g = await sb.rpc('garantir_controle_pessoal');
+  if (g.error){
+    if (g.error.code === 'PGRST202' || /could not find the function|does not exist/i.test(g.error.message || '')){
+      waitScreen('Falta<br>atualizar', 'O banco ainda não tem os controles compartilhados. Rode o arquivo supabase-controles.sql no SQL Editor do Supabase e toque em "Verificar de novo".');
+    } else toast(rpcMsg(g.error));
+    return false;
+  }
+  const { data, error } = await sb.rpc('meus_controles');
+  if (error){ toast(rpcMsg(error)); return false; }
+  state.controles = data || [];
+  let wanted = state.cid;
+  try { wanted = wanted || localStorage.getItem(ctrlKey()); } catch(e){}
+  const pessoal = state.controles.find(c => c.pessoal);
+  state.cid = state.controles.some(c => c.id === wanted) ? wanted : (pessoal ? pessoal.id : (state.controles[0] || {}).id);
+  return true;
+}
+function selectControle(id){
+  state.cid = id;
+  try { localStorage.setItem(ctrlKey(), id); } catch(e){}
+}
+async function loadMembers(){
+  if (!state.cid){ state.members = []; return; }
+  const { data, error } = await sb.rpc('participantes', { cid: state.cid });
+  state.members = error ? [] : (data || []);
+}
+async function loadInvites(){
+  const { data, error } = await sb.rpc('meus_convites');
+  state.invites = error ? [] : (data || []);
+  renderInvites();
+}
+
+/* ======================= DADOS ======================= */
+let loadSeq = 0;
+async function loadEntries(){
+  const seq = ++loadSeq;
+  if (!state.cid){ state.entries = []; return true; }
+  const { y, m } = state;
+  const start = `${y}-${pad(m+1)}-01`;
+  const nd = new Date(y, m + 1, 1);
+  const end = `${nd.getFullYear()}-${pad(nd.getMonth()+1)}-01`;
+  const all = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE){
+    const { data, error } = await sb.from('lancamentos').select(COLS)
+      .eq('controle_id', state.cid).gte('data', start).lt('data', end)
+      .order('data', { ascending: false }).order('criado_em', { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (error){ toast('Não foi possível carregar os lançamentos.'); return false; }
+    all.push(...data);
+    if (data.length < PAGE) break;
+  }
+  if (seq !== loadSeq) return false;           // o usuário já trocou de mês/controle
+  state.entries = all.map(fromRow);
+  return true;
+}
+async function fetchAllEntries(){
+  const all = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE){
+    const { data, error } = await sb.from('lancamentos').select(COLS).eq('controle_id', state.cid)
+      .order('data', { ascending: true }).range(from, from + PAGE - 1);
+    if (error) return null;
+    all.push(...data);
+    if (data.length < PAGE) break;
+  }
+  return all.map(fromRow);
+}
+async function refresh(){ const [ok] = await Promise.all([loadEntries(), loadContas()]); if (ok) render(); }
+
+// dados antigos guardados só neste navegador (versão offline)
+function localPending(){
+  try {
+    if (localStorage.getItem(IMPORTED_KEY)) return [];
+    const s = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (!s || s.isSample || !Array.isArray(s.entries)) return [];
+    return s.entries.filter(e => e && e.desc && e.amount > 0 && /^\d{4}-\d{2}-\d{2}$/.test(e.date));
+  } catch(e){ return []; }
+}
+$('importLocal').onclick = async () => {
+  const list = localPending();
+  const pessoal = state.controles.find(c => c.pessoal);
+  if (!list.length || !pessoal) return;
+  if (!confirm(`Enviar ${plural(list.length,'lançamento')} salvos neste aparelho para o seu "Meu controle"?`)) return;
+  $('importLocal').disabled = true;
+  const { error } = await sb.from('lancamentos').insert(list.map(e => ({ ...toRow(e), controle_id: pessoal.id })));
+  $('importLocal').disabled = false;
+  if (error) return toast('Não foi possível enviar. Tente de novo.');
+  try { localStorage.setItem(IMPORTED_KEY, '1'); } catch(e){}
+  selectControle(pessoal.id);
+  await loadMembers(); await refresh();
+  toast(`${plural(list.length,'lançamento')} enviados.`);
+};
+
+/* ======================= FORMULÁRIO ======================= */
+function fillCats(){
+  $('cat').innerHTML = CATS[state.type].map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  document.querySelectorAll('#typeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.type === state.type)));
+}
+document.querySelectorAll('#typeSeg button').forEach(b => b.addEventListener('click', () => { state.type = b.dataset.type; fillCats(); }));
+$('date').value = todayISO();
+['desc','amount'].forEach(id => $(id).addEventListener('input', () => { $('error').hidden = true; }));
+function showError(msg){ $('error').textContent = msg; $('error').hidden = false; }
+
+$('form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const desc = $('desc').value.trim(), amount = parseAmount($('amount').value);
+  if (!desc) return showError('Escreva uma descrição.');
+  if (!(amount > 0)) return showError('Informe um valor maior que zero.');
+  if (!state.cid) return showError('Escolha um controle primeiro.');
+  const entry = { type: state.type, desc, cat: $('cat').value, amount, date: $('date').value || todayISO() };
+  $('addBtn').disabled = true;
+  const { data, error } = await sb.from('lancamentos').insert({ ...toRow(entry), controle_id: state.cid }).select(COLS).single();
+  $('addBtn').disabled = false;
+  if (error) return showError('Não foi possível salvar. Verifique a conexão e tente de novo.');
+  const [y,m] = entry.date.split('-').map(Number);
+  $('desc').value = ''; $('amount').value = '';
+  if (y === state.y && m - 1 === state.m){ state.entries.push(fromRow(data)); render(); }
+  else { state.y = y; state.m = m - 1; await refresh(); }
+  $('desc').focus();
+});
+
+/* ======================= FILTRO ENTRADAS / SAÍDAS ======================= */
+state.filtro = null;
+function toggleFiltro(f){ state.filtro = state.filtro === f ? null : f; render(); }
+document.querySelectorAll('.stat-filtro').forEach(el => {
+  el.addEventListener('click', () => toggleFiltro(el.dataset.filtro));
+  el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleFiltro(el.dataset.filtro); } });
+});
+$('filtroLimpar').onclick = () => { state.filtro = null; render(); };
+
+/* ======================= NAVEGAÇÃO ======================= */
+function shift(n){ const d = new Date(state.y, state.m + n, 1); state.y = d.getFullYear(); state.m = d.getMonth(); render(); refresh(); }
+$('prev').onclick = () => shift(-1);
+$('next').onclick = () => shift(1);
+$('today').onclick = () => { const d = new Date(); state.y = d.getFullYear(); state.m = d.getMonth(); render(); refresh(); };
+$('rows').addEventListener('click', async e => {
+  const b = e.target.closest('[data-del]');
+  if (!b) return;
+  const id = b.dataset.del;
+  const before = state.entries;
+  state.entries = state.entries.filter(x => x.id !== id);
+  render();
+  const { error, count } = await sb.from('lancamentos').delete({ count: 'exact' }).eq('id', id);
+  if (error || count === 0){ state.entries = before; render(); toast('Não foi possível excluir. Tente de novo.'); return; }
+  if (state.contas.length && await loadContas()) renderContas();   // se era o pagamento de uma conta, ela volta a ficar em aberto
+});
+
+$('ctrlSelect').addEventListener('change', async e => {
+  selectControle(e.target.value);
+  state.entries = []; state.members = []; state.contas = []; state.pags = []; state.partes = {}; state.cmeses = {};
+  render();
+  await loadMembers(); await refresh();
+});
+$('ctrlNew').onclick = async () => {
+  const nome = prompt('Nome do novo controle (ex.: Casa, Família, Viagem):');
+  if (nome === null || !nome.trim()) return;
+  const { data, error } = await sb.rpc('criar_controle', { p_nome: nome.trim() });
+  if (error) return toast(rpcMsg(error));
+  await loadControles(); selectControle(data); await loadMembers(); await refresh();
+  openManage();
+};
+$('ctrlJoin').onclick = async () => {
+  const cod = prompt('Digite o código que você recebeu (ex.: K7P-4QX):');
+  if (cod === null || !cod.trim()) return;
+  const { data, error } = await sb.rpc('entrar_com_codigo', { p_codigo: cod });
+  if (error) return toast(rpcMsg(error));
+  await loadControles(); selectControle(data); await loadMembers(); await refresh();
+  const c = current(); toast(`Você entrou em "${c ? c.nome : 'controle'}".`);
+};
+$('ctrlManage').onclick = () => openManage();
+
+$('invites').addEventListener('click', async e => {
+  const b = e.target.closest('[data-inv]');
+  if (!b) return;
+  b.disabled = true;
+  const aceitar = b.dataset.ok === '1';
+  const { data, error } = await sb.rpc('responder_convite', { conv: b.dataset.inv, aceitar });
+  if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+  await loadInvites();
+  if (aceitar && data){
+    await loadControles(); selectControle(data); await loadMembers(); await refresh();
+    const c = current(); toast(`Agora você participa de "${c ? c.nome : 'controle'}".`);
+  }
+});
+
+/* ======================= TEMPO REAL ======================= */
+// Quando alguém do mesmo controle lança, apaga ou entra/sai, a tela atualiza sozinha.
+let rtChan = null, rtTimer = null, rtOk = false;
+function rtLater(fn){ clearTimeout(rtTimer); rtTimer = setTimeout(fn, 400); }
+async function rtReloadEntries(){ if ($('viewApp').hidden) return; await loadMembers(); await refresh(); }
+async function rtReloadAll(){
+  if ($('viewApp').hidden) return;
+  if (await loadControles()){ await loadMembers(); await refresh(); }
+}
+function startRealtime(){
+  stopRealtime();
+  if (!currentUser) return;
+  rtChan = sb.channel('pof-' + currentUser.id)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'lancamentos' }, p => {
+      const n = p.new || {}, o = p.old || {};
+      if (n.controle_id === state.cid || o.controle_id === state.cid || (o.id && state.entries.some(e => e.id === o.id)))
+        rtLater(rtReloadEntries);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'membros' }, () => rtLater(rtReloadAll))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'convites' }, () => loadInvites())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'contas' }, () => rtContas())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'conta_partes' }, () => rtContas())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'conta_meses' }, () => rtContas())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pagamentos' }, () => rtContas())
+    .subscribe(status => { rtOk = status === 'SUBSCRIBED'; });
+}
+let rtContasTimer = null;
+function rtContas(){
+  clearTimeout(rtContasTimer);
+  rtContasTimer = setTimeout(async () => { if (!$('viewApp').hidden && await loadContas()) renderContas(); }, 400);
+}
+function stopRealtime(){
+  if (rtChan){ sb.removeChannel(rtChan); rtChan = null; }
+  rtOk = false;
+}
+// plano B: se o tempo real cair, confere a cada 30 s enquanto o app estiver aberto
+setInterval(() => {
+  if (!rtOk && document.visibilityState === 'visible' && profile && !$('viewApp').hidden) rtReloadEntries();
+}, 30000);
+
+// ao voltar para o app (ex.: trocou de aba ou de aparelho), busca os dados atualizados
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible' || !profile || profile.status !== 'aprovado') return;
+  if (!$('viewApp').hidden){
+    if (await loadControles()){ await loadMembers(); await refresh(); }
+    loadInvites();
+  }
+  if (!$('viewAdmin').hidden) loadUsers();
+});
+
+function renderInvites(){
+  const list = state.invites || [];
+  $('invites').hidden = list.length === 0;
+  $('invites').innerHTML = list.map(v => `
+    <div class="blueprint invite">
+      <div style="min-width:0;">
+        <span class="kicker" style="color:var(--accent);">Convite</span>
+        <div style="font-weight:600;"><b>${esc(v.de_nome || displayName(v.de_login) || 'Alguém')}</b> te convidou para o controle <b>"${esc(v.controle_nome)}"</b></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" data-inv="${esc(v.id)}" data-ok="1">Aceitar</button>
+        <button class="btn btn-secondary btn-sm" data-inv="${esc(v.id)}" data-ok="0">Recusar</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderCtrlBar(){
+  const c = current();
+  $('ctrlSelect').innerHTML = state.controles.map(x =>
+    `<option value="${esc(x.id)}"${x.id === state.cid ? ' selected' : ''}>${esc(x.nome)}${x.pessoal ? ' (pessoal)' : ''}</option>`).join('');
+  $('ctrlManage').hidden = !c || c.pessoal;
+  $('ctrlShare').hidden = !c || !c.pessoal;
+  $('ctrlInfo').textContent = !c ? '' : c.pessoal
+    ? 'Só você vê'
+    : `Compartilhado · ${plural(c.participantes,'pessoa')}${c.sou_dono ? ' · você é o dono' : ''}`;
+}
+
+function render(){
+  const {entries, y, m} = state;
+  const ym = `${y}-${pad(m+1)}`;
+  const month = entries.filter(e => e.date.startsWith(ym)).sort((a,b) => b.date.localeCompare(a.date));
+  const expList = month.filter(e => e.type === 'exp');
+  const inc = month.filter(e => e.type === 'inc').reduce((s,e) => s + e.amount, 0);
+  const exp = expList.reduce((s,e) => s + e.amount, 0);
+  const bal = inc - exp;
+  const shared = isShared();
+
+  renderCtrlBar();
+  $('monthTitle').textContent = `${MONTHS[m]} ${y}`;
+  document.title = `${MONTHS[m]} ${y} · Pra Onde Foi?`;
+  $('incVal').textContent = brl(inc); $('incNote').textContent = plural(month.length - expList.length,'lançamento');
+  $('expVal').textContent = brl(exp); $('expNote').textContent = plural(expList.length,'lançamento');
+  $('balVal').textContent = brl(bal);
+  $('balNote').textContent = !month.length ? 'Sem lançamentos'
+    : bal >= 0 ? `Sobrou ${inc ? Math.round(bal/inc*100) : 0}% do que entrou` : 'Gastou mais do que entrou';
+  $('balCard').classList.toggle('neg', bal < 0);
+
+  const limit = state.budget;
+  $('budget').hidden = !(limit > 0);
+  if (limit > 0){
+    $('budgetLimit').textContent = `Orçamento do mês · ${brl(limit)}`;
+    $('budgetLabel').textContent = exp <= limit ? `Restam ${brl(limit - exp)}` : `Passou ${brl(exp - limit)}`;
+    $('budgetFill').style.width = `${Math.min(100, exp/limit*100)}%`;
+    $('budgetFill').style.background = exp > limit ? 'var(--red)' : 'var(--accent)';
+  }
+
+  const pending = localPending().length;
+  $('importLocal').hidden = !pending;
+  $('importLocal').textContent = `Enviar ${plural(pending,'lançamento')} deste aparelho`;
+
+  // filtro pelos cartões Entradas / Saídas (só a lista muda)
+  const f = state.filtro;
+  document.querySelectorAll('.stat-filtro').forEach(el => {
+    const on = el.dataset.filtro === f;
+    el.classList.toggle('on', on); el.setAttribute('aria-pressed', String(on));
+  });
+  $('filtroInfo').hidden = !f;
+  $('filtroNome').textContent = f === 'inc' ? 'entradas' : 'saídas';
+  const shown = f ? month.filter(e => e.type === f) : month;
+  $('tableWrap').hidden = shown.length === 0;
+  $('empty').hidden = shown.length > 0;
+  $('empty').textContent = !f ? 'Nenhum lançamento neste mês. Use o formulário acima para adicionar o primeiro.'
+    : f === 'inc' ? 'Nenhuma entrada neste mês.' : 'Nenhuma saída neste mês.';
+  $('rows').innerHTML = shown.map(e => {
+    const mine = currentUser && e.uid === currentUser.id;
+    return `
+    <tr>
+      <td style="color:var(--muted);">${e.date.slice(8,10)}/${e.date.slice(5,7)}</td>
+      <td>${esc(e.desc)}${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<span class="tag cat-inline ${e.type === 'inc' ? 'tag-accent' : 'tag-neutral'}">${esc(e.cat)}</span></td>
+      <td><span class="tag ${e.type === 'inc' ? 'tag-accent' : 'tag-neutral'}">${esc(e.cat)}</span></td>
+      <td style="text-align:right;white-space:nowrap;font-weight:500;color:${e.type === 'inc' ? 'var(--accent)' : 'var(--text)'};">${e.type === 'inc' ? '+ ' : '− '}${brl(e.amount)}</td>
+      <td style="text-align:right;">${mine ? `<button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="width:28px;height:28px;color:var(--muted);" aria-label="Excluir"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</td>
+    </tr>`;
+  }).join('');
+
+  const byCat = {};
+  expList.forEach(e => { byCat[e.cat] = (byCat[e.cat] || 0) + e.amount; });
+  const list = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
+  const max = list.length ? list[0][1] : 0;
+  renderTabs();
+  renderContas();
+  $('cats').innerHTML = list.length ? list.map(([name,v]) => `
+    <div style="display:flex;flex-direction:column;gap:5px;">
+      <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
+        <span>${esc(name)}</span>
+        <span style="font-variant-numeric:tabular-nums;color:var(--muted);">${brl(v)} · ${Math.round(exp ? v/exp*100 : 0)}%</span>
+      </div>
+      <div style="height:6px;background:var(--track);border-radius:999px;overflow:hidden;"><div style="height:100%;width:${max ? v/max*100 : 0}%;background:var(--accent);border-radius:999px;"></div></div>
+    </div>`).join('') : '<span style="font-size:14px;color:var(--muted);">Sem saídas neste mês.</span>';
+}
+
+/* ======================= CONTAS A PAGAR ======================= */
+const MES_CURTO = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+const mkey = (y, m) => { const d = new Date(y, m, 1); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-01`; };
+const mdiff = (a, b) => (Number(b.slice(0,4)) - Number(a.slice(0,4))) * 12 + (Number(b.slice(5,7)) - Number(a.slice(5,7)));
+const mlabel = k => `${MONTHS[Number(k.slice(5,7)) - 1]} ${k.slice(0,4)}`;
+const r2 = n => Math.round(n * 100) / 100;
+const cents = n => Math.round(n * 100);
+const num = n => n.toFixed(2).replace('.', ',');
+const ddmm = d => `${pad(d.getDate())}/${pad(d.getMonth()+1)}`;
+const myId = () => currentUser ? currentUser.id : null;
+const quem = uid => uid === myId() ? 'você' : nameOf(uid);
+
+Object.assign(state, { tab: 'lanc', contas: [], partes: {}, cmeses: {}, pags: [], pagsMeses: [], contasOk: true });
+try { if (localStorage.getItem('pof-aba') === 'contas') state.tab = 'contas'; } catch(e){}
+
+function ocorre(c, mk){
+  if (c.tipo === 'unica') return mk === c.inicio;
+  const i = mdiff(c.inicio, mk);
+  if (c.tipo === 'parcelada') return i >= 0 && i < c.parcelas;
+  return i >= 0 && (!c.fim || mk <= c.fim);
+}
+
+// A conta num mês: valor, quanto já foi pago, parte de cada um, situação
+function instancia(c, mk){
+  const y = Number(mk.slice(0,4)), m = Number(mk.slice(5,7)) - 1;
+  const due = new Date(y, m, Math.min(c.dia, new Date(y, m + 1, 0).getDate()));
+  const ov = state.cmeses[c.id + '|' + mk];
+  const total = ov != null ? ov : Number(c.valor);
+  const pags = state.pags.filter(p => p.conta_id === c.id && p.mes === mk);
+  const pago = r2(pags.reduce((s, p) => s + Number(p.valor), 0));
+  const falta = Math.max(0, r2(total - pago));
+  const partes = state.partes[c.id] || [];
+  const soma = partes.reduce((s, p) => s + Number(p.peso), 0);
+  let resto = cents(total);
+  const parts = partes.map((p, i) => {
+    const share = i === partes.length - 1 ? resto / 100 : Math.round(cents(total) * Number(p.peso) / soma) / 100;
+    resto -= cents(share);
+    const pg = r2(pags.filter(x => x.user_id === p.user_id).reduce((s, x) => s + Number(x.valor), 0));
+    return { uid: p.user_id, share, pago: pg, falta: Math.max(0, r2(share - pg)) };
+  });
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const days = Math.round((due - hoje) / 86400000);
+  const paid = falta <= 0;
+  // meses de antes do cadastro (ex.: parcelada que já estava na 3ª) não contam como atrasados
+  const antes = c.criado_em && mk < c.criado_em.slice(0, 7) + '-01';
+  const st = paid ? 'paid' : antes ? 'ok' : days < 0 ? 'late' : days <= 3 ? 'soon' : 'ok';
+  const n = c.tipo === 'parcelada' ? mdiff(c.inicio, mk) + 1 : null;
+  return { c, mk, due, days, total, pago: Math.min(pago, total), falta, pags, parts, paid, st, n, ov: ov != null, antes };
+}
+const tipoTxt = i => i.c.tipo === 'parcelada' ? `${i.n}/${i.c.parcelas}` : i.c.tipo === 'fixa' ? 'Fixa' : 'Única';
+
+let contasSeq = 0;
+async function loadContas(){
+  const seq = ++contasSeq;
+  if (!state.cid){ state.contas = []; return true; }
+  const cid = state.cid;
+  const { data: cs, error } = await sb.from('contas').select('*').eq('controle_id', cid).order('dia').order('nome');
+  if (seq !== contasSeq) return false;
+  if (error){
+    const faltaBanco = ['42P01','PGRST205','PGRST200'].includes(error.code) || /does not exist|could not find the table|schema cache/i.test(error.message || '');
+    state.contasOk = !faltaBanco; state.contas = [];
+    return faltaBanco;
+  }
+  const t = new Date();
+  const meses = [...new Set([mkey(state.y, state.m), mkey(t.getFullYear(), t.getMonth()), mkey(t.getFullYear(), t.getMonth() - 1), mkey(t.getFullYear(), t.getMonth() - 2)])];
+  const ids = cs.map(c => c.id);
+  const vazio = Promise.resolve({ data: [] });
+  const [pr, mr, gr] = await Promise.all([
+    ids.length ? sb.from('conta_partes').select('conta_id,user_id,peso').in('conta_id', ids) : vazio,
+    ids.length ? sb.from('conta_meses').select('conta_id,mes,valor').in('conta_id', ids) : vazio,
+    ids.length ? sb.from('pagamentos').select('id,conta_id,mes,user_id,valor,data,criado_em').eq('controle_id', cid).in('mes', meses).order('criado_em') : vazio
+  ]);
+  if (seq !== contasSeq) return false;
+  if (pr.error || mr.error || gr.error){ toast('Não foi possível carregar as contas a pagar.'); return false; }
+  state.contasOk = true;
+  state.contas = cs;
+  state.partes = {};
+  pr.data.forEach(p => (state.partes[p.conta_id] = state.partes[p.conta_id] || []).push(p));
+  Object.values(state.partes).forEach(l => l.sort((a, b) => a.user_id.localeCompare(b.user_id)));
+  state.cmeses = {};
+  mr.data.forEach(x => { state.cmeses[x.conta_id + '|' + x.mes] = Number(x.valor); });
+  state.pags = gr.data;
+  state.pagsMeses = meses;
+  return true;
+}
+
+function alertas(){
+  const t = new Date();
+  let late = 0, hoje = 0, primeiro = null;
+  [-2, -1, 0].map(k => mkey(t.getFullYear(), t.getMonth() + k)).forEach(mk => {
+    if (!state.pagsMeses.includes(mk)) return;
+    state.contas.forEach(c => {
+      if (!ocorre(c, mk)) return;
+      const i = instancia(c, mk);
+      if (i.paid || i.antes || i.days > 0) return;
+      if (i.days < 0) late++; else hoje++;
+      if (!primeiro || mk < primeiro) primeiro = mk;
+    });
+  });
+  return { late, hoje, primeiro };
+}
+
+function renderTabs(){
+  document.querySelectorAll('#tabSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === state.tab)));
+  $('tabLanc').hidden = state.tab !== 'lanc';
+  $('tabContas').hidden = state.tab !== 'contas';
+  $('export').hidden = state.tab !== 'lanc';
+}
+function setTab(t){
+  state.tab = t;
+  try { localStorage.setItem('pof-aba', t); } catch(e){}
+  renderTabs();
+}
+document.querySelectorAll('#tabSeg button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+$('billAlertGo').onclick = () => {
+  const { primeiro } = alertas();
+  setTab('contas');
+  if (primeiro){ state.y = Number(primeiro.slice(0,4)); state.m = Number(primeiro.slice(5,7)) - 1; render(); refresh(); }
+};
+
+function partsLine(i){
+  return i.parts.map(p => `${esc(quem(p.uid))} ${p.falta <= 0 ? '<span style="color:var(--accent)">✓</span>' : 'falta ' + brl(p.falta)}`).join(' · ');
+}
+
+function renderContas(){
+  const { late, hoje } = alertas();
+  const n = late + hoje;
+  $('tabBadge').hidden = !n; $('tabBadge').textContent = n;
+  $('billAlert').hidden = !n;
+  $('billAlertText').textContent = [
+    late ? `${plural(late, 'conta')} ${late === 1 ? 'vencida' : 'vencidas'}` : '',
+    hoje ? `${hoje} ${hoje === 1 ? 'conta vence' : 'contas vencem'} hoje` : ''
+  ].filter(Boolean).join(' · ');
+
+  if (!state.contasOk){
+    $('billNew').disabled = true;
+    $('billList').innerHTML = '';
+    $('billEmpty').hidden = false;
+    $('billEmpty').textContent = 'As contas a pagar ainda não foram ativadas no banco. Rode o arquivo supabase-contas.sql no SQL Editor do Supabase e recarregue a página.';
+    ['billTotal','billPaid','billLeft'].forEach(id => { $(id).textContent = brl(0); });
+    ['billTotalNote','billPaidNote','billLeftNote'].forEach(id => { $(id).textContent = ''; });
+    return;
+  }
+  $('billNew').disabled = false;
+  const mk = mkey(state.y, state.m);
+  const me = myId();
+  const list = state.contas.filter(c => ocorre(c, mk)).map(c => instancia(c, mk))
+    .sort((a, b) => (a.paid - b.paid) || (a.due - b.due) || a.c.nome.localeCompare(b.c.nome));
+  const total = r2(list.reduce((s, i) => s + i.total, 0));
+  const pago = r2(list.reduce((s, i) => s + i.pago, 0));
+  const falta = r2(list.reduce((s, i) => s + i.falta, 0));
+  const pagas = list.filter(i => i.paid).length;
+  const minhas = list.filter(i => i.parts.some(p => p.uid === me));
+  const minhaFalta = r2(minhas.reduce((s, i) => s + i.parts.filter(p => p.uid === me).reduce((a, p) => a + Math.min(p.falta, i.falta), 0), 0));
+
+  $('billTotal').textContent = brl(total);
+  $('billTotalNote').textContent = plural(list.length, 'conta');
+  $('billPaid').textContent = brl(pago);
+  $('billPaidNote').textContent = list.length ? `${pagas} de ${list.length} ${list.length === 1 ? 'paga' : 'pagas'}` : '';
+  $('billLeft').textContent = brl(falta);
+  $('billLeftNote').textContent = !list.length ? 'Nenhuma conta neste mês'
+    : falta <= 0 ? 'Tudo pago ✓'
+    : minhas.length ? `Minha parte: falta ${brl(minhaFalta)}`
+    : `${plural(list.length - pagas, 'conta')} em aberto`;
+
+  $('billEmpty').hidden = list.length > 0;
+  $('billEmpty').textContent = 'Nenhuma conta neste mês. Toque em "Nova conta" para cadastrar aluguel, luz, cartão…';
+  $('billList').innerHTML = list.map(i => {
+    const c = i.c;
+    const tag = i.paid ? '<span class="tag tag-neutral">Paga ✓</span>'
+      : i.st === 'late' ? `<span class="tag tag-red">Vencida</span>`
+      : i.antes ? ''
+      : i.days === 0 ? '<span class="tag tag-accent">Vence hoje</span>'
+      : i.st === 'soon' ? `<span class="tag tag-accent">Vence em ${plural(i.days, 'dia')}</span>`
+      : i.pago > 0 ? '<span class="tag tag-neutral">Parcial</span>' : '';
+    const linha2 = [esc(c.categoria), `vence ${ddmm(i.due)}`, (!i.paid && i.pago > 0) ? `pago ${brl(i.pago)} de ${brl(i.total)}` : ''].filter(Boolean).join(' · ');
+    return `
+    <div class="bill ${i.st}" data-bill="${esc(c.id)}">
+      <div class="bill-day"><b>${i.due.getDate()}</b><small>${MES_CURTO[i.due.getMonth()]}</small></div>
+      <div style="min-width:0;">
+        <div class="bill-name">${esc(c.nome)} <span class="tag tag-neutral">${tipoTxt(i)}</span></div>
+        <div class="by">${linha2}</div>
+        ${i.parts.length ? `<div class="by">${partsLine(i)}</div>` : ''}
+        ${!i.paid && i.pago > 0 ? `<div class="prog"><div style="width:${Math.min(100, i.pago / i.total * 100)}%"></div></div>` : ''}
+      </div>
+      <div class="bill-side">
+        <span class="bill-val">${brl(i.total)}</span>
+        <span class="bill-act" style="display:flex;gap:6px;align-items:center;">${tag}${i.paid ? '' : `<button class="btn btn-primary btn-sm" data-pay="${esc(c.id)}" type="button">Pagar</button>`}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+$('billList').addEventListener('click', e => {
+  const pay = e.target.closest('[data-pay]');
+  if (pay) return openPay(pay.dataset.pay);
+  const row = e.target.closest('[data-bill]');
+  if (row) openBill(row.dataset.bill);
+});
+$('billNew').onclick = () => openBillForm(null);
+$('ctrlShare').onclick = () => {
+  const c = current(); if (!c) return;
+  if (!c.pessoal) return openManage();
+  if (!confirm('O "Meu controle" é só seu.\n\nPara dividir com alguém, crie um controle compartilhado (ex.: Casa, Apê) e convide a pessoa. Seus lançamentos pessoais continuam só seus.\n\nCriar agora?')) return;
+  $('ctrlNew').click();
+};
+
+/* ---------- janela ---------- */
+let dlg2 = {};   // o que está aberto na janela: { tipo, id, mk }
+function openDlg2(kicker, title, html, ctx){
+  $('dlg2Kicker').textContent = kicker;
+  $('dlg2Title').textContent = title;
+  $('dlg2Body').innerHTML = html;
+  $('dlg2').hidden = false;
+  dlg2 = ctx || {};
+}
+function closeDlg2(){ $('dlg2').hidden = true; dlg2 = {}; }
+$('dlg2Close').onclick = closeDlg2;
+// com uma janela aberta, a tela de trás não rola junto
+const travaFundo = () => document.documentElement.classList.toggle('travado', !$('dlg').hidden || !$('dlg2').hidden || !$('drawer').hidden);
+['dlg','dlg2','drawer'].forEach(id => new MutationObserver(travaFundo).observe($(id), { attributes: true, attributeFilter: ['hidden'] }));
+$('dlg2').addEventListener('click', e => { if (e.target.id === 'dlg2') closeDlg2(); });
+
+const findConta = id => state.contas.find(c => c.id === id);
+
+function openPay(id){
+  const c = findConta(id); if (!c) return;
+  const mk = mkey(state.y, state.m);
+  const i = instancia(c, mk);
+  if (i.paid) return toast('Essa conta já está paga.');
+  const minha = i.parts.find(p => p.uid === myId());
+  const minhaFalta = minha ? Math.min(minha.falta, i.falta) : 0;
+  const sugere = minhaFalta > 0 ? minhaFalta : i.falta;
+  openDlg2(`Pagar · ${mlabel(mk)}`, c.nome + (i.n ? ` ${i.n}/${c.parcelas}` : ''), `
+    <div class="dlg-sec">
+      <div class="kv"><span>Valor do mês</span><b>${brl(i.total)}</b></div>
+      ${i.pago > 0 ? `<div class="kv"><span>Já pago</span><b>${brl(i.pago)}</b></div>` : ''}
+      <div class="kv"><span>Falta pagar</span><b style="color:var(--accent);">${brl(i.falta)}</b></div>
+      ${i.parts.length ? `<div class="kv"><span>Divisão</span><b style="text-align:right;font-weight:500;">${partsLine(i)}</b></div>` : ''}
+    </div>
+    <div class="dlg-sec" style="gap:var(--space-3);">
+      <div class="field">
+        <label for="payVal">Quanto você está pagando (R$)</label>
+        <input class="input" id="payVal" inputmode="decimal" value="${num(sugere)}" style="font-variant-numeric:tabular-nums;">
+      </div>
+      ${minhaFalta > 0 && minhaFalta < i.falta ? `
+      <div class="row" style="flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" type="button" data-fill="${num(minhaFalta)}">Minha parte · ${brl(minhaFalta)}</button>
+        <button class="btn btn-secondary btn-sm" type="button" data-fill="${num(i.falta)}">Tudo que falta · ${brl(i.falta)}</button>
+      </div>` : ''}
+      <div class="field">
+        <label for="payDate">Data do pagamento</label>
+        <input class="input" id="payDate" type="date" value="${todayISO()}">
+      </div>
+      <p class="hint">Dá para pagar só uma parte. O valor entra como saída em Lançamentos, no seu nome.</p>
+    </div>
+    <button class="btn btn-primary" type="button" data-act="confirmPay" style="min-height:42px;">Confirmar pagamento</button>`,
+    { tipo: 'pay', id, mk });
+}
+
+function openBill(id){
+  const c = findConta(id); if (!c) return closeDlg2();
+  const mk = mkey(state.y, state.m);
+  if (!ocorre(c, mk)) return closeDlg2();
+  const i = instancia(c, mk);
+  const mine = c.criado_por === myId();
+  const tipoLonga = c.tipo === 'parcelada' ? `Parcela ${i.n} de ${c.parcelas}`
+    : c.tipo === 'fixa' ? `Todo mês desde ${mlabel(c.inicio)}${c.fim ? ` até ${mlabel(c.fim)}` : ''}`
+    : `Só em ${mlabel(c.inicio)}`;
+  const status = i.paid ? 'Paga ✓' : i.st === 'late' ? '<span style="color:#ff8a8d;">Vencida</span>'
+    : i.antes ? (i.pago > 0 ? `Parcial · falta ${brl(i.falta)}` : 'Em aberto')
+    : i.days === 0 ? '<span style="color:var(--accent);">Vence hoje</span>'
+    : i.pago > 0 ? `Parcial · falta ${brl(i.falta)}` : `Em aberto · vence em ${plural(i.days, 'dia')}`;
+  openDlg2(`Conta · ${mlabel(mk)}`, c.nome, `
+    <div class="dlg-sec">
+      <div class="kv"><span>Valor ${i.ov ? 'deste mês (ajustado)' : 'do mês'}</span><b>${brl(i.total)}</b></div>
+      <div class="kv"><span>Vencimento</span><b>${ddmm(i.due)}</b></div>
+      <div class="kv"><span>Situação</span><b>${status}</b></div>
+      <div class="kv"><span>Tipo</span><b>${tipoLonga}</b></div>
+      <div class="kv"><span>Categoria</span><b>${esc(c.categoria)}</b></div>
+      ${isShared() ? `<div class="kv"><span>Criada por</span><b>${esc(quem(c.criado_por))}</b></div>` : ''}
+    </div>
+    ${i.parts.length ? `
+    <div class="dlg-sec">
+      <h3>Divisão</h3>
+      ${i.parts.map(p => `<div class="person"><span>${esc(quem(p.uid))}</span><span>${brl(p.share)} ${p.falta <= 0 ? '<span class="tag tag-accent">Pago ✓</span>' : p.pago > 0 ? `<span class="tag tag-neutral">falta ${brl(p.falta)}</span>` : '<span class="tag tag-neutral">em aberto</span>'}</span></div>`).join('')}
+    </div>` : ''}
+    <div class="dlg-sec">
+      <h3>Pagamentos deste mês</h3>
+      ${i.pags.length ? i.pags.map(p => {
+        const d = p.data.split('-');
+        return `<div class="person"><span>${d[2]}/${d[1]} · ${esc(quem(p.user_id))} · <b>${brl(Number(p.valor))}</b></span>
+          ${p.user_id === myId() ? `<button class="btn btn-secondary btn-sm" type="button" data-act="undo" data-id="${esc(p.id)}">Desfazer</button>` : ''}</div>`;
+      }).join('') : '<p class="hint">Nenhum pagamento ainda.</p>'}
+    </div>
+    <div class="row" style="flex-wrap:wrap;">
+      ${i.paid ? '' : '<button class="btn btn-primary" type="button" data-act="pay">Pagar</button>'}
+      ${mine ? '<button class="btn btn-secondary" type="button" data-act="edit">Editar</button>' : ''}
+      ${mine && c.tipo !== 'unica' ? '<button class="btn btn-secondary" type="button" data-act="monthVal">Valor só deste mês</button>' : ''}
+    </div>
+    ${mine ? `
+    <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
+      <h3>Encerrar ou excluir</h3>
+      <div class="row" style="flex-wrap:wrap;">
+        ${c.tipo === 'fixa' ? '<button class="btn btn-secondary" type="button" data-act="end">Encerrar a partir deste mês</button>' : ''}
+        <button class="btn btn-danger" type="button" data-act="del">Excluir conta</button>
+      </div>
+      <p class="hint">${c.tipo === 'fixa' ? 'Encerrar mantém os meses anteriores. ' : ''}Excluir apaga a conta em todos os meses. As saídas que já foram lançadas continuam em Lançamentos.</p>
+    </div>` : `<p class="hint">Só ${esc(quem(c.criado_por))} (quem criou) pode editar ou excluir esta conta.</p>`}`,
+    { tipo: 'bill', id, mk });
+}
+
+/* ---------- nova / editar conta ---------- */
+let bf = {};   // estado do formulário
+function openBillForm(c){
+  const mk = mkey(state.y, state.m);
+  const shared = isShared();
+  const partes = c ? (state.partes[c.id] || []) : [];
+  const iguais = partes.every(p => Number(p.peso) === Number((partes[0] || {}).peso));
+  bf = { c, tipo: c ? c.tipo : 'fixa', dividir: partes.length > 0, modo: partes.length && !iguais ? 'valores' : 'iguais' };
+  const cats = CATS.exp.includes(c && c.categoria) || !c ? CATS.exp : [c.categoria, ...CATS.exp];
+  const parcAtual = c && c.tipo === 'parcelada' ? Math.max(1, Math.min(c.parcelas, mdiff(c.inicio, mk) + 1)) : 1;
+  const membros = state.members.length ? state.members : [{ user_id: myId(), login: currentUser.email }];
+  const peso = uid => { const p = partes.find(x => x.user_id === uid); return p ? Number(p.peso) : 0; };
+  openDlg2(c ? 'Editar conta' : `Nova conta · a partir de ${mlabel(mk)}`, c ? c.nome : 'Nova conta', `
+    <form id="billForm" novalidate style="display:flex;flex-direction:column;gap:var(--space-4);">
+      <div class="field">
+        <label for="bfNome">Nome</label>
+        <input class="input" id="bfNome" maxlength="60" placeholder="Ex.: Aluguel, Luz, Cartão" value="${c ? esc(c.nome) : ''}" autocomplete="off">
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="bfValor">Valor (R$)</label>
+          <input class="input" id="bfValor" inputmode="decimal" placeholder="0,00" value="${c ? num(Number(c.valor)) : ''}">
+        </div>
+        <div class="field">
+          <label for="bfDia">Vence todo dia</label>
+          <input class="input" id="bfDia" type="number" inputmode="numeric" min="1" max="31" placeholder="Ex.: 10" value="${c ? c.dia : ''}">
+        </div>
+      </div>
+      <div class="field">
+        <label for="bfCat">Categoria</label>
+        <select class="input" id="bfCat">${cats.map(x => `<option${c && c.categoria === x ? ' selected' : (!c && x === 'Contas' ? ' selected' : '')}>${esc(x)}</option>`).join('')}</select>
+      </div>
+      <div class="field">
+        <label>Tipo</label>
+        <div class="seg" id="bfTipo" role="group" aria-label="Tipo de conta" style="max-width:100%;overflow-x:auto;">
+          <button type="button" data-tipo="fixa">Fixa</button>
+          <button type="button" data-tipo="parcelada">Parcelada</button>
+          <button type="button" data-tipo="unica">Só este mês</button>
+        </div>
+      </div>
+      <div class="grid2" id="bfParc">
+        <div class="field">
+          <label for="bfParcTot">Total de parcelas</label>
+          <input class="input" id="bfParcTot" type="number" inputmode="numeric" min="2" max="240" placeholder="Ex.: 10" value="${c && c.parcelas ? c.parcelas : ''}">
+        </div>
+        <div class="field">
+          <label for="bfParcAt">Parcela deste mês</label>
+          <input class="input" id="bfParcAt" type="number" inputmode="numeric" min="1" max="240" value="${parcAtual}">
+        </div>
+      </div>
+      <p class="hint" id="bfTipoHint" style="margin:0;font-size:13px;color:var(--muted);"></p>
+      ${shared ? `
+      <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;gap:var(--space-3);">
+        <label class="chk"><input type="checkbox" id="bfDiv"${bf.dividir ? ' checked' : ''}> Dividir entre participantes</label>
+        <div id="bfDivBox" style="display:flex;flex-direction:column;gap:var(--space-2);">
+          <div class="seg" id="bfModo" role="group" aria-label="Como dividir" style="align-self:flex-start;">
+            <button type="button" data-modo="iguais">Partes iguais</button>
+            <button type="button" data-modo="valores">Valor de cada um</button>
+          </div>
+          ${membros.map(p => `
+          <div class="person" style="word-break:normal;">
+            <label class="chk" style="min-width:0;"><input type="checkbox" data-pu="${esc(p.user_id)}"${!c || !partes.length || peso(p.user_id) ? ' checked' : ''}> <span style="overflow:hidden;text-overflow:ellipsis;">${esc(quem(p.user_id))}</span></label>
+            <span class="by" data-ps="${esc(p.user_id)}" style="margin:0;white-space:nowrap;"></span>
+            <input class="input" data-pv="${esc(p.user_id)}" inputmode="decimal" placeholder="0,00" value="${peso(p.user_id) && bf.modo === 'valores' ? num(peso(p.user_id)) : ''}" style="width:120px;flex:none;">
+          </div>`).join('')}
+          <p class="hint" id="bfDivHint"></p>
+        </div>
+      </div>` : ''}
+      <button class="btn btn-primary" type="submit" id="bfSave" style="min-height:42px;">${c ? 'Salvar alterações' : 'Adicionar conta'}</button>
+    </form>`, { tipo: 'form', id: c ? c.id : null, mk });
+  bfUpdate();
+}
+
+function bfUpdate(){
+  const mk = dlg2.mk;
+  document.querySelectorAll('#bfTipo button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tipo === bf.tipo)));
+  $('bfParc').hidden = bf.tipo !== 'parcelada';
+  const ini = bf.c && bf.c.tipo === bf.tipo && bf.tipo !== 'parcelada' ? bf.c.inicio : mk;
+  $('bfTipoHint').textContent = bf.tipo === 'fixa' ? `Aparece todo mês a partir de ${mlabel(ini)}, até você encerrar.`
+    : bf.tipo === 'unica' ? `Aparece só em ${mlabel(ini)}.`
+    : 'Aparece mês a mês até a última parcela.';
+  if (!$('bfDiv')) return;
+  const on = $('bfDiv').checked;
+  $('bfDivBox').hidden = !on;
+  if (!on) return;
+  document.querySelectorAll('#bfModo button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.modo === bf.modo)));
+  const valor = parseAmount($('bfValor').value);
+  const iguais = bf.modo === 'iguais';
+  const marcados = [...document.querySelectorAll('[data-pu]')].filter(x => x.checked).map(x => x.dataset.pu);
+  document.querySelectorAll('[data-pu]').forEach(x => { x.disabled = !iguais; x.style.visibility = iguais ? '' : 'hidden'; });
+  document.querySelectorAll('[data-pv]').forEach(x => { x.hidden = iguais; });
+  document.querySelectorAll('[data-ps]').forEach(x => {
+    x.hidden = !iguais;
+    x.textContent = marcados.includes(x.dataset.ps) && valor > 0 ? brl(valor / marcados.length) : '';
+  });
+  const hint = $('bfDivHint');
+  if (iguais){
+    hint.style.color = '';
+    hint.textContent = marcados.length ? `Cada um paga ${valor > 0 ? brl(valor / marcados.length) : 'a mesma parte'}.` : 'Marque quem divide a conta.';
+  } else {
+    const soma = r2([...document.querySelectorAll('[data-pv]')].reduce((s, x) => s + (parseAmount(x.value) || 0), 0));
+    const ok = valor > 0 && Math.abs(soma - valor) < 0.005;
+    hint.style.color = ok ? '' : '#ff8a8d';
+    hint.textContent = `Soma das partes: ${brl(soma)} de ${valor > 0 ? brl(valor) : 'R$ —'}`;
+  }
+}
+
+$('dlg2Body').addEventListener('input', e => { if (dlg2.tipo === 'form') bfUpdate(); });
+$('dlg2Body').addEventListener('change', e => { if (dlg2.tipo === 'form') bfUpdate(); });
+
+$('dlg2Body').addEventListener('submit', async e => {
+  if (e.target.id !== 'billForm') return;
+  e.preventDefault();
+  const c = bf.c, mk = dlg2.mk;
+  const nome = $('bfNome').value.trim();
+  const valor = parseAmount($('bfValor').value);
+  const dia = parseInt($('bfDia').value, 10);
+  if (!nome) return toast('Dê um nome para a conta.');
+  if (!(valor > 0)) return toast('Informe o valor da conta.');
+  if (!(dia >= 1 && dia <= 31)) return toast('O dia do vencimento vai de 1 a 31.');
+  let inicio = c && c.tipo === bf.tipo && bf.tipo !== 'parcelada' ? c.inicio : mk;
+  let parcelas = null;
+  if (bf.tipo === 'parcelada'){
+    parcelas = parseInt($('bfParcTot').value, 10);
+    const at = parseInt($('bfParcAt').value, 10);
+    if (!(parcelas >= 2 && parcelas <= 240)) return toast('O total de parcelas vai de 2 a 240.');
+    if (!(at >= 1 && at <= parcelas)) return toast(`A parcela deste mês vai de 1 a ${parcelas}.`);
+    const d = new Date(state.y, state.m - (at - 1), 1);
+    inicio = mkey(d.getFullYear(), d.getMonth());
+  }
+  let partes = [];
+  if ($('bfDiv') && $('bfDiv').checked){
+    if (bf.modo === 'iguais'){
+      partes = [...document.querySelectorAll('[data-pu]')].filter(x => x.checked).map(x => ({ user_id: x.dataset.pu, peso: 1 }));
+      if (!partes.length) return toast('Marque quem divide a conta.');
+    } else {
+      partes = [...document.querySelectorAll('[data-pv]')].map(x => ({ user_id: x.dataset.pv, peso: parseAmount(x.value) || 0 })).filter(p => p.peso > 0);
+      const soma = r2(partes.reduce((s, p) => s + p.peso, 0));
+      if (!partes.length) return toast('Coloque o valor de cada pessoa.');
+      if (Math.abs(soma - valor) >= 0.005) return toast(`A soma das partes (${brl(soma)}) precisa dar o valor da conta (${brl(valor)}).`);
+    }
+  }
+  const btn = $('bfSave'); btn.disabled = true;
+  const { error } = await sb.rpc('salvar_conta', {
+    p_id: c ? c.id : null, cid: state.cid, p_nome: nome, p_categoria: $('bfCat').value, p_valor: valor,
+    p_dia: dia, p_tipo: bf.tipo, p_inicio: inicio, p_parcelas: parcelas, p_partes: partes
+  });
+  if (error){ btn.disabled = false; return toast(rpcMsg(error)); }
+  closeDlg2();
+  toast(c ? 'Conta atualizada.' : 'Conta adicionada.', true);
+  if (await loadContas()) renderContas();
+});
+
+$('dlg2Body').addEventListener('click', async e => {
+  const fill = e.target.closest('[data-fill]');
+  if (fill){ $('payVal').value = fill.dataset.fill; return; }
+  const tb = e.target.closest('#bfTipo button');
+  if (tb){ bf.tipo = tb.dataset.tipo; return bfUpdate(); }
+  const mb = e.target.closest('#bfModo button');
+  if (mb){
+    bf.modo = mb.dataset.modo;
+    if (bf.modo === 'valores'){
+      // começa preenchido com a divisão igual entre os marcados
+      const valor = parseAmount($('bfValor').value);
+      const marc = [...document.querySelectorAll('[data-pu]')].filter(x => x.checked).map(x => x.dataset.pu);
+      const vazios = [...document.querySelectorAll('[data-pv]')].every(x => !x.value.trim());
+      if (vazios && valor > 0 && marc.length){
+        let resto = cents(valor);
+        marc.forEach((uid, k) => {
+          const v = k === marc.length - 1 ? resto / 100 : Math.round(cents(valor) / marc.length) / 100;
+          resto -= cents(v);
+          const inp = document.querySelector(`[data-pv="${uid}"]`); if (inp) inp.value = num(v);
+        });
+      }
+    }
+    return bfUpdate();
+  }
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const a = b.dataset.act, id = dlg2.id, mk = dlg2.mk;
+  if (a.startsWith('pf')) return;   // ações do perfil têm o próprio tratamento
+  const c = findConta(id);
+  let res;
+  if (a === 'confirmPay'){
+    const v = parseAmount($('payVal').value);
+    if (!(v > 0)) return toast('Informe um valor maior que zero.');
+    b.disabled = true;
+    res = await sb.rpc('pagar_conta', { conta: id, p_mes: mk, p_valor: v, p_data: $('payDate').value || todayISO() });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    closeDlg2();
+    toast(`Pagamento de ${brl(v)} registrado e lançado como saída.`, true);
+    return refresh();
+  }
+  if (!c) return closeDlg2();
+  if (a === 'pay') return openPay(id);
+  if (a === 'edit') return openBillForm(c);
+  if (a === 'undo'){
+    if (!confirm('Desfazer este pagamento?\n\nA saída que ele criou em Lançamentos também será apagada.')) return;
+    b.disabled = true;
+    res = await sb.rpc('desfazer_pagamento', { pag: b.dataset.id });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    toast('Pagamento desfeito.', true);
+    await refresh(); return openBill(id);
+  }
+  if (a === 'monthVal'){
+    const i = instancia(c, mk);
+    const v = prompt(`Valor de "${c.nome}" só em ${mlabel(mk)} (R$).\nDeixe em branco para voltar ao valor normal (${brl(Number(c.valor))}).`, num(i.total));
+    if (v === null) return;
+    const val = v.trim() ? parseAmount(v) : null;
+    if (val !== null && !(val > 0)) return toast('Informe um valor maior que zero.');
+    res = await sb.rpc('valor_do_mes', { conta: id, p_mes: mk, p_valor: val });
+    if (res.error) return toast(rpcMsg(res.error));
+    if (await loadContas()) renderContas();
+    return openBill(id);
+  }
+  if (a === 'end'){
+    if (!confirm(`Encerrar "${c.nome}" a partir de ${mlabel(mk)}?\n\nEla deixa de aparecer deste mês em diante. Os meses anteriores continuam como estão.`)) return;
+    res = await sb.rpc('encerrar_conta', { conta: id, p_mes: mk });
+    if (res.error) return toast(rpcMsg(res.error));
+    closeDlg2(); toast('Conta encerrada.', true);
+    if (await loadContas()) renderContas();
+    return;
+  }
+  if (a === 'del'){
+    if (!confirm(`Excluir "${c.nome}" de todos os meses?\n\nAs saídas já lançadas continuam em Lançamentos. Não dá para desfazer.`)) return;
+    res = await sb.rpc('excluir_conta', { conta: id });
+    if (res.error) return toast(rpcMsg(res.error));
+    closeDlg2(); toast('Conta excluída.', true);
+    if (await loadContas()) renderContas();
+  }
+});
+
+
+/* ======================= MENU ☰ E PERFIL ======================= */
+let perfilNovo = true;   // false enquanto o banco não tiver os campos do perfil
+const iniciais = s => (String(s || '?').trim().split(/[\s._@-]+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('') || '?').toUpperCase();
+const avatarHtml = (nome, foto) => foto ? `<img src="${esc(foto)}" alt="" referrerpolicy="no-referrer">` : esc(iniciais(nome));
+const meuNome = () => profile ? (profile.nome || displayName(profile.email)) : '';
+const fmtWa = d => !d ? '' : d.length === 11 ? `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}` : d.length === 10 ? `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}` : d;
+function renderMe(){
+  if (!profile) return;
+  $('userEmail').textContent = meuNome();
+  $('meAvatar').innerHTML = avatarHtml(meuNome(), profile.foto);
+  $('drAvatar').innerHTML = avatarHtml(meuNome(), profile.foto);
+  $('drNome').textContent = meuNome();
+  $('drLogin').textContent = profile.nome ? displayName(profile.email) : (perfilNovo ? 'Complete seu perfil' : displayName(profile.email));
+}
+function openMenu(){ renderMe(); $('drawer').hidden = false; }
+function closeMenu(){ $('drawer').hidden = true; }
+$('menuBtn').onclick = openMenu;
+$('drClose').onclick = closeMenu;
+$('drawer').addEventListener('click', e => { if (e.target.id === 'drawer' || e.target.closest('.drawer-item')) closeMenu(); });
+$('drPerfil').addEventListener('click', () => openPerfil());
+
+function lerFoto(file){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+      const lado = Math.min(img.naturalWidth, img.naturalHeight);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#0b1220'; ctx.fillRect(0, 0, S, S);
+      ctx.drawImage(img, (img.naturalWidth - lado) / 2, (img.naturalHeight - lado) / 2, lado, lado, 0, 0, S, S);
+      URL.revokeObjectURL(url);
+      let q = 0.85, d = c.toDataURL('image/jpeg', q);
+      while (d.length > 140000 && q > 0.4){ q -= 0.15; d = c.toDataURL('image/jpeg', q); }
+      resolve(d);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Não foi possível abrir essa imagem.')); };
+    img.src = url;
+  });
+}
+
+async function openPerfil(){
+  if (!profile) return;
+  if (!perfilNovo){
+    return openDlg2('Minha conta', 'Meu perfil', `<p class="hint">Para usar o perfil, rode o arquivo <b>supabase-perfil.sql</b> no SQL Editor do Supabase e recarregue a página.</p>`, { tipo: 'perfil' });
+  }
+  let ids = currentUser.identities || [];
+  try { const r = await sb.auth.getUserIdentities(); if (r && r.data && r.data.identities) ids = r.data.identities; } catch(e){}
+  const temGoogle = ids.some(i => i.provider === 'google');
+  const temSenha = ids.some(i => i.provider === 'email');
+  const p = profile;
+  openDlg2('Minha conta', 'Meu perfil', `
+    <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+      <span class="avatar xl" id="pfAvatar">${avatarHtml(meuNome(), p.foto)}</span>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;">${p.foto ? 'Trocar foto' : 'Colocar foto'}<input type="file" id="pfFile" accept="image/*" hidden></label>
+        ${p.foto ? '<button class="btn btn-ghost btn-sm" type="button" data-act="pfRemover">Remover foto</button>' : ''}
+      </div>
+    </div>
+    <form id="perfilForm" novalidate style="display:flex;flex-direction:column;gap:var(--space-4);">
+      <div class="field">
+        <label for="pfNome">Nome</label>
+        <input class="input" id="pfNome" maxlength="40" autocomplete="name" placeholder="Como você quer aparecer" value="${esc(p.nome || '')}">
+        <p class="hint" style="margin:6px 0 0;">Aparece para quem divide controles com você.</p>
+      </div>
+      <div class="field">
+        <label>Usuário</label>
+        <div class="input ellip" style="display:flex;align-items:center;color:var(--muted);">${esc(displayName(p.email))}</div>
+      </div>
+      <div class="field">
+        <label for="pfEmail">E-mail para avisos</label>
+        <input class="input" id="pfEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="voce@email.com" value="${esc(p.email_aviso || '')}">
+      </div>
+      <div class="field">
+        <label for="pfWa">WhatsApp <span style="color:var(--muted);font-weight:400;">(opcional)</span></label>
+        <input class="input" id="pfWa" type="tel" inputmode="tel" autocomplete="tel" placeholder="(65) 99999-9999" value="${esc(fmtWa(p.whatsapp || ''))}">
+      </div>
+      <label class="chk"><input type="checkbox" id="pfAvisos"${p.avisos !== false ? ' checked' : ''}> Quero receber avisos de contas por e-mail</label>
+      <p class="hint" style="margin:-6px 0 0;">Os avisos por e-mail começam a sair quando o domínio do app estiver pronto.</p>
+      <button class="btn btn-primary" type="submit" id="pfSalvar" style="min-height:44px;">Salvar</button>
+    </form>
+    <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
+      <h3>Formas de entrar</h3>
+      <div class="person"><span>Usuário e senha</span>${temSenha ? '<span class="tag tag-neutral">Ativo</span>' : '<span class="by" style="margin:0;">não usa</span>'}</div>
+      <div class="person"><span>Conta Google</span>${temGoogle ? '<span class="tag tag-accent">Conectada ✓</span>'
+        : googleOn ? '<button class="btn btn-secondary btn-sm" type="button" data-act="pfGoogle">Conectar</button>'
+        : '<span class="by" style="margin:0;">em breve</span>'}</div>
+    </div>`, { tipo: 'perfil' });
+}
+
+$('dlg2Body').addEventListener('change', async e => {
+  if (e.target.id !== 'pfFile' || !e.target.files || !e.target.files[0]) return;
+  try {
+    const foto = await lerFoto(e.target.files[0]);
+    const { error } = await sb.rpc('salvar_foto', { p_foto: foto });
+    if (error) return toast(rpcMsg(error));
+    profile.foto = foto; renderMe();
+    if ($('pfAvatar')) $('pfAvatar').innerHTML = avatarHtml(meuNome(), foto);
+    toast('Foto atualizada.', true);
+    await loadMembers(); render();
+    openPerfil();
+  } catch(err){ toast(err.message || 'Não foi possível usar essa imagem.'); }
+});
+
+$('dlg2Body').addEventListener('click', async e => {
+  const b = e.target.closest('[data-act^="pf"]');
+  if (!b) return;
+  if (b.dataset.act === 'pfRemover'){
+    const { error } = await sb.rpc('salvar_foto', { p_foto: null });
+    if (error) return toast(rpcMsg(error));
+    profile.foto = null; renderMe(); await loadMembers(); render(); openPerfil();
+  }
+  if (b.dataset.act === 'pfGoogle'){
+    b.disabled = true;
+    const { error } = await sb.auth.linkIdentity({ provider: 'google', options: { redirectTo: REDIRECT } });
+    if (error){ b.disabled = false; toast(translateError(error)); }
+  }
+});
+
+$('dlg2Body').addEventListener('submit', async e => {
+  if (e.target.id !== 'perfilForm') return;
+  e.preventDefault();
+  const nome = $('pfNome').value.trim(), email = $('pfEmail').value.trim().toLowerCase();
+  const wa = $('pfWa').value.replace(/\D/g, ''), avisos = $('pfAvisos').checked;
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('Esse e-mail não parece válido.');
+  if (wa && (wa.length < 10 || wa.length > 13)) return toast('WhatsApp inválido. Use DDD + número, ex.: (65) 99999-9999.');
+  $('pfSalvar').disabled = true;
+  const { error } = await sb.rpc('salvar_perfil', { p_nome: nome, p_email: email, p_whatsapp: wa, p_avisos: avisos });
+  if (error){ $('pfSalvar').disabled = false; return toast(rpcMsg(error)); }
+  Object.assign(profile, { nome: nome || null, email_aviso: email || null, whatsapp: wa || null, avisos });
+  renderMe(); closeDlg2(); toast('Perfil salvo.', true);
+  await loadMembers(); render();
+});
+
+/* ======================= PESSOAS E CONVITES ======================= */
+const fmtDateTime = iso => new Date(iso).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+function closeDlg(){ $('dlg').hidden = true; }
+$('dlgClose').onclick = closeDlg;
+$('dlg').addEventListener('click', e => { if (e.target.id === 'dlg') closeDlg(); });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!$('drawer').hidden) closeMenu(); else if (!$('dlg2').hidden) closeDlg2(); else if (!$('dlg').hidden) closeDlg();
+});
+
+async function openManage(){
+  const c = current();
+  if (!c || c.pessoal) return;
+  $('dlgTitle').textContent = c.nome;
+  $('dlgBody').innerHTML = '<span class="kicker">Carregando…</span>';
+  $('dlg').hidden = false;
+  await loadMembers();
+  let pend = [];
+  if (c.sou_dono){
+    const { data } = await sb.rpc('convites_enviados', { cid: c.id });
+    pend = data || [];
+  }
+  if ($('dlg').hidden || state.cid !== c.id) return;
+  const dono = c.sou_dono;
+  const people = state.members.map(p => {
+    const me = currentUser && p.user_id === currentUser.id;
+    const nm = p.nome || displayName(p.login) || 'conta excluída';
+    return `<div class="person">
+      <span style="display:flex;align-items:center;gap:10px;min-width:0;"><span class="avatar sm">${avatarHtml(nm, p.foto)}</span><span style="min-width:0;">${esc(nm)}${me ? ' <span class="by">(você)</span>' : ''}${p.nome && p.login ? `<span class="by" style="display:block;margin:0;">${esc(displayName(p.login))}</span>` : ''}</span></span>
+      <span style="display:flex;gap:6px;align-items:center;">
+        ${p.eh_dono ? '<span class="tag tag-accent">Dono</span>' : ''}
+        ${dono && !me ? `<button class="btn btn-danger btn-sm" data-a="remover" data-id="${esc(p.user_id)}" data-name="${esc(nm)}">Remover</button>` : ''}
+      </span>
+    </div>`;
+  }).join('');
+  const codeActive = c.codigo && c.codigo_expira && new Date(c.codigo_expira) > new Date();
+  $('dlgBody').innerHTML = `
+    ${dono ? `
+    <div class="dlg-sec">
+      <h3>Nome</h3>
+      <div class="row"><input class="input" id="dlgName" maxlength="40" value="${esc(c.nome)}"><button class="btn btn-secondary" data-a="renomear">Salvar</button></div>
+    </div>` : ''}
+    <div class="dlg-sec">
+      <h3>Participantes · ${state.members.length}</h3>
+      ${people}
+      ${pend.map(v => `<div class="person"><span>${esc(displayName(v.login))} <span class="by">(convite enviado)</span></span>
+        <button class="btn btn-secondary btn-sm" data-a="cancelarConvite" data-id="${esc(v.id)}">Cancelar</button></div>`).join('')}
+    </div>
+    ${dono ? `
+    <div class="dlg-sec">
+      <h3>Convidar pelo usuário</h3>
+      <p class="hint">A pessoa precisa ter conta aprovada no app. O convite aparece para ela na próxima vez que entrar.</p>
+      <div class="row"><input class="input" id="dlgInvite" placeholder="Ex.: maria ou maria@gmail.com" autocapitalize="none" autocorrect="off" spellcheck="false"><button class="btn btn-primary" data-a="convidar">Convidar</button></div>
+    </div>
+    <div class="dlg-sec">
+      <h3>Código de convite</h3>
+      ${codeActive ? `
+        <div class="code">${esc(c.codigo)}</div>
+        <p class="hint">Vale até ${fmtDateTime(c.codigo_expira)}. Quem digitar em "Entrar com código" entra neste controle.</p>
+        <div class="row" style="flex-wrap:wrap;">
+          <button class="btn btn-primary" data-a="compartilhar">Enviar código</button>
+          <button class="btn btn-secondary" data-a="gerar">Gerar outro</button>
+          <button class="btn btn-secondary" data-a="cancelarCodigo">Cancelar código</button>
+        </div>` : `
+        <p class="hint">Gere um código para mandar pelo WhatsApp. Ele vale por 48 horas.</p>
+        <div class="row"><button class="btn btn-primary" data-a="gerar">Gerar código</button></div>`}
+    </div>` : `
+    <p class="hint">Só o dono (${esc(displayName((state.members.find(p => p.eh_dono) || {}).login) || '—')}) pode convidar pessoas e mudar o nome.</p>`}
+    <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
+      <div class="row" style="flex-wrap:wrap;">
+        <button class="btn btn-secondary" data-a="sair">Sair do controle</button>
+        ${dono ? '<button class="btn btn-danger" data-a="excluir">Excluir controle</button>' : ''}
+      </div>
+      <p class="hint">Ao sair, os lançamentos que você fez continuam no controle.</p>
+    </div>`;
+}
+
+async function afterChange(reopen){
+  await loadControles(); await loadMembers(); await refresh();
+  if (reopen) openManage(); else closeDlg();
+}
+
+$('dlgBody').addEventListener('click', async e => {
+  const b = e.target.closest('[data-a]');
+  if (!b) return;
+  const c = current(); if (!c) return;
+  const a = b.dataset.a;
+  let res;
+  if (a === 'renomear'){
+    const n = $('dlgName').value.trim(); if (!n) return;
+    b.disabled = true; res = await sb.rpc('renomear_controle', { cid: c.id, p_nome: n });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    toast('Nome salvo.'); return afterChange(true);
+  }
+  if (a === 'convidar'){
+    const typed = $('dlgInvite').value.trim();
+    const login = toLoginEmail(typed);
+    if (!login) return toast('Digite o usuário ou o e-mail da pessoa.');
+    b.disabled = true; res = await sb.rpc('convidar', { cid: c.id, p_login: login });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    toast(`Convite enviado para ${typed}.`); return afterChange(true);
+  }
+  if (a === 'cancelarConvite'){
+    b.disabled = true; res = await sb.rpc('cancelar_convite', { conv: b.dataset.id });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    return afterChange(true);
+  }
+  if (a === 'gerar'){
+    if (c.codigo && !confirm('Gerar outro código? O código atual deixa de funcionar.')) return;
+    b.disabled = true; res = await sb.rpc('gerar_codigo', { cid: c.id });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    return afterChange(true);
+  }
+  if (a === 'cancelarCodigo'){
+    b.disabled = true; res = await sb.rpc('cancelar_codigo', { cid: c.id });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    return afterChange(true);
+  }
+  if (a === 'compartilhar'){
+    const texto = `Bora controlar os gastos juntos no Pra Onde Foi? 💸\n\n1. Abra ${REDIRECT}\n2. Entre com a sua conta\n3. Toque em "Entrar com código" e digite: ${c.codigo}\n\n(O código vale até ${fmtDateTime(c.codigo_expira)}.)`;
+    if (navigator.share){ try { await navigator.share({ text: texto }); return; } catch(err){ if (err && err.name === 'AbortError') return; } }
+    try { await navigator.clipboard.writeText(texto); toast('Mensagem copiada! É só colar no WhatsApp.'); }
+    catch(err){ prompt('Copie a mensagem abaixo:', texto); }
+    return;
+  }
+  if (a === 'remover'){
+    if (!confirm(`Remover ${b.dataset.name} deste controle?\n\nOs lançamentos que essa pessoa fez continuam aqui.`)) return;
+    b.disabled = true; res = await sb.rpc('remover_participante', { cid: c.id, alvo: b.dataset.id });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    return afterChange(true);
+  }
+  if (a === 'sair'){
+    const others = state.members.length - 1;
+    const aviso = c.sou_dono
+      ? (others > 0 ? 'Você é o dono. Ao sair, o controle passa para quem participa há mais tempo.' : 'Você é a única pessoa aqui. Ao sair, o controle e todos os lançamentos dele serão apagados.')
+      : 'Os lançamentos que você fez continuam no controle.';
+    if (!confirm(`Sair de "${c.nome}"?\n\n${aviso}`)) return;
+    b.disabled = true; res = await sb.rpc('sair_controle', { cid: c.id });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    state.cid = null; try { localStorage.removeItem(ctrlKey()); } catch(err){}
+    toast(`Você saiu de "${c.nome}".`); return afterChange(false);
+  }
+  if (a === 'excluir'){
+    if (!confirm(`Excluir o controle "${c.nome}"?\n\nTodos os lançamentos dele serão apagados para todo mundo. Não dá para desfazer.`)) return;
+    b.disabled = true; res = await sb.rpc('excluir_controle', { cid: c.id });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    state.cid = null; try { localStorage.removeItem(ctrlKey()); } catch(err){}
+    toast('Controle excluído.'); return afterChange(false);
+  }
+});
+
+/* ======================= PLANILHA EXCEL ======================= */
+$('export').onclick = async () => {
+  if (!window.XLSX){ alert('Não foi possível gerar a planilha. Verifique a conexão e tente de novo.'); return; }
+  const c = current(); if (!c) return;
+  $('export').disabled = true;
+  const entries = await fetchAllEntries();
+  $('export').disabled = false;
+  if (!entries) return toast('Não foi possível buscar os lançamentos.');
+  const shared = !c.pessoal;
+  const money = '"R$" #,##0.00;-"R$" #,##0.00';
+  const wb = XLSX.utils.book_new();
+  const fmtCol = (ws, cols) => {
+    const r = XLSX.utils.decode_range(ws['!ref']);
+    for (let row = 1; row <= r.e.r; row++) cols.forEach(col => { const cell = ws[XLSX.utils.encode_cell({r:row,c:col})]; if (cell && cell.t === 'n') cell.z = money; });
+  };
+  const all = entries.map(e => {
+    const row = {
+      'Data': e.date.split('-').reverse().join('/'),
+      'Tipo': e.type === 'inc' ? 'Entrada' : 'Saída',
+      'Descrição': e.desc, 'Categoria': e.cat,
+      'Valor': e.type === 'inc' ? e.amount : -e.amount
+    };
+    if (shared) row['Quem lançou'] = nameOf(e.uid);
+    return row;
+  });
+  const ws1 = XLSX.utils.json_to_sheet(all.length ? all : [{Data:'',Tipo:'',Descrição:'',Categoria:'',Valor:''}]);
+  ws1['!cols'] = [{wch:12},{wch:10},{wch:34},{wch:16},{wch:14},{wch:18}];
+  fmtCol(ws1,[4]);
+  XLSX.utils.book_append_sheet(wb, ws1, 'Lançamentos');
+
+  const byMonth = {};
+  entries.forEach(e => { const k = e.date.slice(0,7); byMonth[k] = byMonth[k] || {inc:0,exp:0}; byMonth[k][e.type] += e.amount; });
+  const months = Object.keys(byMonth).sort().map(k => {
+    const [y,m] = k.split('-').map(Number), v = byMonth[k];
+    return {'Mês': `${MONTHS[m-1]} ${y}`, 'Entradas': v.inc, 'Saídas': v.exp, 'Saldo': v.inc - v.exp};
+  });
+  if (months.length){
+    const ws2 = XLSX.utils.json_to_sheet(months);
+    ws2['!cols'] = [{wch:18},{wch:14},{wch:14},{wch:14}];
+    fmtCol(ws2,[1,2,3]);
+    XLSX.utils.book_append_sheet(wb, ws2, 'Resumo por mês');
+  }
+  const slug = c.nome.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'controle';
+  XLSX.writeFile(wb, `pra-onde-foi-${slug}.xlsx`);
+};
+
+/* ======================= ADMINISTRAÇÃO ======================= */
+let users = [], adminFilter = 'pendente';
+const STATUS_TAG = {
+  pendente: '<span class="tag tag-accent">Aguardando</span>',
+  aprovado: '<span class="tag tag-neutral">Com acesso</span>',
+  bloqueado: '<span class="tag tag-red">Bloqueado</span>'
+};
+
+async function loadUsers(){
+  // lista pela função segura (só usuário, nome e situação); plano B enquanto o banco não tiver a função
+  let { data, error } = await sb.rpc('admin_listar');
+  if (error) ({ data, error } = await sb.from('perfis').select('id,email,status,is_admin,criado_em').order('criado_em', { ascending: false }));
+  if (error){ toast('Não foi possível carregar as contas.'); return; }
+  users = data;
+  const n = users.filter(u => u.status === 'pendente').length;
+  if (!$('viewAdmin').hidden) renderAdmin();
+}
+
+function renderAdmin(){
+  const count = s => users.filter(u => u.status === s).length;
+  $('cntPend').textContent = count('pendente');
+  $('cntOk').textContent = count('aprovado');
+  $('cntBlock').textContent = count('bloqueado');
+  document.querySelectorAll('#adminSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.filter === adminFilter)));
+
+  const list = adminFilter === 'todos' ? users : users.filter(u => u.status === adminFilter);
+  $('usersEmpty').hidden = list.length > 0;
+  $('usersTable').hidden = list.length === 0;
+  $('usersEmpty').textContent = adminFilter === 'pendente' ? 'Ninguém aguardando aprovação.' : 'Ninguém por aqui.';
+  $('userRows').innerHTML = list.map(u => {
+    const me = currentUser && u.id === currentUser.id;
+    let actions = '';
+    if (me) actions = '<span style="font-size:13px;color:var(--muted);">Você · conta master</span>';
+    else {
+      if (u.status !== 'aprovado') actions += `<button class="btn btn-primary btn-sm" data-act="aprovado" data-id="${esc(u.id)}">${u.status === 'bloqueado' ? 'Desbloquear' : 'Aprovar'}</button>`;
+      if (u.status !== 'bloqueado') actions += `<button class="btn btn-secondary btn-sm" data-act="bloqueado" data-id="${esc(u.id)}">${u.status === 'pendente' ? 'Recusar' : 'Bloquear'}</button>`;
+      actions += `<button class="btn btn-secondary btn-sm" data-act="senha" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Nova senha</button>`;
+      actions += `<button class="btn btn-danger btn-sm" data-act="excluir" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Excluir</button>`;
+    }
+    return `<tr>
+      <td style="word-break:break-all;">${esc(displayName(u.email))}${u.nome ? `<div class="by">${esc(u.nome)}</div>` : ''}</td>
+      <td style="color:var(--muted);">${new Date(u.criado_em).toLocaleDateString('pt-BR')}</td>
+      <td>${me ? '<span class="tag tag-accent">Admin</span>' : STATUS_TAG[u.status]}</td>
+      <td><div style="display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;">${actions}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+$('adminRefresh').onclick = () => loadUsers();
+document.querySelectorAll('#adminSeg button').forEach(b => b.addEventListener('click', () => { adminFilter = b.dataset.filter; renderAdmin(); }));
+
+$('userRows').addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const id = b.dataset.id, act = b.dataset.act;
+  let error;
+  if (act === 'senha'){
+    const nova = prompt(`Senha temporária para ${b.dataset.email} (mínimo de 6 caracteres):`);
+    if (nova === null) return;
+    if (nova.length < 6) return toast('A senha precisa ter pelo menos 6 caracteres.');
+    b.disabled = true;
+    ({ error } = await sb.rpc('admin_definir_senha', { alvo: id, nova }));
+    b.disabled = false;
+    if (error) return toast('Não foi possível concluir: ' + error.message);
+    alert(`Senha de ${b.dataset.email} redefinida.\n\nPasse a senha temporária para a pessoa e peça que ela troque em "Trocar senha" assim que entrar.`);
+    return;
+  }
+  if (act === 'excluir'){
+    if (!confirm(`Excluir a conta ${b.dataset.email}?\n\nA pessoa perde o acesso e o "Meu controle" dela é apagado. Nos controles compartilhados, os lançamentos que ela fez continuam lá. Não dá para desfazer.`)) return;
+    b.disabled = true;
+    ({ error } = await sb.rpc('admin_excluir_usuario', { alvo: id }));
+  } else {
+    b.disabled = true;
+    ({ error } = await sb.rpc('admin_mudar_status', { alvo: id, novo: act }));
+  }
+  if (error){ b.disabled = false; return toast('Não foi possível concluir: ' + error.message); }
+  await loadUsers();
+});
+
+/* ======================= APP INSTALÁVEL ======================= */
+if ('serviceWorker' in navigator && location.protocol === 'https:'){
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+
+/* ======================= INÍCIO ======================= */
+fillCats();
+if (!sb){
+  show('viewSetup');
+} else {
+  checarProvedores();
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY'){ recovering = true; show('viewAuth'); setAuthMode('nova'); return; }
+    if (recovering || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') return;
+    // setTimeout evita travar o Supabase ao fazer consultas dentro deste aviso
+    setTimeout(() => handleSession(session, event === 'SIGNED_OUT'), 0);
+  });
+}
