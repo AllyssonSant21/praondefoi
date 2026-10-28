@@ -744,6 +744,10 @@ function alertas(){
 }
 
 const TITULOS = { metas: 'Metas', invest: 'Investimentos' };
+// o aviso de contas vencidas só aparece em Lançamentos e Contas a pagar
+function syncAlerta(){
+  $('billAlert').hidden = !state.alertaN || !modOn('contas') || !['lanc', 'contas'].includes(state.tab);
+}
 function renderTabs(){
   const mods = modulosDe(current());
   document.querySelectorAll('[data-tab]').forEach(b => { b.hidden = !mods.includes(b.dataset.tab); });
@@ -763,6 +767,7 @@ function renderTabs(){
   $('tabMetas').hidden = desligada || state.tab !== 'metas';
   $('tabInvest').hidden = desligada || state.tab !== 'invest';
   $('export').hidden = state.tab !== 'lanc';
+  syncAlerta();
   const porMes = state.tab === 'lanc' || state.tab === 'contas';
   $('monthNav').style.display = porMes ? 'flex' : 'none';
   if (!porMes){ $('monthTitle').textContent = TITULOS[state.tab]; document.title = `${TITULOS[state.tab]} · Pra Onde Foi?`; }
@@ -794,7 +799,7 @@ function renderContas(){
   const { late, hoje } = alertas();
   const n = late + hoje;
   document.querySelectorAll('[data-badge="contas"]').forEach(b => { b.hidden = !n || !modOn('contas'); b.textContent = n; });
-  $('billAlert').hidden = !n || !modOn('contas');
+  state.alertaN = n; syncAlerta();
   $('billAlertText').textContent = [
     late ? `${plural(late, 'conta')} ${late === 1 ? 'vencida' : 'vencidas'}` : '',
     hoje ? `${hoje} ${hoje === 1 ? 'conta vence' : 'contas vencem'} hoje` : ''
