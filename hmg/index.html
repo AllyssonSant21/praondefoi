@@ -795,6 +795,18 @@
   </aside>
 </div>
 
+<!-- ============ CONFIRMAR ============ -->
+<div class="dlg-back" id="dlgConf" hidden style="z-index:48;">
+  <div class="blueprint dlg" role="alertdialog" aria-modal="true" aria-labelledby="confTitle" style="width:min(420px,100%);gap:var(--space-4);">
+    <h2 id="confTitle" style="font-size:20px;text-transform:uppercase;line-height:1.15;"></h2>
+    <p id="confText" style="margin:0;font-size:14px;color:var(--muted);white-space:pre-line;"></p>
+    <div style="display:flex;flex-wrap:wrap;justify-content:flex-end;gap:var(--space-2);">
+      <button class="btn btn-secondary" id="confNo" type="button" style="min-height:44px;min-width:110px;">Cancelar</button>
+      <button class="btn btn-danger" id="confYes" type="button" style="min-height:44px;min-width:110px;">Excluir</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="alert" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 

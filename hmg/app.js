@@ -349,7 +349,7 @@ $('importLocal').onclick = async () => {
   const list = localPending();
   const pessoal = state.controles.find(c => c.pessoal);
   if (!list.length || !pessoal) return;
-  if (!confirm(`Enviar ${plural(list.length,'lançamento')} salvos neste aparelho para o seu "Meu controle"?`)) return;
+  if (!await confirmar(`Enviar ${plural(list.length,'lançamento')} salvos neste aparelho para o seu "Meu controle"?`)) return;
   $('importLocal').disabled = true;
   const { error } = await sb.from('lancamentos').insert(list.map(e => ({ ...toRow(e), controle_id: pessoal.id })));
   $('importLocal').disabled = false;
@@ -359,6 +359,35 @@ $('importLocal').onclick = async () => {
   await loadMembers(); await refresh();
   toast(`${plural(list.length,'lançamento')} enviados.`);
 };
+
+
+/* ======================= CONFIRMAÇÃO (janela do app) ======================= */
+// Mesmo formato do confirm() do navegador: 1ª parte vira o título, o resto o texto.
+const PERIGO = ['Excluir','Remover','Sair','Desfazer','Encerrar','Retirar','Resgatar','Vender','Apagar'];
+function confirmar(msg, okTxt){
+  const [titulo, ...resto] = String(msg).split('\n\n');
+  const verbo = okTxt || (titulo.match(/^[A-Za-zÀ-ú]+/) || ['Confirmar'])[0];
+  return new Promise(res => {
+    $('confTitle').textContent = titulo.replace(/\?$/, '') + '?';
+    $('confText').textContent = resto.join('\n\n');
+    $('confText').hidden = !resto.length;
+    $('confYes').textContent = verbo.charAt(0).toUpperCase() + verbo.slice(1);
+    $('confYes').className = 'btn ' + (PERIGO.includes(verbo) ? 'btn-danger' : 'btn-primary');
+    $('dlgConf').hidden = false;
+    setTimeout(() => $('confNo').focus(), 0);
+    const tecla = e => { if (e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); fim(false); } };
+    const fim = v => {
+      $('dlgConf').hidden = true;
+      $('confYes').onclick = $('confNo').onclick = $('dlgConf').onclick = null;
+      document.removeEventListener('keydown', tecla, true);
+      res(v);
+    };
+    $('confYes').onclick = () => fim(true);
+    $('confNo').onclick = () => fim(false);
+    $('dlgConf').onclick = e => { if (e.target.id === 'dlgConf') fim(false); };
+    document.addEventListener('keydown', tecla, true);
+  });
+}
 
 /* ======================= FORMULÁRIO ======================= */
 function fillCats(){
@@ -406,6 +435,10 @@ $('rows').addEventListener('click', async e => {
   const b = e.target.closest('[data-del]');
   if (!b) return;
   const id = b.dataset.del;
+  const ent = state.entries.find(x => x.id === id);
+  if (ent && !await confirmar(`Excluir este lançamento?
+
+${ent.desc} · ${ent.type === 'inc' ? '+' : '−'} ${brl(ent.amount)}`)) return;
   const before = state.entries;
   state.entries = state.entries.filter(x => x.id !== id);
   render();
@@ -834,10 +867,10 @@ $('billList').addEventListener('click', e => {
   if (row) openBill(row.dataset.bill);
 });
 $('billNew').onclick = () => openBillForm(null);
-$('ctrlShare').onclick = () => {
+$('ctrlShare').onclick = async () => {
   const c = current(); if (!c) return;
   if (!c.pessoal) return openManage();
-  if (!confirm('O "Meu controle" é só seu.\n\nPara dividir com alguém, crie um controle compartilhado (ex.: Casa, Apê) e convide a pessoa. Seus lançamentos pessoais continuam só seus.\n\nCriar agora?')) return;
+  if (!await confirmar('O "Meu controle" é só seu.\n\nPara dividir com alguém, crie um controle compartilhado (ex.: Casa, Apê) e convide a pessoa. Seus lançamentos pessoais continuam só seus.\n\nCriar agora?')) return;
   $('ctrlNew').click();
 };
 
@@ -853,8 +886,8 @@ function openDlg2(kicker, title, html, ctx){
 function closeDlg2(){ $('dlg2').hidden = true; dlg2 = {}; }
 $('dlg2Close').onclick = closeDlg2;
 // com uma janela aberta, a tela de trás não rola junto
-const travaFundo = () => document.documentElement.classList.toggle('travado', !$('dlg').hidden || !$('dlg2').hidden || !$('drawer').hidden);
-['dlg','dlg2','drawer'].forEach(id => new MutationObserver(travaFundo).observe($(id), { attributes: true, attributeFilter: ['hidden'] }));
+const travaFundo = () => document.documentElement.classList.toggle('travado', !$('dlg').hidden || !$('dlg2').hidden || !$('drawer').hidden || !$('dlgConf').hidden);
+['dlg','dlg2','drawer','dlgConf'].forEach(id => new MutationObserver(travaFundo).observe($(id), { attributes: true, attributeFilter: ['hidden'] }));
 $('dlg2').addEventListener('click', e => { if (e.target.id === 'dlg2') closeDlg2(); });
 
 const findConta = id => state.contas.find(c => c.id === id);
@@ -1143,7 +1176,7 @@ $('dlg2Body').addEventListener('click', async e => {
   if (a === 'pay') return openPay(id);
   if (a === 'edit') return openBillForm(c);
   if (a === 'undo'){
-    if (!confirm('Desfazer este pagamento?\n\nA saída que ele criou em Lançamentos também será apagada.')) return;
+    if (!await confirmar('Desfazer este pagamento?\n\nA saída que ele criou em Lançamentos também será apagada.')) return;
     b.disabled = true;
     res = await sb.rpc('desfazer_pagamento', { pag: b.dataset.id });
     if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
@@ -1162,7 +1195,7 @@ $('dlg2Body').addEventListener('click', async e => {
     return openBill(id);
   }
   if (a === 'end'){
-    if (!confirm(`Encerrar "${c.nome}" a partir de ${mlabel(mk)}?\n\nEla deixa de aparecer deste mês em diante. Os meses anteriores continuam como estão.`)) return;
+    if (!await confirmar(`Encerrar "${c.nome}" a partir de ${mlabel(mk)}?\n\nEla deixa de aparecer deste mês em diante. Os meses anteriores continuam como estão.`)) return;
     res = await sb.rpc('encerrar_conta', { conta: id, p_mes: mk });
     if (res.error) return toast(rpcMsg(res.error));
     closeDlg2(); toast('Conta encerrada.', true);
@@ -1170,7 +1203,7 @@ $('dlg2Body').addEventListener('click', async e => {
     return;
   }
   if (a === 'del'){
-    if (!confirm(`Excluir "${c.nome}" de todos os meses?\n\nAs saídas já lançadas continuam em Lançamentos. Não dá para desfazer.`)) return;
+    if (!await confirmar(`Excluir "${c.nome}" de todos os meses?\n\nAs saídas já lançadas continuam em Lançamentos. Não dá para desfazer.`)) return;
     res = await sb.rpc('excluir_conta', { conta: id });
     if (res.error) return toast(rpcMsg(res.error));
     closeDlg2(); toast('Conta excluída.', true);
@@ -1420,6 +1453,9 @@ $('dlg2Body').addEventListener('click', async e => {
   if (a === 'mmConfirmar'){
     const v = parseAmount($('mmValor').value);
     if (!(v > 0)) return toast('Informe um valor maior que zero.');
+    if (dlg2.mov === 'retirar' && !await confirmar(`Retirar ${brl(v)} da meta "${m ? m.nome : ''}"?
+
+O progresso da meta vai diminuir.`)) return;
     b.disabled = true;
     res = await sb.rpc('mover_meta', { meta: id, p_tipo: dlg2.mov, p_valor: v, p_data: $('mmData').value || todayISO(), p_lancar: $('mmLancar').checked });
     if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
@@ -1435,13 +1471,13 @@ $('dlg2Body').addEventListener('click', async e => {
   if (a === 'mmRetirar') return openMetaMov(id, 'retirar');
   if (a === 'mmEditar') return openMetaForm(m, null);
   if (a === 'mmDesfazer'){
-    if (!confirm('Desfazer este movimento?\n\nSe ele também foi lançado em Lançamentos, o lançamento será apagado.')) return;
+    if (!await confirmar('Desfazer este movimento?\n\nSe ele também foi lançado em Lançamentos, o lançamento será apagado.')) return;
     res = await sb.rpc('desfazer_meta_mov', { mov: b.dataset.id });
     if (res.error) return toast(rpcMsg(res.error));
     await refresh(); return openMeta(id);
   }
   if (a === 'mmExcluir'){
-    if (!confirm(`Excluir a meta "${m.nome}"?\n\nO histórico dela será apagado. Lançamentos já feitos continuam em Lançamentos.`)) return;
+    if (!await confirmar(`Excluir a meta "${m.nome}"?\n\nO histórico dela será apagado. Lançamentos já feitos continuam em Lançamentos.`)) return;
     res = await sb.rpc('excluir_meta', { meta: id });
     if (res.error) return toast(rpcMsg(res.error));
     closeDlg2(); toast('Meta excluída.', true);
@@ -1828,6 +1864,9 @@ $('dlg2Body').addEventListener('click', async e => {
       valor = parseAmount($('imValor').value);
       if (!(valor > 0)) return toast('Informe um valor maior que zero.');
     }
+    if (dlg2.mov === 'resgate' && !await confirmar(cot ? `Vender ${numBR(qtd, 6)} un. de ${inv.ticker || inv.nome} por ${brl(valor)}?` : `Resgatar ${brl(valor)} de "${inv.nome}"?
+
+O valor sai deste investimento.`)) return;
     b.disabled = true;
     res = await sb.rpc('mover_investimento', { inv: id, p_tipo: dlg2.mov, p_valor: valor, p_quantidade: qtd, p_data: $('imData').value || todayISO(), p_lancar: !!($('imLancar') && $('imLancar').checked) });
     if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
@@ -1847,13 +1886,13 @@ $('dlg2Body').addEventListener('click', async e => {
     await loadInvest(); renderInvest(); return openInv(id);
   }
   if (a === 'ivDesfazer'){
-    if (!confirm('Desfazer esta movimentação?\n\nSe ela também foi lançada em Lançamentos, o lançamento será apagado.')) return;
+    if (!await confirmar('Desfazer esta movimentação?\n\nSe ela também foi lançada em Lançamentos, o lançamento será apagado.')) return;
     res = await sb.rpc('desfazer_inv_mov', { mov: b.dataset.id });
     if (res.error) return toast(rpcMsg(res.error));
     await refresh(); return openInv(id);
   }
   if (a === 'ivExcluir'){
-    if (!confirm(`Excluir "${inv.nome}" e todo o histórico dele?\n\nLançamentos já feitos continuam em Lançamentos.`)) return;
+    if (!await confirmar(`Excluir "${inv.nome}" e todo o histórico dele?\n\nLançamentos já feitos continuam em Lançamentos.`)) return;
     res = await sb.rpc('excluir_investimento', { inv: id });
     if (res.error) return toast(rpcMsg(res.error));
     closeDlg2(); toast('Investimento excluído.', true);
@@ -2167,7 +2206,7 @@ $('dlgBody').addEventListener('click', async e => {
     return afterChange(true);
   }
   if (a === 'gerar'){
-    if (c.codigo && !confirm('Gerar outro código? O código atual deixa de funcionar.')) return;
+    if (c.codigo && !await confirmar('Gerar outro código? O código atual deixa de funcionar.')) return;
     b.disabled = true; res = await sb.rpc('gerar_codigo', { cid: c.id });
     if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
     return afterChange(true);
@@ -2185,7 +2224,7 @@ $('dlgBody').addEventListener('click', async e => {
     return;
   }
   if (a === 'remover'){
-    if (!confirm(`Remover ${b.dataset.name} deste controle?\n\nOs lançamentos que essa pessoa fez continuam aqui.`)) return;
+    if (!await confirmar(`Remover ${b.dataset.name} deste controle?\n\nOs lançamentos que essa pessoa fez continuam aqui.`)) return;
     b.disabled = true; res = await sb.rpc('remover_participante', { cid: c.id, alvo: b.dataset.id });
     if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
     return afterChange(true);
@@ -2195,14 +2234,14 @@ $('dlgBody').addEventListener('click', async e => {
     const aviso = c.sou_dono
       ? (others > 0 ? 'Você é o dono. Ao sair, o controle passa para quem participa há mais tempo.' : 'Você é a única pessoa aqui. Ao sair, o controle e todos os lançamentos dele serão apagados.')
       : 'Os lançamentos que você fez continuam no controle.';
-    if (!confirm(`Sair de "${c.nome}"?\n\n${aviso}`)) return;
+    if (!await confirmar(`Sair de "${c.nome}"?\n\n${aviso}`)) return;
     b.disabled = true; res = await sb.rpc('sair_controle', { cid: c.id });
     if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
     state.cid = null; try { localStorage.removeItem(ctrlKey()); } catch(err){}
     toast(`Você saiu de "${c.nome}".`); return afterChange(false);
   }
   if (a === 'excluir'){
-    if (!confirm(`Excluir o controle "${c.nome}"?\n\nTodos os lançamentos dele serão apagados para todo mundo. Não dá para desfazer.`)) return;
+    if (!await confirmar(`Excluir o controle "${c.nome}"?\n\nTodos os lançamentos dele serão apagados para todo mundo. Não dá para desfazer.`)) return;
     b.disabled = true; res = await sb.rpc('excluir_controle', { cid: c.id });
     if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
     state.cid = null; try { localStorage.removeItem(ctrlKey()); } catch(err){}
@@ -2324,7 +2363,7 @@ $('userRows').addEventListener('click', async e => {
     return;
   }
   if (act === 'excluir'){
-    if (!confirm(`Excluir a conta ${b.dataset.email}?\n\nA pessoa perde o acesso e o "Meu controle" dela é apagado. Nos controles compartilhados, os lançamentos que ela fez continuam lá. Não dá para desfazer.`)) return;
+    if (!await confirmar(`Excluir a conta ${b.dataset.email}?\n\nA pessoa perde o acesso e o "Meu controle" dela é apagado. Nos controles compartilhados, os lançamentos que ela fez continuam lá. Não dá para desfazer.`)) return;
     b.disabled = true;
     ({ error } = await sb.rpc('admin_excluir_usuario', { alvo: id }));
   } else {
