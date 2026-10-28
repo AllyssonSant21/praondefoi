@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleusercontent.com; connect-src 'self' https://syffvgczgukoickcprni.supabase.co wss://syffvgczgukoickcprni.supabase.co; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<meta name="description" content="Pra Onde Foi? — controle financeiro simples, para você e para a sua casa.">
+<link rel="icon" type="image/png" href="../icons/favicon.png">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pra Onde Foi?">
+<title>[HMG] Pra Onde Foi?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<style>
+  :root{
+    --bg:#0b1220;          /* azul-marinho da capa */
+    --surface:#111a2b;
+    --text:#f4f0e6;        /* creme */
+    --muted:#9aa4b8;
+    --accent:#ffc83d;      /* amarelo */
+    --red:#e5484d;         /* selo vermelho */
+    --ink:#0b1220;
+    --divider:rgba(244,240,230,.16);
+    --track:rgba(244,240,230,.10);
+    --font-heading:"Archivo",system-ui,sans-serif;
+    --font-body:"Inter",system-ui,sans-serif;
+    --space-1:3.4px;--space-2:6.8px;--space-3:10.2px;--space-4:13.6px;--space-6:20.4px;--space-8:27.2px;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  [hidden]{display:none !important}
+  body{margin:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:15px;line-height:1.55}
+  h1,h2{font-family:var(--font-heading);font-weight:900;line-height:1.05;letter-spacing:-.015em;margin:0}
+  button,input,select{font:inherit}
+  :focus{outline:none}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  ::selection{background:rgba(255,200,61,.35)}
+
+  .wrap{max-width:1120px;margin:0 auto;padding:var(--space-8) var(--space-6) 64px;display:flex;flex-direction:column;gap:var(--space-8)}
+
+  /* cartões */
+  .blueprint{position:relative;background:var(--surface);border:1px solid rgba(244,240,230,.08);border-radius:18px}
+
+  /* botões em pílula */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;font-family:var(--font-body);font-weight:600;font-size:14px;line-height:1.2;color:var(--text);background:transparent;border:1px solid var(--divider);border-radius:999px;padding:9px 16px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn-secondary:hover{background:rgba(244,240,230,.07)}
+  .btn-secondary:active{background:rgba(244,240,230,.14)}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:var(--ink)}
+  .btn-primary:hover{background:#ffd566}
+  .btn-primary:active{background:#e6b232}
+  .btn-ghost{color:var(--accent);border-color:transparent;padding-inline:var(--space-1)}
+  .btn-ghost:hover{background:rgba(255,200,61,.10)}
+  .btn-danger{color:#ff8a8d;border-color:rgba(229,72,77,.45)}
+  .btn-danger:hover{background:rgba(229,72,77,.14)}
+  .btn-icon{width:38px;height:38px;padding:0}
+  .btn-sm{padding:6px 12px;font-size:13px}
+  .seg button{white-space:nowrap}
+
+  /* lista de contas vira cartões no celular */
+  @media (max-width:640px){
+    #usersTable thead{display:none}
+    #usersTable tr{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:14px 2px;border-bottom:1px solid rgba(244,240,230,.08)}
+    #usersTable td{display:block;padding:0;border:0}
+    #usersTable td:nth-child(1){grid-column:1;font-weight:600}
+    #usersTable td:nth-child(2){grid-column:1;grid-row:2;font-size:13px}
+    #usersTable td:nth-child(3){grid-column:2;grid-row:1}
+    #usersTable td:nth-child(4){grid-column:1 / -1}
+    #usersTable td:nth-child(4)>div{justify-content:flex-start !important}
+    #usersTable tbody tr:hover{background:transparent}
+  }
+
+  /* formulário */
+  .field>label{display:block;font-size:12px;font-weight:500;margin-bottom:6px;color:rgba(244,240,230,.7)}
+  .input{width:100%;min-height:42px;padding:8px 12px;font-size:14px;color:var(--text);caret-color:var(--accent);background:var(--bg);border:1px solid var(--divider);border-radius:10px;color-scheme:dark}
+  .input::placeholder{color:#5f6a80}
+  .input:hover{border-color:rgba(244,240,230,.45)}
+  .input:focus-visible{border-color:var(--accent);outline-offset:0}
+  .seg{display:inline-flex;gap:2px;padding:3px;background:var(--bg);border:1px solid var(--divider);border-radius:999px}
+  .seg button{border:0;background:transparent;color:var(--text);padding:7px 16px;font-size:13px;font-weight:600;border-radius:999px;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:var(--ink)}
+  .seg button[aria-pressed="false"]:hover{background:rgba(244,240,230,.07)}
+
+  /* tabela */
+  .table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+  .table th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:rgba(244,240,230,.6);padding:var(--space-2);border-bottom:1px solid var(--divider);font-weight:500}
+  .table td{padding:var(--space-2);border-bottom:1px solid rgba(244,240,230,.08)}
+  .table tbody tr:hover{background:rgba(244,240,230,.04)}
+  .tag{display:inline-flex;align-items:center;font-size:11px;font-weight:600;letter-spacing:.02em;padding:3px 10px;border-radius:999px;white-space:nowrap}
+  .tag-accent{background:var(--accent);color:var(--ink)}
+  .tag-neutral{background:rgba(244,240,230,.10);color:var(--text)}
+  .tag-red{background:rgba(229,72,77,.18);color:#ff8a8d}
+
+  .kicker{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .big{font-family:var(--font-heading);font-weight:900;font-size:34px;line-height:1;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--space-6)}
+  .stat{padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-2)}
+  .stat .note{font-size:13px;color:var(--muted)}
+  .stat-bal{background:var(--accent);color:var(--ink);border-color:var(--accent)}
+  .stat-bal .kicker,.stat-bal .note{color:rgba(11,18,32,.7)}
+  .stat-bal.neg{background:var(--red);border-color:var(--red);color:var(--text)}
+  .stat-bal.neg .kicker,.stat-bal.neg .note{color:rgba(244,240,230,.85)}
+
+  /* barra do usuário */
+  .userbar{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:var(--space-2);font-size:13px;color:var(--muted);margin-bottom:calc(var(--space-8) * -0.5)}
+  .userbar .who{margin-right:var(--space-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60vw}
+
+  /* telas centralizadas (login, espera) */
+  .center{min-height:100vh;display:grid;place-items:center;padding:var(--space-6)}
+  .auth-box{width:min(420px,100%);display:flex;flex-direction:column;gap:var(--space-6)}
+  .auth-title{font-size:clamp(40px,11vw,56px);line-height:.92;text-transform:uppercase;letter-spacing:-.02em}
+  .auth-lead{font-size:17px;font-weight:600;line-height:1.35;margin:0}
+  .auth-card{padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4)}
+  .msg{font-size:13px;margin:0}
+  .msg.err{color:#ff8a8d}
+  .msg.ok{color:var(--accent)}
+  .msg:empty{display:none}
+  .hl{color:var(--accent)}
+
+  /* controles */
+  .ctrlbar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3)}
+  .ctrl-select{width:auto;min-width:200px;max-width:100%;border-radius:999px;font-weight:600;padding-right:34px}
+  .ctrlbar .note{font-size:13px;color:var(--muted)}
+  .by{font-size:12px;color:var(--muted);margin-top:2px}
+  .span2{grid-column:span 2}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  html,body{max-width:100%;overflow-x:hidden}
+  @media (max-width:720px){
+    .span2{grid-column:auto}
+    #rows td:nth-child(4){white-space:nowrap}
+    .input,select.input,textarea{font-size:16px}
+  }
+  .cat-inline{display:none}
+  @media (max-width:560px){
+    #tableWrap .table th:nth-child(3), #rows td:nth-child(3){display:none}
+    .cat-inline{display:inline-flex;margin-top:4px}
+    #tableWrap .table th:first-child, #rows td:first-child{width:48px}
+  }
+  .invite{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);padding:var(--space-4) var(--space-6);border-color:rgba(255,200,61,.45)}
+  .dlg-back{position:fixed;inset:0;z-index:40;background:rgba(5,9,18,.72);display:grid;place-items:center;padding:16px;overflow:auto}
+  .dlg{width:min(520px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-6);background:var(--surface)}
+  .dlg-sec{display:flex;flex-direction:column;gap:var(--space-2)}
+  .dlg-sec h3{font-family:var(--font-heading);font-weight:900;font-size:13px;letter-spacing:.08em;text-transform:uppercase;margin:0;color:var(--muted)}
+  .dlg .row{display:flex;gap:var(--space-2);align-items:center}
+  .dlg .row .input{flex:1;min-width:0}
+  .dlg .hint{margin:0;font-size:13px;color:var(--muted)}
+  .person{display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);padding:8px 0;border-bottom:1px solid rgba(244,240,230,.08);font-size:14px;word-break:break-all}
+  .code{font-family:var(--font-heading);font-weight:900;font-size:38px;letter-spacing:.08em;color:var(--accent);line-height:1}
+
+  /* abas e contas a pagar */
+  .tabs-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3)}
+  .tabs{max-width:100%;overflow-x:auto}
+  .tabs button{padding:9px 18px;font-size:14px}
+  .badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:6px;border-radius:999px;background:var(--red);color:var(--text);font-size:11px;font-weight:700}
+  .alert{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);padding:var(--space-4) var(--space-6);border-color:rgba(229,72,77,.55)}
+  .alert b{color:#ff8a8d}
+  .bill{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:var(--space-4);align-items:center;padding:14px 4px;border-bottom:1px solid rgba(244,240,230,.08);cursor:pointer;border-radius:10px}
+  .bill:hover{background:rgba(244,240,230,.04)}
+  .bill-day{width:52px;height:52px;border-radius:14px;background:var(--bg);border:1px solid var(--divider);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;gap:3px}
+  .bill-day b{font-family:var(--font-heading);font-weight:900;font-size:20px}
+  .bill-day small{font-size:10px;font-weight:600;letter-spacing:.1em;color:var(--muted)}
+  .bill.late .bill-day{border-color:var(--red);color:#ff8a8d}
+  .bill.soon .bill-day{border-color:var(--accent);color:var(--accent)}
+  .bill.paid{opacity:.55}
+  .bill-name{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-weight:600;word-break:break-word}
+  .bill-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+  .bill-val{font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .prog{height:4px;background:var(--track);border-radius:999px;overflow:hidden;margin-top:6px;max-width:220px}
+  .prog>div{height:100%;background:var(--accent);border-radius:999px}
+  .kv{display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;padding:3px 0}
+  .kv span{color:var(--muted)}
+  .chk{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px}
+  .chk input{width:18px;height:18px;accent-color:var(--accent);margin:0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)}
+  @media (max-width:560px){
+    .bill{grid-template-columns:44px minmax(0,1fr);gap:var(--space-3)}
+    .bill-day{width:44px;height:44px}
+    .bill-side{grid-column:2;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;row-gap:8px}
+    .bill-act{flex-wrap:wrap;justify-content:flex-end;margin-left:auto}
+  }
+  @media (max-width:400px){
+    .wrap{padding-left:14px;padding-right:14px}
+    .blueprint.stat,#tabContas>section.blueprint,#tabLanc>section.blueprint{padding:16px !important}
+  }
+  @media (max-width:560px){
+    #tabSeg,#bfTipo,#bfModo{display:flex;width:100%;max-width:100%}
+    #tabSeg button,#bfTipo button,#bfModo button{flex:1 1 auto;padding-left:8px;padding-right:8px}
+    .tabs-row{display:block}
+  }
+  .stat-filtro{cursor:pointer;transition:border-color .15s,box-shadow .15s}
+  .stat-filtro:hover{border-color:rgba(244,240,230,.28)}
+  .stat-filtro.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .stat-filtro{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+  /* toque mais fluido no celular */
+  body{-webkit-tap-highlight-color:transparent}
+  button,input,select,label,a,.bill{touch-action:manipulation}
+  .dlg-back{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  .dlg{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px)}
+  html.travado,html.travado body{overflow:hidden}
+  /* ===== tela de entrada ===== */
+  .auth-page{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:28px 18px 40px;
+    background:radial-gradient(900px 520px at 88% 6%, rgba(255,200,61,.11), transparent 62%),
+               radial-gradient(760px 520px at 0% 100%, rgba(229,72,77,.09), transparent 60%), var(--bg)}
+  .auth-grid{width:min(1080px,100%);display:grid;grid-template-columns:1fr;grid-template-areas:"head" "side" "feats";gap:28px}
+  .auth-head{grid-area:head;display:flex;flex-direction:column;gap:var(--space-3)}
+  .auth-side{grid-area:side;position:relative;width:min(440px,100%);justify-self:center}
+  .auth-feats{grid-area:feats;list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr;gap:14px}
+  .auth-logo{width:76px;height:76px;display:block}
+  .auth-kick{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .auth-feat{display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border-radius:16px;background:rgba(244,240,230,.035);border:1px solid rgba(244,240,230,.07)}
+  .auth-feat .ic{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:rgba(255,200,61,.12);color:var(--accent)}
+  .auth-feat b{display:block;font-size:15px;margin-bottom:2px}
+  .auth-feat span{font-size:13px;color:var(--muted);line-height:1.45}
+  .auth-preview{display:none}
+  .auth-foot{grid-area:auto;font-size:12px;color:var(--muted);text-align:center}
+  .auth-foot a{color:inherit}
+  .ou{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.12em}
+  .ou::before,.ou::after{content:"";flex:1;height:1px;background:var(--divider)}
+  @media (min-width:960px){
+    .auth-page{padding:48px 40px}
+    .auth-grid{grid-template-columns:minmax(0,1.15fr) minmax(380px,440px);grid-template-areas:"head side" "feats side";column-gap:72px;row-gap:34px;align-items:start}
+    .auth-head{align-self:end}
+    .auth-side{align-self:center;justify-self:end;width:100%;margin-top:40px}
+    .auth-logo{width:112px;height:112px}
+    .auth-head .auth-title{font-size:clamp(64px,6.4vw,92px)}
+    .auth-head .auth-lead{font-size:19px;max-width:30ch}
+    .auth-feats{grid-template-columns:1fr 1fr}
+    .auth-preview{display:flex;flex-direction:column;gap:4px;position:absolute;top:-58px;right:-22px;transform:rotate(4deg);
+      background:var(--accent);color:var(--ink);border-radius:18px;padding:14px 18px;box-shadow:0 18px 40px rgba(0,0,0,.45);z-index:2;pointer-events:none}
+    .auth-preview .k{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.7}
+    .auth-preview .v{font-family:var(--font-heading);font-weight:900;font-size:26px;line-height:1}
+    .auth-preview .n{font-size:12px;opacity:.75}
+    .auth-side .auth-card{padding:28px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+  }
+
+  /* ===== menu ☰ e perfil ===== */
+  .menu-btn{display:inline-flex;align-items:center;gap:10px;max-width:100%;padding:4px 12px 4px 4px;border:1px solid var(--divider);border-radius:999px;background:transparent;color:var(--text);cursor:pointer;font:inherit}
+  .menu-btn:hover{background:rgba(244,240,230,.07)}
+  .menu-btn .who{font-size:14px;font-weight:600;color:var(--text);max-width:46vw;margin:0}
+  .avatar{flex:none;width:32px;height:32px;border-radius:50%;background:var(--accent);color:var(--ink);display:inline-flex;align-items:center;justify-content:center;font-family:var(--font-heading);font-weight:900;font-size:13px;overflow:hidden;line-height:1}
+  .avatar img{width:100%;height:100%;object-fit:cover;display:block}
+  .avatar.sm{width:26px;height:26px;font-size:11px}
+  .avatar.lg{width:52px;height:52px;font-size:19px}
+  .avatar.xl{width:96px;height:96px;font-size:34px}
+  .drawer-back{position:fixed;inset:0;z-index:45;background:rgba(5,9,18,.62)}
+  .drawer{position:absolute;top:0;right:0;bottom:0;width:min(320px,86vw);background:var(--surface);border-left:1px solid var(--divider);
+    padding:calc(env(safe-area-inset-top) + 20px) 18px calc(env(safe-area-inset-bottom) + 18px);display:flex;flex-direction:column;gap:18px;overflow:auto;animation:gaveta .18s ease-out}
+  @keyframes gaveta{from{transform:translateX(28px);opacity:0}to{transform:none;opacity:1}}
+  @media (prefers-reduced-motion:reduce){.drawer{animation:none}}
+  .drawer-item{display:flex;align-items:center;gap:12px;width:100%;padding:13px 10px;border:0;border-radius:12px;background:transparent;color:var(--text);font:inherit;font-size:15px;font-weight:600;cursor:pointer;text-align:left}
+  .drawer-item:hover{background:rgba(244,240,230,.07)}
+  .drawer-item svg{color:var(--accent);flex:none}
+  .drawer-item.sair,.drawer-item.sair svg{color:#ff8a8d}
+  .ellip{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* ===== alinhamento dos campos (iPhone) ===== */
+  .field{min-width:0}
+  .input:not(textarea){height:44px;min-height:44px}
+  input[type=date].input{-webkit-appearance:none;appearance:none;display:flex;align-items:center;width:100%;min-width:0;max-width:100%;text-align:left;line-height:normal}
+  input[type=date].input::-webkit-date-and-time-value{text-align:left;margin:0}
+  input[type=date].input::-webkit-calendar-picker-indicator{filter:invert(.92);opacity:.75;cursor:pointer}
+  select.input{-webkit-appearance:none;appearance:none;padding-right:36px;background-repeat:no-repeat;background-position:right 12px center;background-size:14px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f4f0e6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")}
+  @media (max-width:560px){
+    .ctrl-select{width:100%}
+    .ctrlbar>span:last-child{margin-left:0 !important;width:100%}
+    .ctrlbar>span:last-child .btn{flex:1 1 auto}
+  }
+  /* ===== HMG ===== */
+  .hmg-tag{position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:70;background:var(--red);color:#fff;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding:3px 10px;border-radius:999px;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+
+  /* ===== navegação: barra embaixo (celular) e menu lateral (PC) ===== */
+  #viewApp .userbar{display:none}
+  .sidenav{display:none}
+  .bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:rgba(14,22,38,.97);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    border-top:1px solid var(--divider);padding:6px 4px calc(env(safe-area-inset-bottom) + 6px)}
+  .bottomnav button{flex:1 1 0;min-width:0;position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border:0;background:none;color:var(--muted);font:inherit;font-size:10.5px;font-weight:600;cursor:pointer}
+  .bottomnav button.on{color:var(--accent)}
+  .bottomnav svg{width:23px;height:23px}
+  .bottomnav .lbl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bottomnav .badge{position:absolute;top:0;left:calc(50% + 6px);margin:0}
+  .nav-new{position:absolute;top:-2px;left:calc(50% + 4px);background:var(--accent);color:var(--ink);font-size:8.5px;font-weight:800;letter-spacing:.04em;padding:1px 5px;border-radius:999px}
+  #viewApp .wrap{padding-bottom:calc(104px + env(safe-area-inset-bottom))}
+  .side-brand{display:flex;align-items:center;gap:2px;margin:0 0 18px -8px;color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+  .side-item{display:flex;align-items:center;gap:12px;width:100%;padding:11px 12px;border:0;border-radius:12px;background:none;color:var(--muted);font:inherit;font-size:14.5px;font-weight:600;text-align:left;cursor:pointer}
+  .side-item:hover{background:rgba(244,240,230,.06);color:var(--text)}
+  .side-item.on{background:rgba(255,200,61,.12);color:var(--accent)}
+  .side-item svg{width:20px;height:20px;flex:none}
+  .side-item .badge{margin-left:auto}
+  .side-new{margin-left:auto;background:var(--accent);color:var(--ink);font-size:10px;font-weight:800;letter-spacing:.04em;padding:2px 8px;border-radius:999px}
+  .side-user{margin-top:auto;width:100%;justify-content:flex-start;border-radius:14px;padding:8px 10px}
+  .side-user .who{flex:1;text-align:left;max-width:none}
+  @media (min-width:900px){
+    .bottomnav{display:none}
+    .sidenav{display:flex;flex-direction:column;gap:4px;position:fixed;top:0;bottom:0;left:0;width:248px;z-index:20;background:#0e1626;border-right:1px solid var(--divider);padding:22px 14px 16px;overflow:auto}
+    #viewApp{padding-left:248px}
+    #viewApp .wrap{padding-bottom:64px}
+    .app-kicker{display:none !important}
+  }
+
+  /* ===== metas ===== */
+  .metas-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr));gap:var(--space-4)}
+  .meta{display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:18px;background:rgba(244,240,230,.035);border:1px solid rgba(244,240,230,.08);cursor:pointer;transition:border-color .15s}
+  .meta:hover{border-color:rgba(244,240,230,.22)}
+  .meta.done{border-color:rgba(255,200,61,.45)}
+  .meta-top{display:flex;gap:12px;align-items:center;min-width:0}
+  .meta-ic{flex:none;width:46px;height:46px;border-radius:14px;background:rgba(255,200,61,.12);display:grid;place-items:center;font-size:24px;line-height:1}
+  .meta-vals{font-variant-numeric:tabular-nums}
+  .meta-vals b{font-family:var(--font-heading);font-weight:900;font-size:24px}
+  .prog.big{height:8px;max-width:none;margin:0}
+  .meta-foot{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted)}
+  .meta-foot b{color:var(--accent)}
+  .meta-acts{display:flex;gap:8px}
+  .meta-acts .btn{flex:1}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--divider);border-radius:999px;background:none;color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .chip:hover{background:rgba(244,240,230,.07)}
+  .chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--ink)}
+  .ic-pick{display:flex;flex-wrap:wrap;gap:6px}
+  .ic-pick button{width:44px;height:44px;border-radius:12px;border:1px solid var(--divider);background:var(--bg);font-size:22px;cursor:pointer;line-height:1}
+  .ic-pick button[aria-pressed="true"]{border-color:var(--accent);background:rgba(255,200,61,.15)}
+  .sugere{padding:12px 14px;border-radius:14px;background:rgba(255,200,61,.08);border:1px solid rgba(255,200,61,.3);font-size:13.5px;display:flex;flex-direction:column;gap:8px}
+  .em-breve{padding:28px;border-radius:18px;border:1px dashed var(--divider);color:var(--muted);text-align:center}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:calc(100% - 32px);background:var(--red);color:var(--text);padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:50}
+  .toast.ok{background:var(--accent);color:var(--ink)}
+  @media (max-width:899px){ .toast{bottom:calc(84px + env(safe-area-inset-bottom))} }
+</style>
+</head>
+<body>
+
+<!-- ============ FALTA CONFIGURAR ============ -->
+<div id="viewSetup" class="center" hidden>
+  <div class="auth-box">
+    <h1 class="auth-title">Quase<br>pronto</h1>
+    <div class="blueprint auth-card">
+      <p class="auth-lead">Falta conectar o <span class="hl">Supabase</span>.</p>
+      <p style="margin:0;font-size:14px;color:var(--muted);">Abra este arquivo num editor de texto e preencha <b style="color:var(--text)">SUPABASE_URL</b> e <b style="color:var(--text)">SUPABASE_ANON_KEY</b> no começo do código (Supabase → Project Settings → API).</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CARREGANDO ============ -->
+<div id="viewLoading" class="center">
+  <span class="kicker">Carregando…</span>
+</div>
+
+<!-- ============ LOGIN / CADASTRO ============ -->
+<div id="viewAuth" class="auth-page" hidden>
+  <div class="auth-grid">
+    <div class="auth-head">
+      <img class="auth-logo" src="../logo/logo-simbolo.svg" alt="Pra Onde Foi?">
+      <span class="auth-kick">Controle financeiro</span>
+      <h1 class="auth-title">Pra onde<br>foi<span class="hl">?</span></h1>
+      <p class="auth-lead">Descubra para onde vai o seu dinheiro, <span class="hl">em qualquer lugar</span>.</p>
+    </div>
+    <ul class="auth-feats">
+      <li class="auth-feat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16 14.2a5 5 0 0 1 6 4.8"/></svg></span><div><b>Sozinho, a dois ou em família</b><span>O seu controle pessoal e controles compartilhados com quem você escolher.</span></div></li>
+      <li class="auth-feat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="3"/><path d="M3 10h18M8 2.5v4M16 2.5v4"/><path d="m9 15 2 2 4-4"/></svg></span><div><b>Contas a pagar</b><span>Fixas, parceladas e divididas, com aviso de vencimento.</span></div></li>
+      <li class="auth-feat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg></span><div><b>Para onde foi</b><span>Gastos por categoria, mês a mês, com planilha no Excel.</span></div></li>
+      <li class="auth-feat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18h2"/></svg></span><div><b>No celular e no PC</b><span>Instale como app e veja tudo sincronizado.</span></div></li>
+    </ul>
+    <div class="auth-side">
+    <div class="auth-preview" aria-hidden="true"><span class="k">Saldo do mês</span><span class="v">R$ 3.787,65</span><span class="n">Sobrou 73% do que entrou</span></div>
+    <div class="blueprint auth-card">
+      <div class="seg" id="authSeg" role="group" aria-label="Acesso" style="align-self:flex-start;">
+        <button type="button" data-mode="entrar" aria-pressed="true">Entrar</button>
+        <button type="button" data-mode="criar" aria-pressed="false">Criar conta</button>
+      </div>
+      <h2 id="authHeading" style="font-size:20px;text-transform:uppercase;" hidden></h2>
+      <form id="authForm" novalidate style="display:flex;flex-direction:column;gap:var(--space-4);">
+        <div class="field" id="authEmailWrap">
+          <label for="authEmail">Usuário ou e-mail</label>
+          <input class="input" id="authEmail" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Ex.: maria ou maria@gmail.com">
+        </div>
+        <div class="field" id="authPassWrap">
+          <label for="authPass" id="authPassLabel">Senha</label>
+          <input class="input" id="authPass" type="password" autocomplete="current-password" placeholder="Mínimo de 6 caracteres">
+        </div>
+        <button class="btn btn-primary" id="authSubmit" type="submit" style="min-height:44px;">Entrar</button>
+      </form>
+      <p class="msg" id="authMsg" role="status"></p>
+      <div id="googleWrap" hidden style="display:flex;flex-direction:column;gap:var(--space-4);">
+        <div class="ou">ou</div>
+        <button class="btn btn-secondary" id="googleBtn" type="button" style="min-height:44px;">Entrar com Google</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;gap:var(--space-2);">
+        <button class="btn btn-ghost btn-sm" id="forgot" type="button">Esqueci minha senha</button>
+        <button class="btn btn-ghost btn-sm" id="backLogin" type="button" hidden>Voltar para entrar</button>
+      </div>
+    </div>
+    <p class="auth-foot" style="margin:14px 0 0;"><a href="../privacidade.html">Política de privacidade</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AGUARDANDO / BLOQUEADO ============ -->
+<div id="viewWait" class="center" hidden>
+  <div class="auth-box">
+    <h1 class="auth-title" id="waitTitle">Cadastro<br>em análise</h1>
+    <div class="blueprint auth-card">
+      <p class="auth-lead" id="waitText"></p>
+      <span style="font-size:13px;color:var(--muted);" id="waitEmail"></span>
+      <div style="display:flex;flex-wrap:wrap;gap:var(--space-2);">
+        <button class="btn btn-primary" id="waitRetry" type="button">Verificar de novo</button>
+        <button class="btn btn-secondary" data-logout type="button">Sair</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="viewApp" hidden>
+<aside class="sidenav" aria-label="Navegação">
+  <div class="side-brand"><img src="../logo/logo-simbolo.svg" alt="" width="52" height="52">Pra onde foi?</div>
+  <button class="side-item" type="button" data-tab="lanc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Lançamentos</button>
+  <button class="side-item" type="button" data-tab="contas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="3"/><path d="M3 10h18M8 2.5v4M16 2.5v4"/></svg>Contas a pagar<span class="badge" data-badge="contas" hidden></span></button>
+  <button class="side-item" type="button" data-tab="metas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>Metas<span class="side-new">Novo</span></button>
+  <button class="side-item" type="button" data-tab="invest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Investimentos<span class="side-new">Novo</span></button>
+  <button class="menu-btn side-user" id="menuBtn" type="button" aria-label="Abrir menu" aria-haspopup="dialog">
+    <span class="avatar" id="meAvatar"></span>
+    <span class="who ellip" id="userEmail"></span>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+</aside>
+<nav class="bottomnav" aria-label="Navegação">
+  <button type="button" data-tab="lanc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="lbl">Lançamentos</span></button>
+  <button type="button" data-tab="contas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="3"/><path d="M3 10h18M8 2.5v4M16 2.5v4"/></svg><span class="lbl">Contas</span><span class="badge" data-badge="contas" hidden></span></button>
+  <button type="button" data-tab="metas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg><span class="lbl">Metas</span><span class="nav-new">Novo</span></button>
+  <button type="button" data-tab="invest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span class="lbl">Investir</span><span class="nav-new">Novo</span></button>
+  <button type="button" id="navMenu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span class="lbl">Menu</span></button>
+</nav>
+<div class="wrap">
+
+
+  <section id="invites" hidden style="display:flex;flex-direction:column;gap:var(--space-3);"></section>
+
+  <header style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--space-4);">
+    <div style="display:flex;flex-direction:column;gap:2px;">
+      <span class="app-kicker" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-left:-8px;"><img src="../logo/logo-simbolo.svg" alt="" width="56" height="56">Pra onde foi?</span>
+      <h1 id="monthTitle" style="font-size:44px;line-height:1;text-transform:uppercase;letter-spacing:.01em;">Mês</h1>
+    </div>
+    <div id="monthNav" style="display:flex;align-items:center;gap:var(--space-2);">
+      <button class="btn btn-secondary btn-icon" id="prev" aria-label="Mês anterior"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+      <button class="btn btn-secondary" id="today">Hoje</button>
+      <button class="btn btn-secondary btn-icon" id="next" aria-label="Próximo mês"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+      <button class="btn btn-ghost" id="export" style="margin-left:var(--space-2);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>Baixar planilha Excel</button>
+    </div>
+  </header>
+
+  <section class="ctrlbar" aria-label="Controle">
+    <select class="input ctrl-select" id="ctrlSelect" aria-label="Escolher controle"></select>
+    <span class="note" id="ctrlInfo"></span>
+    <span style="display:flex;flex-wrap:wrap;gap:var(--space-2);margin-left:auto;">
+      <button class="btn btn-secondary btn-sm" id="ctrlManage" type="button" hidden>Pessoas e convites</button>
+      <button class="btn btn-secondary btn-sm" id="ctrlShare" type="button" hidden>Compartilhar controle</button>
+      <button class="btn btn-secondary btn-sm" id="ctrlNew" type="button">+ Novo controle</button>
+      <button class="btn btn-ghost btn-sm" id="ctrlJoin" type="button">Entrar com código</button>
+    </span>
+  </section>
+
+  <div class="blueprint alert" id="billAlert" hidden>
+    <span>⚠️ <b id="billAlertText"></b></span>
+    <button class="btn btn-secondary btn-sm" id="billAlertGo" type="button">Ver contas</button>
+  </div>
+
+
+<div id="tabLanc" style="display:contents">
+  <section class="stats">
+    <div class="blueprint stat stat-filtro" data-filtro="inc" role="button" tabindex="0" aria-pressed="false" title="Mostrar só as entradas">
+      <span class="kicker">Entradas</span>
+      <span class="big" id="incVal" style="color:var(--accent);">R$ 0,00</span>
+      <span class="note" id="incNote"></span>
+    </div>
+    <div class="blueprint stat stat-filtro" data-filtro="exp" role="button" tabindex="0" aria-pressed="false" title="Mostrar só as saídas">
+      <span class="kicker">Saídas</span>
+      <span class="big" id="expVal">R$ 0,00</span>
+      <span class="note" id="expNote"></span>
+    </div>
+    <div class="blueprint stat stat-bal" id="balCard">
+      <span class="kicker">Saldo do mês</span>
+      <span class="big" id="balVal">R$ 0,00</span>
+      <span class="note" id="balNote"></span>
+    </div>
+  </section>
+
+  <section id="budget" hidden style="display:flex;flex-direction:column;gap:var(--space-2);">
+    <div style="display:flex;justify-content:space-between;gap:var(--space-4);font-size:13px;">
+      <span id="budgetLimit" style="color:var(--muted);"></span>
+      <span id="budgetLabel"></span>
+    </div>
+    <div style="height:8px;background:var(--track);border-radius:999px;overflow:hidden;">
+      <div id="budgetFill" style="height:100%;width:0;background:var(--accent);border-radius:999px;"></div>
+    </div>
+  </section>
+
+  <section class="blueprint" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4);">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
+      <h2 style="font-size:22px;text-transform:uppercase;">Novo lançamento</h2>
+      <div class="seg" id="typeSeg" role="group" aria-label="Tipo">
+        <button type="button" data-type="exp" aria-pressed="true">Saída</button>
+        <button type="button" data-type="inc" aria-pressed="false">Entrada</button>
+      </div>
+    </div>
+    <form id="form" novalidate style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--space-4);align-items:end;">
+      <div class="field span2" style="min-width:0;">
+        <label for="desc">Descrição</label>
+        <input class="input" id="desc" placeholder="Ex.: Mercado da semana" autocomplete="off" maxlength="200">
+      </div>
+      <div class="field">
+        <label for="amount">Valor (R$)</label>
+        <input class="input" id="amount" inputmode="decimal" placeholder="0,00" style="font-variant-numeric:tabular-nums;">
+      </div>
+      <div class="field">
+        <label for="cat">Categoria</label>
+        <select class="input" id="cat"></select>
+      </div>
+      <div class="field">
+        <label for="date">Data</label>
+        <input class="input" id="date" type="date">
+      </div>
+      <button class="btn btn-primary" id="addBtn" type="submit" style="min-height:42px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Adicionar
+      </button>
+    </form>
+    <span id="error" style="font-size:13px;color:#ff8a8d;" hidden></span>
+  </section>
+
+  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:var(--space-8);align-items:start;">
+    <div class="span2" style="display:flex;flex-direction:column;gap:var(--space-3);min-width:0;">
+      <div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--space-3);">
+        <h2 style="font-size:22px;text-transform:uppercase;">Lançamentos</h2>
+        <span class="by" id="filtroInfo" hidden style="margin:0;font-size:13px;">Mostrando só <b id="filtroNome" style="color:var(--text);"></b> · <button class="btn btn-ghost btn-sm" id="filtroLimpar" type="button" style="padding:8px 6px;margin:-8px 0;">limpar</button></span>
+        <button class="btn btn-ghost" id="importLocal" hidden></button>
+      </div>
+      <div id="tableWrap" style="overflow-x:auto;">
+        <table class="table">
+          <thead><tr><th style="width:72px;">Dia</th><th>Descrição</th><th>Categoria</th><th style="text-align:right;">Valor</th><th style="width:44px;"></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div id="empty" hidden style="padding:var(--space-8) 0;color:var(--muted);font-size:14px;">Nenhum lançamento neste mês. Use o formulário acima para adicionar o primeiro.</div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--space-4);">
+      <h2 style="font-size:22px;text-transform:uppercase;">Para onde foi</h2>
+      <div id="cats" style="display:flex;flex-direction:column;gap:var(--space-4);"></div>
+    </div>
+  </section>
+</div>
+
+<div id="tabContas" style="display:contents" hidden>
+  <section class="stats">
+    <div class="blueprint stat">
+      <span class="kicker">Total do mês</span>
+      <span class="big" id="billTotal">R$ 0,00</span>
+      <span class="note" id="billTotalNote"></span>
+    </div>
+    <div class="blueprint stat">
+      <span class="kicker">Já pago</span>
+      <span class="big" id="billPaid" style="color:var(--accent);">R$ 0,00</span>
+      <span class="note" id="billPaidNote"></span>
+    </div>
+    <div class="blueprint stat stat-bal" id="billLeftCard">
+      <span class="kicker">Falta pagar</span>
+      <span class="big" id="billLeft">R$ 0,00</span>
+      <span class="note" id="billLeftNote"></span>
+    </div>
+  </section>
+
+  <section class="blueprint" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-3);">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
+      <h2 style="font-size:22px;text-transform:uppercase;">Contas do mês</h2>
+      <button class="btn btn-primary" id="billNew" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Nova conta</button>
+    </div>
+    <div id="billList"></div>
+    <div id="billEmpty" hidden style="padding:var(--space-6) 0;color:var(--muted);font-size:14px;"></div>
+  </section>
+</div>
+
+<div id="tabMetas" style="display:contents" hidden>
+  <section class="stats">
+    <div class="blueprint stat">
+      <span class="kicker">Guardado em metas</span>
+      <span class="big" id="mtGuardado" style="color:var(--accent);">R$ 0,00</span>
+      <span class="note" id="mtGuardadoNote"></span>
+    </div>
+    <div class="blueprint stat">
+      <span class="kicker">Falta para os objetivos</span>
+      <span class="big" id="mtFalta">R$ 0,00</span>
+      <span class="note" id="mtFaltaNote"></span>
+    </div>
+    <div class="blueprint stat stat-bal">
+      <span class="kicker">Metas concluídas</span>
+      <span class="big" id="mtConcl">0</span>
+      <span class="note" id="mtConclNote"></span>
+    </div>
+  </section>
+  <section class="blueprint" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4);">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
+      <h2 style="font-size:22px;text-transform:uppercase;">Minhas metas</h2>
+      <button class="btn btn-primary" id="metaNova" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Nova meta</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <span class="kicker">Comece rápido</span>
+      <div class="chips" id="metaModelos"></div>
+    </div>
+    <div class="metas-grid" id="metasGrid"></div>
+    <div id="metasVazio" hidden style="padding:var(--space-6) 0;color:var(--muted);font-size:14px;"></div>
+  </section>
+</div>
+
+<div id="tabInvest" style="display:contents" hidden>
+  <section class="blueprint em-breve">
+    <div style="font-size:40px;line-height:1;margin-bottom:10px;">📈</div>
+    <h2 style="font-size:22px;text-transform:uppercase;color:var(--text);margin-bottom:8px;">Investimentos</h2>
+    <p style="margin:0;">Em construção nesta versão de teste. Na próxima entrega: seus investimentos, quanto rendeu e quanto deve render no mês, calculado automaticamente.</p>
+  </section>
+</div>
+</div>
+</div>
+
+<!-- ============ ADMINISTRAÇÃO ============ -->
+<div id="viewAdmin" hidden>
+<div class="wrap">
+  <div class="userbar">
+    <span class="who" id="adminEmail"></span>
+    <button class="btn btn-secondary btn-sm" data-changepass type="button">Trocar senha</button>
+    <button class="btn btn-secondary btn-sm" data-logout type="button">Sair</button>
+  </div>
+
+  <header style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--space-4);">
+    <div style="display:flex;flex-direction:column;gap:2px;">
+      <span style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);">Administração</span>
+      <h1 style="font-size:44px;line-height:1;text-transform:uppercase;letter-spacing:.01em;">Quem entra</h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:var(--space-2);">
+      <button class="btn btn-secondary" id="adminRefresh" type="button">Atualizar</button>
+    </div>
+  </header>
+
+  <section class="stats">
+    <div class="blueprint stat">
+      <span class="kicker">Aguardando</span>
+      <span class="big" id="cntPend" style="color:var(--accent);">0</span>
+      <span class="note">precisam da sua aprovação</span>
+    </div>
+    <div class="blueprint stat">
+      <span class="kicker">Com acesso</span>
+      <span class="big" id="cntOk">0</span>
+      <span class="note">contas aprovadas</span>
+    </div>
+    <div class="blueprint stat">
+      <span class="kicker">Bloqueados</span>
+      <span class="big" id="cntBlock">0</span>
+      <span class="note">sem acesso ao app</span>
+    </div>
+  </section>
+
+  <section class="blueprint" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4);">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
+      <h2 style="font-size:22px;text-transform:uppercase;">Contas</h2>
+      <div class="seg" id="adminSeg" role="group" aria-label="Filtrar" style="max-width:100%;overflow-x:auto;">
+        <button type="button" data-filter="pendente" aria-pressed="true">Aguardando</button>
+        <button type="button" data-filter="aprovado" aria-pressed="false">Com acesso</button>
+        <button type="button" data-filter="bloqueado" aria-pressed="false">Bloqueados</button>
+        <button type="button" data-filter="todos" aria-pressed="false">Todos</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="table" id="usersTable">
+        <thead><tr><th>Usuário</th><th style="width:120px;">Cadastro</th><th style="width:120px;">Situação</th><th style="text-align:right;">Ações</th></tr></thead>
+        <tbody id="userRows"></tbody>
+      </table>
+    </div>
+    <div id="usersEmpty" hidden style="padding:var(--space-6) 0;color:var(--muted);font-size:14px;">Ninguém por aqui.</div>
+    <p style="margin:0;font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:flex-start;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:2px;color:var(--accent);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      Aqui você vê apenas o usuário e a situação de cada conta. Os lançamentos ficam protegidos pelo banco de dados e só o dono consegue ver.
+    </p>
+  </section>
+</div>
+</div>
+
+<!-- ============ JANELA: PESSOAS E CONVITES ============ -->
+<div class="dlg-back" id="dlg" hidden>
+  <div class="blueprint dlg" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3);">
+      <div>
+        <span class="kicker" style="color:var(--accent);">Controle compartilhado</span>
+        <h2 id="dlgTitle" style="font-size:24px;text-transform:uppercase;margin-top:2px;"></h2>
+      </div>
+      <button class="btn btn-secondary btn-icon" id="dlgClose" type="button" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div id="dlgBody" style="display:flex;flex-direction:column;gap:var(--space-6);"></div>
+  </div>
+</div>
+
+<!-- ============ JANELA: CONTAS A PAGAR ============ -->
+<div class="dlg-back" id="dlg2" hidden>
+  <div class="blueprint dlg" role="dialog" aria-modal="true" aria-labelledby="dlg2Title">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3);">
+      <div style="min-width:0;">
+        <span class="kicker" id="dlg2Kicker" style="color:var(--accent);"></span>
+        <h2 id="dlg2Title" style="font-size:24px;text-transform:uppercase;margin-top:2px;word-break:break-word;"></h2>
+      </div>
+      <button class="btn btn-secondary btn-icon" id="dlg2Close" type="button" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div id="dlg2Body" style="display:flex;flex-direction:column;gap:var(--space-6);"></div>
+  </div>
+</div>
+
+<!-- ============ MENU ☰ ============ -->
+<div class="drawer-back" id="drawer" hidden>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-label="Menu">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="avatar lg" id="drAvatar"></span>
+      <div style="min-width:0;flex:1;">
+        <div class="ellip" id="drNome" style="font-weight:700;font-size:16px;"></div>
+        <div class="by ellip" id="drLogin" style="margin:0;"></div>
+      </div>
+      <button class="btn btn-secondary btn-icon" id="drClose" type="button" aria-label="Fechar menu"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <nav style="display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--divider);padding-top:10px;">
+      <button class="drawer-item" id="drPerfil" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Meu perfil</button>
+      <button class="drawer-item" data-changepass type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/></svg>Trocar senha</button>
+      <button class="drawer-item sair" data-logout type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>Sair</button>
+    </nav>
+    <p class="by" style="margin:auto 0 0;font-size:12px;">Pra Onde Foi? · <a href="../privacidade.html" style="color:inherit;">Política de privacidade</a></p>
+  </aside>
+</div>
+
+<div class="toast" id="toast" role="alert" hidden></div>
+<div class="hmg-tag">Versão de teste (HMG)</div>
+
+<script src="app.js"></script>
+</body>
+</html>

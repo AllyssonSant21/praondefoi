@@ -15,6 +15,7 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   5. `supabase-perfil.sql` — perfil (nome, foto, e-mail de aviso) e login com Google.
   6. `supabase-seguranca.sql` — e-mails mascarados, admin vê só o necessário, convite sem revelar usuários.
   7. `supabase-advisor.sql` — ajustes apontados pelo Security Advisor.
+  8. `supabase-metas.sql` — Metas (viagem, reserva de emergência…). Versão de teste em /hmg/.
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.
 - **Marca:** pasta `logo/` (SVG e PNG).
 
