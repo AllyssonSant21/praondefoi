@@ -1533,7 +1533,7 @@ function diasUteis(a, b){
   while (d < e){ const w = d.getDay(); if (w && w < 6) n++; d.setDate(d.getDate() + 1); }
   return n;
 }
-Object.assign(state, { invs: [], invMovs: [], invOk: true, idx: { cdi: [], selic: [], ipca: [] }, idxDesde: null, idxEm: 0 });
+Object.assign(state, { invs: [], invMovs: [], invOk: true, idx: { cdi: [], selic: [], ipca: [], selic_meta: [] }, idxDesde: null, idxEm: 0 });
 
 let invSeq = 0;
 async function loadInvest(){
@@ -1565,7 +1565,7 @@ async function loadInvest(){
       if (r.data.length < 1000) break;
     }
     if (seq !== invSeq) return false;
-    state.idx = { cdi: [], selic: [], ipca: [] };
+    state.idx = { cdi: [], selic: [], ipca: [], selic_meta: [] };
     all.forEach(x => { if (state.idx[x.serie]) state.idx[x.serie].push({ d: x.data, v: Number(x.valor) }); });
     state.idxDesde = desde; state.idxEm = Date.now();
   }
@@ -1691,7 +1691,7 @@ function renderInvest(){
   const cdi = ultimo('cdi'), sel = ultimo('selic'), ip = ipca12();
   $('idxInfo').innerHTML = !state.invOk ? ''
     : !cdi && !sel ? '⏳ As taxas do Banco Central ainda não chegaram. Elas são buscadas automaticamente algumas vezes por dia.'
-    : [cdi ? `CDI <b>${pct(anual(cdi.v))}</b> a.a.` : '', sel ? `Selic <b>${pct(anual(sel.v))}</b> a.a.` : '', ip !== null ? `IPCA 12 meses <b>${pct(ip)}</b>` : '',
+    : [cdi ? `CDI <b>${pct(anual(cdi.v))}</b> a.a.` : '', ultimo('selic_meta') ? `Selic <b>${numBR(ultimo('selic_meta').v)}%</b> a.a. (meta Copom)` : sel ? `Selic <b>${pct(anual(sel.v))}</b> a.a.` : '', ip !== null ? `IPCA 12 meses <b>${pct(ip)}</b>` : '',
        cdi ? `<span>atualizado em ${cdi.d.slice(8, 10)}/${cdi.d.slice(5, 7)} · Banco Central</span>` : ''].filter(Boolean).join(' · ');
   if (!state.invOk){
     $('invList').innerHTML = ''; $('invDist').innerHTML = '';

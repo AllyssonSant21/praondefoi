@@ -42,11 +42,13 @@ create index if not exists inv_movs_controle_idx on public.inv_movs (controle_id
 
 -- 2) TAXAS DO BANCO CENTRAL (CDI, Selic e IPCA) ----------------------------
 create table if not exists public.indices (
-  serie text not null check (serie in ('cdi','selic','ipca')),
+  serie text not null check (serie in ('cdi','selic','ipca','selic_meta')),
   data  date not null,
   valor numeric(12,8) not null,   -- CDI e Selic: % ao dia · IPCA: % no mês
   primary key (serie, data)
 );
+alter table public.indices drop constraint if exists indices_serie_check;
+alter table public.indices add constraint indices_serie_check check (serie in ('cdi','selic','ipca','selic_meta'));
 create table if not exists public.indices_pedidos (
   req    bigint primary key,
   serie  text not null,
@@ -199,6 +201,9 @@ begin
   insert into public.indices_pedidos (req, serie) values (r, 'selic') on conflict do nothing;
   r := net.http_get(url := base || '433/dados?formato=json&dataInicial=' || ini_ipca || '&dataFinal=' || fim, timeout_milliseconds := 30000);
   insert into public.indices_pedidos (req, serie) values (r, 'ipca') on conflict do nothing;
+  -- 432 = meta da Selic definida pelo Copom (% ao ano), só para mostrar na tela
+  r := net.http_get(url := base || '432/dados?formato=json&dataInicial=' || ini || '&dataFinal=' || fim, timeout_milliseconds := 30000);
+  insert into public.indices_pedidos (req, serie) values (r, 'selic_meta') on conflict do nothing;
 end $$;
 
 create or replace function public.indices_processar()
