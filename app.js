@@ -824,7 +824,7 @@ $('dlg2Close').onclick = closeDlg2;
 // com uma janela aberta, a tela de trás não rola junto
 const travaFundo = () => document.documentElement.classList.toggle('travado', !$('dlg').hidden || !$('dlg2').hidden || !$('drawer').hidden);
 ['dlg','dlg2','drawer'].forEach(id => new MutationObserver(travaFundo).observe($(id), { attributes: true, attributeFilter: ['hidden'] }));
-$('dlg2').addEventListener('click', e => { if (e.target.id === 'dlg2') closeDlg2(); });
+// (toque fora da janela não fecha: só o X, Cancelar ou salvar)
 
 const findConta = id => state.contas.find(c => c.id === id);
 
@@ -1285,7 +1285,7 @@ $('dlg2Body').addEventListener('submit', async e => {
 const fmtDateTime = iso => new Date(iso).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
 function closeDlg(){ $('dlg').hidden = true; }
 $('dlgClose').onclick = closeDlg;
-$('dlg').addEventListener('click', e => { if (e.target.id === 'dlg') closeDlg(); });
+// (toque fora da janela não fecha: só o X, Cancelar ou salvar)
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (!$('drawer').hidden) closeMenu(); else if (!$('dlg2').hidden) closeDlg2(); else if (!$('dlg').hidden) closeDlg();

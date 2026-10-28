@@ -1,7 +1,7 @@
 // Pra Onde Foi? — service worker
 // Guarda a "casca" do app para abrir rápido e com internet ruim.
 // Os dados financeiros (Supabase) NUNCA ficam em cache: sempre vêm do servidor.
-const VERSAO = 'pof-v12';
+const VERSAO = 'pof-v13';
 const ARQUIVOS = [
   './', './index.html', './app.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon.png'
