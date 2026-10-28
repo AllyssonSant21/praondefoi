@@ -1311,9 +1311,10 @@ function renderMetas(){
         <span class="meta-ic">${esc(m.icone)}</span>
         <div style="min-width:0;"><div style="font-weight:700;" class="ellip">${esc(m.nome)}</div><div class="by" style="margin:0;">${sub}</div></div>
       </div>
-      <div class="meta-vals"><b>${brl(i.saldo)}</b> <span style="color:var(--muted);font-size:13px;">de ${brl(i.alvo)}</span></div>
+      <div class="meta-vals"><b>${brl(i.saldo)}</b> <span style="color:var(--muted);font-size:13px;white-space:nowrap;">de ${brl(i.alvo)}</span></div>
       <div class="prog big"><div style="width:${i.pct}%"></div></div>
-      <div class="meta-foot"><span>${Math.floor(i.pct)}%${i.done ? '' : ` · faltam ${brl(i.falta)}`}</span><span>${dica}</span></div>
+      <div class="meta-foot"><span class="meta-pct">${Math.floor(i.pct)}%</span><span>${i.done ? '<b class="ok">Concluída 🎉</b>' : `Faltam <b>${brl(i.falta)}</b>`}</span></div>
+      ${i.done ? '' : `<div class="meta-dica">${dica}</div>`}
       <div class="meta-acts">
         ${i.done ? '' : `<button class="btn btn-primary btn-sm" type="button" data-mguardar="${esc(m.id)}">Guardar</button>`}
         ${i.saldo > 0 ? `<button class="btn btn-secondary btn-sm" type="button" data-mretirar="${esc(m.id)}">Retirar</button>` : ''}

@@ -321,8 +321,13 @@
   .meta-vals{font-variant-numeric:tabular-nums}
   .meta-vals b{font-family:var(--font-heading);font-weight:900;font-size:24px}
   .prog.big{height:8px;max-width:none;margin:0}
-  .meta-foot{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted)}
-  .meta-foot b{color:var(--accent)}
+  .meta-foot{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px;color:var(--muted)}
+  .meta-foot span{white-space:nowrap}
+  .meta-foot b{color:var(--text);font-size:14px}
+  .meta-foot b.ok{color:var(--accent)}
+  .meta-pct{font-weight:700;color:var(--text)}
+  .meta-dica{font-size:13px;color:var(--muted);margin-top:-4px}
+  .meta-dica b{color:var(--accent)}
   .meta-acts{display:flex;gap:8px}
   .meta-acts .btn{flex:1}
   .chips{display:flex;flex-wrap:wrap;gap:8px}
@@ -810,6 +815,6 @@
 <div class="toast" id="toast" role="alert" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js"></script>
+<script src="app.js?v=14"></script>
 </body>
 </html>

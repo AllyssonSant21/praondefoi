@@ -1,7 +1,7 @@
 // Pra Onde Foi? — service worker
 // Guarda a "casca" do app para abrir rápido e com internet ruim.
 // Os dados financeiros (Supabase) NUNCA ficam em cache: sempre vêm do servidor.
-const VERSAO = 'pof-v13';
+const VERSAO = 'pof-v14';
 const ARQUIVOS = [
   './', './index.html', './app.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon.png'
@@ -28,7 +28,7 @@ self.addEventListener('fetch', e => {
   // Páginas e arquivos do app: tenta a internet primeiro (pega atualizações), cai no cache se estiver offline
   if (url.origin === location.origin){
     e.respondWith(
-      fetch(req).then(res => {
+      fetch(req, { cache: 'no-cache' }).then(res => {
         const copia = res.clone();
         caches.open(VERSAO).then(c => c.put(req, copia));
         return res;
