@@ -771,6 +771,7 @@ function renderTabs(){
   const porMes = state.tab === 'lanc' || state.tab === 'contas';
   $('monthNav').style.display = porMes ? 'flex' : 'none';
   if (!porMes){ $('monthTitle').textContent = TITULOS[state.tab]; document.title = `${TITULOS[state.tab]} · Pra Onde Foi?`; }
+  else { $('monthTitle').textContent = `${MONTHS[state.m]} ${state.y}`; document.title = `${MONTHS[state.m]} ${state.y} · Pra Onde Foi?`; }
 }
 function setTab(t){
   state.tab = t;
