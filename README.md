@@ -16,6 +16,8 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   6. `supabase-seguranca.sql` — e-mails mascarados, admin vê só o necessário, convite sem revelar usuários.
   7. `supabase-advisor.sql` — ajustes apontados pelo Security Advisor.
   8. `supabase-metas.sql` — Metas (viagem, reserva de emergência…). Versão de teste em /hmg/.
+  9. `supabase-investimentos.sql` — Investimentos e taxas do Banco Central (ative pg_net e pg_cron antes).
+  10. `supabase-modulos.sql` — o dono escolhe o que cada controle compartilha (rodar por último).
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.
 - **Marca:** pasta `logo/` (SVG e PNG).
 

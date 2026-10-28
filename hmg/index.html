@@ -138,6 +138,12 @@
     .input,select.input,textarea{font-size:16px}
   }
   .cat-inline{display:none}
+  @media (max-width:380px){
+    #tableWrap .table{font-size:13px}
+    #tableWrap .table td,#tableWrap .table th{padding:6px 4px}
+    #tableWrap .table th:first-child,#rows td:first-child{width:40px !important}
+    #rows td:last-child{width:30px}
+  }
   @media (max-width:560px){
     #tableWrap .table th:nth-child(3), #rows td:nth-child(3){display:none}
     .cat-inline{display:inline-flex;margin-top:4px}
@@ -329,9 +335,27 @@
   .sugere{padding:12px 14px;border-radius:14px;background:rgba(255,200,61,.08);border:1px solid rgba(255,200,61,.3);font-size:13.5px;display:flex;flex-direction:column;gap:8px}
   .em-breve{padding:28px;border-radius:18px;border:1px dashed var(--divider);color:var(--muted);text-align:center}
 
+  .idx-strip{margin:0;font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 14px}
+  .idx-strip b{color:var(--text);font-weight:600}
+  .inv{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:var(--space-4);align-items:center;padding:14px 4px;border-bottom:1px solid rgba(244,240,230,.08);cursor:pointer;border-radius:10px}
+  .inv:hover{background:rgba(244,240,230,.04)}
+  .inv-ic{width:44px;height:44px;border-radius:12px;background:rgba(255,200,61,.12);display:grid;place-items:center;font-size:21px}
+  .inv-side{text-align:right;display:flex;flex-direction:column;gap:2px;font-variant-numeric:tabular-nums}
+  .inv-side b{font-size:15px}
+  .pos{color:var(--accent)} .neg{color:#ff8a8d}
+  .tipo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+  .tipo-grid button{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:12px;border-radius:14px;border:1px solid var(--divider);background:var(--bg);color:var(--text);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;text-align:left}
+  .tipo-grid button span{font-size:22px;line-height:1}
+  .tipo-grid button[aria-pressed="true"]{border-color:var(--accent);background:rgba(255,200,61,.12)}
+  @media (max-width:560px){
+    .inv{grid-template-columns:40px minmax(0,1fr);gap:var(--space-3)}
+    .inv-ic{width:40px;height:40px}
+    .inv-side{grid-column:2;text-align:left;flex-direction:row;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+  }
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:calc(100% - 32px);background:var(--red);color:var(--text);padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:50}
   .toast.ok{background:var(--accent);color:var(--ink)}
   @media (max-width:899px){ .toast{bottom:calc(84px + env(safe-area-inset-bottom))} }
+  @media (max-width:560px){ #monthTitle{font-size:clamp(26px,8.6vw,44px) !important} }
 </style>
 </head>
 <body>
@@ -617,12 +641,46 @@
   </section>
 </div>
 
+<section class="blueprint em-breve" id="tabOff" hidden>
+  <div style="font-size:36px;line-height:1;margin-bottom:10px;">🔒</div>
+  <p id="tabOffTxt" style="margin:0 0 14px;"></p>
+  <button class="btn btn-secondary" id="tabOffBtn" type="button">Ir para o Meu controle</button>
+</section>
+
 <div id="tabInvest" style="display:contents" hidden>
-  <section class="blueprint em-breve">
-    <div style="font-size:40px;line-height:1;margin-bottom:10px;">📈</div>
-    <h2 style="font-size:22px;text-transform:uppercase;color:var(--text);margin-bottom:8px;">Investimentos</h2>
-    <p style="margin:0;">Em construção nesta versão de teste. Na próxima entrega: seus investimentos, quanto rendeu e quanto deve render no mês, calculado automaticamente.</p>
+  <section class="stats">
+    <div class="blueprint stat">
+      <span class="kicker">Aplicado</span>
+      <span class="big" id="ivAplicado">R$ 0,00</span>
+      <span class="note" id="ivAplicadoNote"></span>
+    </div>
+    <div class="blueprint stat">
+      <span class="kicker">Valor hoje (estimado)</span>
+      <span class="big" id="ivHoje" style="color:var(--accent);">R$ 0,00</span>
+      <span class="note" id="ivHojeNote"></span>
+    </div>
+    <div class="blueprint stat stat-bal">
+      <span class="kicker">Deve render este mês</span>
+      <span class="big" id="ivMes">R$ 0,00</span>
+      <span class="note" id="ivMesNote"></span>
+    </div>
   </section>
+  <p class="idx-strip" id="idxInfo"></p>
+  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:var(--space-8);align-items:start;">
+    <div class="blueprint span2" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-3);min-width:0;">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
+        <h2 style="font-size:22px;text-transform:uppercase;">Meus investimentos</h2>
+        <button class="btn btn-primary" id="invNovo" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Novo investimento</button>
+      </div>
+      <div id="invList"></div>
+      <div id="invVazio" hidden style="padding:var(--space-6) 0;color:var(--muted);font-size:14px;"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:var(--space-4);">
+      <h2 style="font-size:22px;text-transform:uppercase;">Onde está</h2>
+      <div id="invDist" style="display:flex;flex-direction:column;gap:var(--space-4);"></div>
+    </div>
+  </section>
+  <p class="hint" style="margin:0;font-size:12px;color:var(--muted);">Valores estimados com as taxas do Banco Central e a tabela do Imposto de Renda; podem diferir alguns centavos do extrato do seu banco. Não é recomendação de investimento.</p>
 </div>
 </div>
 </div>

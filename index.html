@@ -139,6 +139,12 @@
     .input,select.input,textarea{font-size:16px}
   }
   .cat-inline{display:none}
+  @media (max-width:380px){
+    #tableWrap .table{font-size:13px}
+    #tableWrap .table td,#tableWrap .table th{padding:6px 4px}
+    #tableWrap .table th:first-child,#rows td:first-child{width:40px !important}
+    #rows td:last-child{width:30px}
+  }
   @media (max-width:560px){
     #tableWrap .table th:nth-child(3), #rows td:nth-child(3){display:none}
     .cat-inline{display:inline-flex;margin-top:4px}

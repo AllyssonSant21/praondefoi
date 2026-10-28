@@ -245,7 +245,7 @@ async function handleSession(session, force){
     return;
   }
   if (!(await loadControles())) return;
-  await Promise.all([loadMembers(), loadEntries(), loadInvites(), loadContas(), loadMetas()]);
+  await Promise.all([loadMembers(), loadEntries(), loadInvites(), loadContas(), loadMetas(), loadInvest()]);
   show('viewApp');
   render();
   startRealtime();
@@ -334,7 +334,7 @@ async function fetchAllEntries(){
   }
   return all.map(fromRow);
 }
-async function refresh(){ const [ok] = await Promise.all([loadEntries(), loadContas(), loadMetas()]); if (ok) render(); }
+async function refresh(){ const [ok] = await Promise.all([loadEntries(), loadContas(), loadMetas(), loadInvest()]); if (ok) render(); }
 
 // dados antigos guardados só neste navegador (versão offline)
 function localPending(){
@@ -416,7 +416,7 @@ $('rows').addEventListener('click', async e => {
 
 $('ctrlSelect').addEventListener('change', async e => {
   selectControle(e.target.value);
-  state.entries = []; state.members = []; state.contas = []; state.pags = []; state.partes = {}; state.cmeses = {}; state.metas = []; state.metaMovs = [];
+  state.entries = []; state.members = []; state.contas = []; state.pags = []; state.partes = {}; state.cmeses = {}; state.metas = []; state.metaMovs = []; state.invs = []; state.invMovs = [];
   render();
   await loadMembers(); await refresh();
 });
@@ -478,6 +478,8 @@ function startRealtime(){
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pagamentos' }, () => rtContas())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'metas' }, () => rtMetas())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'meta_movs' }, () => rtMetas())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'investimentos' }, () => rtInvest())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'inv_movs' }, () => rtInvest())
     .subscribe(status => { rtOk = status === 'SUBSCRIBED'; });
 }
 let rtContasTimer = null;
@@ -596,6 +598,7 @@ function render(){
   renderTabs();
   renderContas();
   renderMetas();
+  renderInvest();
   $('cats').innerHTML = list.length ? list.map(([name,v]) => `
     <div style="display:flex;flex-direction:column;gap:5px;">
       <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
@@ -710,15 +713,23 @@ function alertas(){
 
 const TITULOS = { metas: 'Metas', invest: 'Investimentos' };
 function renderTabs(){
+  const mods = modulosDe(current());
+  document.querySelectorAll('[data-tab]').forEach(b => { b.hidden = !mods.includes(b.dataset.tab); });
+  const desligada = !mods.includes(state.tab);
+  $('tabOff').hidden = !desligada;
+  if (desligada){
+    const m = MODULOS.find(x => x.k === state.tab);
+    $('tabOffTxt').textContent = `O controle "${(current() || {}).nome || ''}" não compartilha ${m ? m.nome : 'esta área'}. O que é só seu fica no Meu controle.`;
+  }
   document.querySelectorAll('[data-tab]').forEach(b => {
     const on = b.dataset.tab === state.tab;
     b.classList.toggle('on', on);
     if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
-  $('tabLanc').hidden = state.tab !== 'lanc';
-  $('tabContas').hidden = state.tab !== 'contas';
-  $('tabMetas').hidden = state.tab !== 'metas';
-  $('tabInvest').hidden = state.tab !== 'invest';
+  $('tabLanc').hidden = desligada || state.tab !== 'lanc';
+  $('tabContas').hidden = desligada || state.tab !== 'contas';
+  $('tabMetas').hidden = desligada || state.tab !== 'metas';
+  $('tabInvest').hidden = desligada || state.tab !== 'invest';
   $('export').hidden = state.tab !== 'lanc';
   const porMes = state.tab === 'lanc' || state.tab === 'contas';
   $('monthNav').style.display = porMes ? 'flex' : 'none';
@@ -732,6 +743,11 @@ function setTab(t){
 }
 document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
 $('navMenu').addEventListener('click', () => openMenu());
+$('tabOffBtn').addEventListener('click', async () => {
+  const p = state.controles.find(c => c.pessoal); if (!p) return;
+  selectControle(p.id); state.entries = []; state.members = []; render();
+  await loadMembers(); await refresh();
+});
 $('billAlertGo').onclick = () => {
   const { primeiro } = alertas();
   setTab('contas');
@@ -745,8 +761,8 @@ function partsLine(i){
 function renderContas(){
   const { late, hoje } = alertas();
   const n = late + hoje;
-  document.querySelectorAll('[data-badge="contas"]').forEach(b => { b.hidden = !n; b.textContent = n; });
-  $('billAlert').hidden = !n;
+  document.querySelectorAll('[data-badge="contas"]').forEach(b => { b.hidden = !n || !modOn('contas'); b.textContent = n; });
+  $('billAlert').hidden = !n || !modOn('contas');
   $('billAlertText').textContent = [
     late ? `${plural(late, 'conta')} ${late === 1 ? 'vencida' : 'vencidas'}` : '',
     hoje ? `${hoje} ${hoje === 1 ? 'conta vence' : 'contas vencem'} hoje` : ''
@@ -1110,7 +1126,7 @@ $('dlg2Body').addEventListener('click', async e => {
   const b = e.target.closest('[data-act]');
   if (!b) return;
   const a = b.dataset.act, id = dlg2.id, mk = dlg2.mk;
-  if (a.startsWith('pf') || a.startsWith('mm')) return;   // perfil e metas têm o próprio tratamento
+  if (a.startsWith('pf') || a.startsWith('mm') || a.startsWith('iv')) return;   // perfil e metas têm o próprio tratamento
   const c = findConta(id);
   let res;
   if (a === 'confirmPay'){
@@ -1456,6 +1472,452 @@ $('dlg2Body').addEventListener('submit', async e => {
   if (await loadMetas()) renderMetas();
 });
 
+/* ======================= INVESTIMENTOS ======================= */
+const TIPOS_INV = {
+  poupanca:      { nome: 'Poupança',            ic: '🐷', idx: ['poupanca'] },
+  cdb:           { nome: 'CDB',                 ic: '🏦', idx: ['cdi', 'pre', 'ipca'] },
+  lci:           { nome: 'LCI',                 ic: '🏠', idx: ['cdi', 'pre', 'ipca'] },
+  lca:           { nome: 'LCA',                 ic: '🌾', idx: ['cdi', 'pre', 'ipca'] },
+  tesouro_selic: { nome: 'Tesouro Selic',       ic: '🏛️', idx: ['selic'] },
+  tesouro_ipca:  { nome: 'Tesouro IPCA+',       ic: '📈', idx: ['ipca'] },
+  tesouro_pre:   { nome: 'Tesouro Prefixado',   ic: '📌', idx: ['pre'] },
+  acao:          { nome: 'Ações',               ic: '📊', idx: ['cotacao'] },
+  fii:           { nome: 'Fundos imobiliários', ic: '🏢', idx: ['cotacao'] },
+  outro:         { nome: 'Outro',               ic: '💼', idx: ['manual'] },
+};
+const IDX_LABEL = { cdi: '% do CDI', pre: 'Prefixado (% ao ano)', ipca: 'IPCA + (% ao ano)' };
+const IR_ALIQ = d => d <= 180 ? 0.225 : d <= 360 ? 0.20 : d <= 720 ? 0.175 : 0.15;
+const IOF_TAB = [96,93,90,86,83,80,76,73,70,66,63,60,56,53,50,46,43,40,36,33,30,26,23,20,16,13,10,6,3,0];
+const isoDe = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const diasEntre = (a, b) => Math.round((new Date(b + 'T12:00') - new Date(a + 'T12:00')) / 864e5);
+const pct = n => (n * 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
+const numBR = (n, c = 2) => Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: c });
+function diasUteis(a, b){
+  let n = 0; const d = new Date(a + 'T12:00'), e = new Date(b + 'T12:00');
+  while (d < e){ const w = d.getDay(); if (w && w < 6) n++; d.setDate(d.getDate() + 1); }
+  return n;
+}
+Object.assign(state, { invs: [], invMovs: [], invOk: true, idx: { cdi: [], selic: [], ipca: [] }, idxDesde: null, idxEm: 0 });
+
+let invSeq = 0;
+async function loadInvest(){
+  const seq = ++invSeq;
+  if (!state.cid){ state.invs = []; state.invMovs = []; return true; }
+  const cid = state.cid;
+  const [i, m] = await Promise.all([
+    sb.from('investimentos').select('*').eq('controle_id', cid).order('criado_em'),
+    sb.from('inv_movs').select('id,investimento_id,user_id,tipo,valor,quantidade,data,lancamento_id,criado_em').eq('controle_id', cid).order('data').order('criado_em')
+  ]);
+  if (seq !== invSeq) return false;
+  if (i.error || m.error){
+    const e = i.error || m.error;
+    state.invOk = !(['42P01','PGRST205','PGRST200'].includes(e.code) || /does not exist|could not find the table|schema cache/i.test(e.message || ''));
+    state.invs = []; state.invMovs = [];
+    return !state.invOk;
+  }
+  state.invOk = true; state.invs = i.data; state.invMovs = m.data;
+  // taxas do Banco Central desde a aplicação mais antiga (cache de 1 hora)
+  const h = new Date();
+  let desde = isoDe(new Date(h.getFullYear() - 1, h.getMonth(), 1));
+  m.data.forEach(x => { if (x.data < desde) desde = x.data; });
+  if (!state.idxDesde || desde < state.idxDesde || Date.now() - state.idxEm > 3600e3){
+    const all = [];
+    for (let from = 0; ; from += 1000){
+      const r = await sb.from('indices').select('serie,data,valor').gte('data', desde.slice(0, 7) + '-01').order('data').range(from, from + 999);
+      if (r.error) break;
+      all.push(...r.data);
+      if (r.data.length < 1000) break;
+    }
+    if (seq !== invSeq) return false;
+    state.idx = { cdi: [], selic: [], ipca: [] };
+    all.forEach(x => { if (state.idx[x.serie]) state.idx[x.serie].push({ d: x.data, v: Number(x.valor) }); });
+    state.idxDesde = desde; state.idxEm = Date.now();
+  }
+  return true;
+}
+let rtInvTimer = null;
+function rtInvest(){
+  clearTimeout(rtInvTimer);
+  rtInvTimer = setTimeout(async () => { if (!$('viewApp').hidden && await loadInvest()) renderInvest(); }, 400);
+}
+
+/* ---------- cálculos ---------- */
+const ultimo = s => { const a = state.idx[s]; return a.length ? a[a.length - 1] : null; };
+const anual = diario => Math.pow(1 + diario / 100, 252) - 1;
+function ipca12(){
+  const a = state.idx.ipca; if (!a.length) return null;
+  return a.slice(-12).reduce((f, x) => f * (1 + x.v / 100), 1) - 1;
+}
+function poupancaMensal(){
+  const s = ultimo('selic'); if (!s) return null;
+  const aa = anual(s.v);
+  return aa > 0.085 ? 0.005 : Math.pow(1 + aa * 0.7, 1 / 12) - 1;   // regra da poupança (sem a TR, que é quase zero)
+}
+function fatorSerie(serie, de, ate, mult, extraAA){
+  const arr = state.idx[serie]; let lo = 0, hi = arr.length;
+  while (lo < hi){ const mid = (lo + hi) >> 1; if (arr[mid].d < de) lo = mid + 1; else hi = mid; }
+  let f = 1, n = 0;
+  for (let i = lo; i < arr.length && arr[i].d < ate; i++){ f *= 1 + arr[i].v / 100 * mult; n++; }
+  if (extraAA) f *= Math.pow(1 + extraAA / 100, n / 252);
+  return f;
+}
+function fatorIpca(de, ate){
+  const a = state.idx.ipca; if (!a.length) return 1;
+  const porMes = {}; a.forEach(x => { porMes[x.d.slice(0, 7)] = x.v; });
+  const ult = a[a.length - 1].v;
+  let f = 1, cur = new Date(de.slice(0, 7) + '-01T12:00');
+  while (isoDe(cur) < ate){
+    const mk = isoDe(cur), prox = new Date(cur.getFullYear(), cur.getMonth() + 1, 1, 12), pk = isoDe(prox);
+    const ini = de > mk ? de : mk, fim = ate < pk ? ate : pk;
+    const frac = diasEntre(ini, fim) / diasEntre(mk, pk);
+    const v = porMes[mk.slice(0, 7)] ?? ult;
+    f *= Math.pow(1 + v / 100, frac);
+    cur = prox;
+  }
+  return f;
+}
+function fatorInv(inv, de, ate){
+  const t = Number(inv.taxa || 0);
+  switch (inv.indexador){
+    case 'cdi':      return fatorSerie('cdi', de, ate, t / 100, 0);
+    case 'selic':    return fatorSerie('selic', de, ate, 1, t);
+    case 'pre':      return Math.pow(1 + t / 100, diasUteis(de, ate) / 252);
+    case 'ipca':     return fatorIpca(de, ate) * Math.pow(1 + t / 100, diasUteis(de, ate) / 252);
+    case 'poupanca': { const r = poupancaMensal(); if (r === null) return 1; const a = new Date(de + 'T12:00'), b = new Date(ate + 'T12:00');
+                       let m = (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth(); if (b.getDate() < a.getDate()) m--; return Math.pow(1 + r, Math.max(0, m)); }
+  }
+  return 1;
+}
+function taxaMesAtual(inv){
+  const h = new Date(), ini = isoDe(new Date(h.getFullYear(), h.getMonth(), 1)), fim = isoDe(new Date(h.getFullYear(), h.getMonth() + 1, 1));
+  const du = diasUteis(ini, fim), t = Number(inv.taxa || 0);
+  switch (inv.indexador){
+    case 'cdi':      { const u = ultimo('cdi'); return u ? Math.pow(1 + u.v / 100 * t / 100, du) - 1 : null; }
+    case 'selic':    { const u = ultimo('selic'); return u ? Math.pow(1 + u.v / 100, du) * Math.pow(1 + t / 100, du / 252) - 1 : null; }
+    case 'pre':      return Math.pow(1 + t / 100, du / 252) - 1;
+    case 'ipca':     { const u = ultimo('ipca'); return u ? (1 + u.v / 100) * Math.pow(1 + t / 100, 1 / 12) - 1 : null; }
+    case 'poupanca': return poupancaMensal();
+  }
+  return null;
+}
+const precisaTaxa = inv => ({ cdi: 'cdi', selic: 'selic', ipca: 'ipca', poupanca: 'selic' })[inv.indexador];
+
+function calcInv(inv){
+  const movs = state.invMovs.filter(m => m.investimento_id === inv.id);
+  const hoje = todayISO();
+  if (inv.indexador === 'cotacao'){
+    let q = 0, custo = 0;
+    movs.forEach(m => { const qq = Number(m.quantidade || 0), v = Number(m.valor);
+      if (m.tipo === 'aporte'){ custo += v; q += qq; }
+      else if (m.tipo === 'resgate' && q > 0){ custo -= custo / q * qq; q -= qq; } });
+    const pm = q ? custo / q : 0, preco = inv.cotacao ? Number(inv.cotacao) : pm, valor = r2(q * preco);
+    return { movs, aplicado: r2(custo), liquido: valor, ganho: r2(valor - custo), ir: 0, mes: null, q, pm, preco, semCotacao: !inv.cotacao };
+  }
+  if (inv.indexador === 'manual'){
+    let aplicado = 0, valor = 0, em = null;
+    movs.forEach(m => { const v = Number(m.valor);
+      if (m.tipo === 'aporte'){ aplicado += v; valor += v; } else if (m.tipo === 'resgate'){ aplicado -= v; valor -= v; } else { valor = v; em = m.data; } });
+    return { movs, aplicado: r2(aplicado), liquido: r2(valor), ganho: r2(valor - aplicado), ir: 0, mes: null, em };
+  }
+  const semTaxa = precisaTaxa(inv) && !state.idx[precisaTaxa(inv)].length;
+  let bruto = 0, aplicado = 0, pesoDias = 0, somaAp = 0;
+  movs.forEach(m => {
+    const v = Number(m.valor), s = m.tipo === 'aporte' ? 1 : -1;
+    bruto += s * v * fatorInv(inv, m.data, hoje); aplicado += s * v;
+    if (m.tipo === 'aporte'){ pesoDias += v * diasEntre(m.data, hoje); somaAp += v; }
+  });
+  const dias = somaAp ? pesoDias / somaAp : 0, ganhoBruto = bruto - aplicado;
+  let ir = 0, iof = 0;
+  if (!inv.isento && ganhoBruto > 0){
+    if (dias < 30) iof = ganhoBruto * (IOF_TAB[Math.max(0, Math.floor(dias) - 1)] || 0) / 100;
+    ir = (ganhoBruto - iof) * IR_ALIQ(dias);
+  }
+  const liquido = bruto - ir - iof;
+  const tm = taxaMesAtual(inv);
+  const mes = tm === null ? null : bruto * tm * (inv.isento ? 1 : 1 - IR_ALIQ(dias + 15));
+  return { movs, aplicado: r2(aplicado), bruto: r2(bruto), liquido: r2(liquido), ganho: r2(liquido - aplicado), ir: r2(ir + iof), mes: mes === null ? null : r2(mes), dias, semTaxa };
+}
+function rendeTxt(inv){
+  const t = Number(inv.taxa || 0);
+  switch (inv.indexador){
+    case 'cdi': return `${numBR(t)}% do CDI`;
+    case 'pre': return `${numBR(t)}% ao ano`;
+    case 'ipca': return `IPCA + ${numBR(t)}% a.a.`;
+    case 'selic': return t ? `Selic + ${numBR(t, 4)}%` : '100% da Selic';
+    case 'poupanca': return 'Regra da poupança';
+    case 'cotacao': return inv.ticker || '';
+    default: return 'Valor atualizado por você';
+  }
+}
+
+/* ---------- tela ---------- */
+function renderInvest(){
+  const cdi = ultimo('cdi'), sel = ultimo('selic'), ip = ipca12();
+  $('idxInfo').innerHTML = !state.invOk ? ''
+    : !cdi && !sel ? '⏳ As taxas do Banco Central ainda não chegaram. Elas são buscadas automaticamente algumas vezes por dia.'
+    : [cdi ? `CDI <b>${pct(anual(cdi.v))}</b> a.a.` : '', sel ? `Selic <b>${pct(anual(sel.v))}</b> a.a.` : '', ip !== null ? `IPCA 12 meses <b>${pct(ip)}</b>` : '',
+       cdi ? `<span>atualizado em ${cdi.d.slice(8, 10)}/${cdi.d.slice(5, 7)} · Banco Central</span>` : ''].filter(Boolean).join(' · ');
+  if (!state.invOk){
+    $('invList').innerHTML = ''; $('invDist').innerHTML = '';
+    $('invVazio').hidden = false;
+    $('invVazio').textContent = 'Os investimentos ainda não foram ativados no banco. Rode o arquivo supabase-investimentos.sql no SQL Editor do Supabase e recarregue a página.';
+    $('invNovo').disabled = true;
+    return;
+  }
+  $('invNovo').disabled = false;
+  const lista = state.invs.map(inv => ({ inv, c: calcInv(inv) }));
+  const aplicado = r2(lista.reduce((s, x) => s + x.c.aplicado, 0));
+  const hoje = r2(lista.reduce((s, x) => s + x.c.liquido, 0));
+  const mes = r2(lista.reduce((s, x) => s + (x.c.mes || 0), 0));
+  const ganho = r2(hoje - aplicado);
+  $('ivAplicado').textContent = brl(aplicado);
+  $('ivAplicadoNote').textContent = lista.length ? plural(lista.length, 'investimento') : 'Nenhum ainda';
+  $('ivHoje').textContent = brl(hoje);
+  $('ivHojeNote').innerHTML = lista.length ? `${ganho >= 0 ? 'Rendeu' : 'Variação de'} <b class="${ganho >= 0 ? 'pos' : 'neg'}">${ganho >= 0 ? '+' : ''}${brl(ganho)}</b> já sem IR` : '';
+  $('ivMes').textContent = (mes ? '+ ' : '') + brl(mes);
+  $('ivMesNote').textContent = lista.some(x => x.c.mes === null) && lista.length ? 'Renda fixa, já sem IR · ações e "outros" não entram' : 'Estimativa, já sem IR';
+  $('invVazio').hidden = lista.length > 0;
+  $('invVazio').textContent = 'Nenhum investimento ainda. Toque em "Novo investimento" e escolha o tipo: poupança, CDB, Tesouro, ações…';
+  $('invList').innerHTML = lista.map(({ inv, c }) => {
+    const T = TIPOS_INV[inv.tipo] || TIPOS_INV.outro;
+    const sub = [T.nome, rendeTxt(inv), inv.vencimento ? `vence ${inv.vencimento.slice(5, 7)}/${inv.vencimento.slice(0, 4)}` : '',
+                 inv.indexador === 'cotacao' && c.q ? `${numBR(c.q, 6)} un.` : '', inv.isento ? 'isento de IR' : ''].filter(Boolean).join(' · ');
+    const g = c.ganho, gp = c.aplicado > 0 ? g / c.aplicado : 0;
+    return `
+    <div class="inv" data-inv="${esc(inv.id)}">
+      <span class="inv-ic">${T.ic}</span>
+      <div style="min-width:0;"><div style="font-weight:600;" class="ellip">${esc(inv.nome)}</div><div class="by" style="margin:0;">${esc(sub)}</div></div>
+      <div class="inv-side">
+        <b>${brl(c.liquido)}</b>
+        <span class="${g >= 0 ? 'pos' : 'neg'}" style="font-size:13px;">${g >= 0 ? '+' : ''}${brl(g)} (${g >= 0 ? '+' : ''}${pct(gp)})</span>
+        ${c.mes ? `<span class="by" style="margin:0;">este mês ≈ +${brl(c.mes)}</span>`
+          : c.semTaxa ? '<span class="by" style="margin:0;">aguardando taxas</span>'
+          : inv.indexador === 'cotacao' && c.semCotacao ? '<span class="by" style="margin:0;">informe a cotação</span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+  const porTipo = {};
+  lista.forEach(({ inv, c }) => { const k = (TIPOS_INV[inv.tipo] || TIPOS_INV.outro).nome; porTipo[k] = (porTipo[k] || 0) + c.liquido; });
+  const tops = Object.entries(porTipo).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  const max = tops.length ? tops[0][1] : 0;
+  $('invDist').innerHTML = tops.length ? tops.map(([n, v]) => `
+    <div style="display:flex;flex-direction:column;gap:5px;">
+      <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;"><span>${esc(n)}</span><span style="font-variant-numeric:tabular-nums;color:var(--muted);">${brl(v)} · ${Math.round(hoje ? v / hoje * 100 : 0)}%</span></div>
+      <div style="height:6px;background:var(--track);border-radius:999px;overflow:hidden;"><div style="height:100%;width:${max ? v / max * 100 : 0}%;background:var(--accent);border-radius:999px;"></div></div>
+    </div>`).join('') : '<span style="font-size:14px;color:var(--muted);">Nada investido ainda.</span>';
+}
+
+$('invNovo').onclick = () => openInvForm(null);
+$('invList').addEventListener('click', e => { const r = e.target.closest('[data-inv]'); if (r) openInv(r.dataset.inv); });
+const findInv = id => state.invs.find(x => x.id === id);
+
+function openInvForm(tipo){
+  const T = tipo ? TIPOS_INV[tipo] : null;
+  const idxs = T ? T.idx : [];
+  const ix = idxs[0];
+  const rf = T && !['cotacao', 'manual'].includes(ix);
+  const PH = { poupanca: 'Ex.: Poupança Caixa', cdb: 'Ex.: CDB Banco X', lci: 'Ex.: LCI Banco Y', lca: 'Ex.: LCA Banco Z', tesouro_selic: 'Ex.: Tesouro Selic 2029', tesouro_ipca: 'Ex.: Tesouro IPCA+ 2035', tesouro_pre: 'Ex.: Tesouro Prefixado 2031', outro: 'Ex.: Previdência, cripto…' };
+  openDlg2('Novo investimento', T ? `${T.ic} ${T.nome}` : 'Qual o tipo?', `
+    <div class="tipo-grid" id="ifTipos">${Object.entries(TIPOS_INV).map(([k, t]) => `<button type="button" data-tipo="${k}" aria-pressed="${k === tipo}"><span>${t.ic}</span>${t.nome}</button>`).join('')}</div>
+    ${!T ? '<p class="hint">Escolha o tipo para continuar.</p>' : `
+    <form id="invForm" novalidate style="display:flex;flex-direction:column;gap:var(--space-4);">
+      ${ix === 'cotacao' ? `
+      <div class="grid2">
+        <div class="field"><label for="ifTicker">Código</label><input class="input" id="ifTicker" maxlength="7" autocapitalize="characters" placeholder="${tipo === 'fii' ? 'Ex.: MXRF11' : 'Ex.: PETR4'}"></div>
+        <div class="field"><label for="ifNome">Nome</label><input class="input" id="ifNome" maxlength="60" placeholder="${tipo === 'fii' ? 'Ex.: Maxi Renda' : 'Ex.: Petrobras'}"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="ifQtd">Quantidade</label><input class="input" id="ifQtd" inputmode="decimal" placeholder="Ex.: 10"></div>
+        <div class="field"><label for="ifPreco">Preço pago (R$ por unidade)</label><input class="input" id="ifPreco" inputmode="decimal" placeholder="0,00"></div>
+      </div>
+      <div class="field"><label for="ifCot">Cotação de hoje (R$) <span style="color:var(--muted);font-weight:400;">(opcional)</span></label><input class="input" id="ifCot" inputmode="decimal" placeholder="0,00"></div>
+      <p class="hint" style="margin:-6px 0 0;">Por enquanto a cotação é informada por você. A atualização automática pela bolsa vem numa próxima versão.</p>` : `
+      <div class="field"><label for="ifNome">Nome</label><input class="input" id="ifNome" maxlength="60" placeholder="${PH[tipo] || ''}" value="${tipo === 'poupanca' ? 'Poupança' : ''}"></div>`}
+      ${idxs.length > 1 ? `
+      <div class="field"><label for="ifIdx">Como rende</label>
+        <select class="input" id="ifIdx">${idxs.map(x => `<option value="${x}">${IDX_LABEL[x]}</option>`).join('')}</select></div>` : ''}
+      ${rf && ix !== 'poupanca' ? `
+      <div class="grid2">
+        <div class="field"><label for="ifTaxa" id="ifTaxaLbl">${ix === 'selic' ? 'Selic + (% ao ano)' : IDX_LABEL[ix]}</label>
+          <input class="input" id="ifTaxa" inputmode="decimal" placeholder="${ix === 'cdi' ? 'Ex.: 110' : ix === 'selic' ? '0' : 'Ex.: 12'}" value="${ix === 'selic' ? '0' : ''}"></div>
+        <div class="field"><label for="ifVenc">Vencimento <span style="color:var(--muted);font-weight:400;">(opcional)</span></label><input class="input" id="ifVenc" type="date"></div>
+      </div>` : ''}
+      ${ix !== 'cotacao' ? `
+      <div class="grid2">
+        <div class="field"><label for="ifValor">Valor aplicado (R$)</label><input class="input" id="ifValor" inputmode="decimal" placeholder="0,00"></div>
+        <div class="field"><label for="ifData">Data da aplicação</label><input class="input" id="ifData" type="date" value="${todayISO()}"></div>
+      </div>` : `
+      <div class="field"><label for="ifData">Data da compra</label><input class="input" id="ifData" type="date" value="${todayISO()}"></div>`}
+      ${ix === 'manual' ? `<div class="field"><label for="ifAtual">Quanto vale hoje (R$) <span style="color:var(--muted);font-weight:400;">(opcional)</span></label><input class="input" id="ifAtual" inputmode="decimal" placeholder="0,00"></div>` : ''}
+      <label class="chk"><input type="checkbox" id="ifLancar"> Lançar também como saída em Lançamentos</label>
+      <button class="btn btn-primary" type="submit" id="ifSalvar" style="min-height:44px;">Adicionar investimento</button>
+    </form>`}`, { tipo: 'invForm', invTipo: tipo });
+  if ($('ifIdx')) $('ifIdx').onchange = () => { const v = $('ifIdx').value; $('ifTaxaLbl').textContent = IDX_LABEL[v]; $('ifTaxa').placeholder = v === 'cdi' ? 'Ex.: 110' : 'Ex.: 12'; };
+}
+
+function openInv(id){
+  const inv = findInv(id); if (!inv) return closeDlg2();
+  const c = calcInv(inv), T = TIPOS_INV[inv.tipo] || TIPOS_INV.outro;
+  const mine = inv.criado_por === myId();
+  const g = c.ganho;
+  openDlg2(`${T.ic} ${T.nome}`, inv.nome, `
+    <div class="dlg-sec">
+      <div class="kv"><span>Aplicado</span><b>${brl(c.aplicado)}</b></div>
+      ${c.bruto !== undefined ? `<div class="kv"><span>Valor bruto hoje</span><b>${brl(c.bruto)}</b></div>
+      <div class="kv"><span>Imposto estimado</span><b>${inv.isento ? 'isento' : '− ' + brl(c.ir)}</b></div>` : ''}
+      <div class="kv"><span>${c.bruto !== undefined ? 'Valor líquido hoje' : 'Valor hoje'}</span><b>${brl(c.liquido)}</b></div>
+      <div class="kv"><span>Resultado</span><b class="${g >= 0 ? 'pos' : 'neg'}">${g >= 0 ? '+' : ''}${brl(g)}</b></div>
+      ${c.mes ? `<div class="kv"><span>Deve render este mês</span><b class="pos">≈ +${brl(c.mes)}</b></div>` : ''}
+      <div class="kv"><span>Rentabilidade</span><b>${esc(rendeTxt(inv))}</b></div>
+      ${inv.vencimento ? `<div class="kv"><span>Vencimento</span><b>${inv.vencimento.split('-').reverse().join('/')}</b></div>` : ''}
+      ${inv.indexador === 'cotacao' ? `<div class="kv"><span>Quantidade · preço médio</span><b>${numBR(c.q, 6)} · ${brl(c.pm)}</b></div>
+      <div class="kv"><span>Cotação</span><b>${inv.cotacao ? brl(Number(inv.cotacao)) + (inv.cotacao_em ? ` (${inv.cotacao_em.slice(8, 10)}/${inv.cotacao_em.slice(5, 7)})` : '') : 'não informada'}</b></div>` : ''}
+      ${c.semTaxa ? '<p class="hint">As taxas do Banco Central ainda não chegaram; por enquanto o valor aparece sem rendimento.</p>' : ''}
+    </div>
+    <div class="dlg-sec">
+      <h3>Movimentações</h3>
+      ${c.movs.length ? c.movs.slice().reverse().map(x => {
+        const d = x.data.split('-');
+        const lbl = x.tipo === 'aporte' ? (inv.indexador === 'cotacao' ? 'Compra' : 'Aplicação') : x.tipo === 'resgate' ? (inv.indexador === 'cotacao' ? 'Venda' : 'Resgate') : 'Valor atualizado';
+        return `<div class="person"><span>${d[2]}/${d[1]}/${d[0].slice(2)} · ${lbl}${x.quantidade ? ` · ${numBR(x.quantidade, 6)} un.` : ''}${isShared() ? ` · ${esc(quem(x.user_id))}` : ''} · <b>${brl(Number(x.valor))}</b></span>
+          ${x.user_id === myId() ? `<button class="btn btn-secondary btn-sm" type="button" data-act="ivDesfazer" data-id="${esc(x.id)}">Desfazer</button>` : ''}</div>`;
+      }).join('') : '<p class="hint">Nenhuma movimentação.</p>'}
+    </div>
+    <div class="row" style="flex-wrap:wrap;">
+      <button class="btn btn-primary" type="button" data-act="ivAporte">${inv.indexador === 'cotacao' ? 'Comprar mais' : 'Aplicar mais'}</button>
+      <button class="btn btn-secondary" type="button" data-act="ivResgate">${inv.indexador === 'cotacao' ? 'Vender' : 'Resgatar'}</button>
+      ${inv.indexador === 'manual' ? '<button class="btn btn-secondary" type="button" data-act="ivSaldo">Atualizar valor</button>' : ''}
+      ${inv.indexador === 'cotacao' ? '<button class="btn btn-secondary" type="button" data-act="ivCotacao">Atualizar cotação</button>' : ''}
+      ${mine ? '<button class="btn btn-danger" type="button" data-act="ivExcluir">Excluir</button>' : ''}
+    </div>`, { tipo: 'invDet', id });
+}
+
+function openInvMov(id, tipo){
+  const inv = findInv(id); if (!inv) return;
+  const cot = inv.indexador === 'cotacao';
+  const titulo = { aporte: cot ? 'Comprar mais' : 'Aplicar mais', resgate: cot ? 'Vender' : 'Resgatar', saldo: 'Atualizar valor' }[tipo];
+  openDlg2(titulo, inv.nome, `
+    ${cot ? `
+    <div class="grid2">
+      <div class="field"><label for="imQtd">Quantidade</label><input class="input" id="imQtd" inputmode="decimal" placeholder="Ex.: 10"></div>
+      <div class="field"><label for="imPreco">Preço por unidade (R$)</label><input class="input" id="imPreco" inputmode="decimal" placeholder="0,00" value="${inv.cotacao ? num(Number(inv.cotacao)) : ''}"></div>
+    </div>` : `
+    <div class="field"><label for="imValor">${tipo === 'saldo' ? 'Quanto vale hoje (R$)' : 'Valor (R$)'}</label><input class="input" id="imValor" inputmode="decimal" placeholder="0,00"></div>`}
+    <div class="field"><label for="imData">Data</label><input class="input" id="imData" type="date" value="${todayISO()}"></div>
+    ${tipo !== 'saldo' ? `<label class="chk"><input type="checkbox" id="imLancar"> Lançar também ${tipo === 'aporte' ? 'como saída' : 'como entrada'} em Lançamentos</label>` : ''}
+    <button class="btn btn-primary" type="button" data-act="ivConfirmar" style="min-height:44px;">Confirmar</button>`,
+    { tipo: 'invMov', id, mov: tipo });
+}
+
+$('dlg2Body').addEventListener('click', async e => {
+  if (!String(dlg2.tipo || '').startsWith('inv')) return;
+  const tb = e.target.closest('#ifTipos [data-tipo]');
+  if (tb) return openInvForm(tb.dataset.tipo);
+  const b = e.target.closest('[data-act^="iv"]'); if (!b) return;
+  const a = b.dataset.act, id = dlg2.id, inv = findInv(id);
+  let res;
+  if (a === 'ivConfirmar'){
+    const cot = inv && inv.indexador === 'cotacao';
+    let valor, qtd = null;
+    if (cot){
+      qtd = parseAmount($('imQtd').value); const preco = parseAmount($('imPreco').value);
+      if (!(qtd > 0)) return toast('Informe a quantidade.');
+      if (!(preco > 0)) return toast('Informe o preço por unidade.');
+      valor = r2(qtd * preco);
+    } else {
+      valor = parseAmount($('imValor').value);
+      if (!(valor > 0)) return toast('Informe um valor maior que zero.');
+    }
+    b.disabled = true;
+    res = await sb.rpc('mover_investimento', { inv: id, p_tipo: dlg2.mov, p_valor: valor, p_quantidade: qtd, p_data: $('imData').value || todayISO(), p_lancar: !!($('imLancar') && $('imLancar').checked) });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    closeDlg2(); toast('Movimentação registrada.', true);
+    await refresh(); return openInv(id);
+  }
+  if (!inv) return closeDlg2();
+  if (a === 'ivAporte') return openInvMov(id, 'aporte');
+  if (a === 'ivResgate') return openInvMov(id, 'resgate');
+  if (a === 'ivSaldo') return openInvMov(id, 'saldo');
+  if (a === 'ivCotacao'){
+    const v = prompt(`Cotação de hoje de ${inv.ticker || inv.nome} (R$ por unidade):`, inv.cotacao ? num(Number(inv.cotacao)) : '');
+    if (v === null) return;
+    const p = parseAmount(v); if (!(p > 0)) return toast('Informe um preço maior que zero.');
+    res = await sb.rpc('atualizar_cotacao', { inv: id, p_preco: p });
+    if (res.error) return toast(rpcMsg(res.error));
+    await loadInvest(); renderInvest(); return openInv(id);
+  }
+  if (a === 'ivDesfazer'){
+    if (!confirm('Desfazer esta movimentação?\n\nSe ela também foi lançada em Lançamentos, o lançamento será apagado.')) return;
+    res = await sb.rpc('desfazer_inv_mov', { mov: b.dataset.id });
+    if (res.error) return toast(rpcMsg(res.error));
+    await refresh(); return openInv(id);
+  }
+  if (a === 'ivExcluir'){
+    if (!confirm(`Excluir "${inv.nome}" e todo o histórico dele?\n\nLançamentos já feitos continuam em Lançamentos.`)) return;
+    res = await sb.rpc('excluir_investimento', { inv: id });
+    if (res.error) return toast(rpcMsg(res.error));
+    closeDlg2(); toast('Investimento excluído.', true);
+    if (await loadInvest()) renderInvest();
+  }
+});
+
+$('dlg2Body').addEventListener('submit', async e => {
+  if (e.target.id !== 'invForm') return;
+  e.preventDefault();
+  const tipo = dlg2.invTipo, T = TIPOS_INV[tipo];
+  const ix = $('ifIdx') ? $('ifIdx').value : T.idx[0];
+  let nome = $('ifNome').value.trim();
+  const ticker = $('ifTicker') ? $('ifTicker').value.trim().toUpperCase() : null;
+  if (!nome && ticker) nome = ticker;
+  if (!nome) return toast('Dê um nome ao investimento.');
+  const taxa = $('ifTaxa') ? parseAmount($('ifTaxa').value || '0') : null;
+  if (ix === 'cdi' && !(taxa > 0)) return toast('Informe quanto rende do CDI (ex.: 110).');
+  if (['pre', 'ipca'].includes(ix) && !(taxa >= 0 && $('ifTaxa').value.trim())) return toast('Informe a taxa ao ano.');
+  let valor, qtd = null, cot = null;
+  if (ix === 'cotacao'){
+    qtd = parseAmount($('ifQtd').value); const preco = parseAmount($('ifPreco').value);
+    if (!/^[A-Z0-9]{4,7}$/.test(ticker || '')) return toast('Informe o código do ativo (ex.: PETR4).');
+    if (!(qtd > 0)) return toast('Informe a quantidade.');
+    if (!(preco > 0)) return toast('Informe o preço pago por unidade.');
+    valor = r2(qtd * preco);
+    cot = $('ifCot').value.trim() ? parseAmount($('ifCot').value) : null;
+  } else {
+    valor = parseAmount($('ifValor').value);
+    if (!(valor > 0)) return toast('Informe o valor aplicado.');
+  }
+  const data = $('ifData').value || todayISO();
+  $('ifSalvar').disabled = true;
+  const r1 = await sb.rpc('salvar_investimento', { p_id: null, cid: state.cid, p_nome: nome, p_tipo: tipo, p_indexador: ix, p_taxa: taxa, p_vencimento: ($('ifVenc') && $('ifVenc').value) || null, p_ticker: ticker });
+  if (r1.error){ $('ifSalvar').disabled = false; return toast(rpcMsg(r1.error)); }
+  const r2_ = await sb.rpc('mover_investimento', { inv: r1.data, p_tipo: 'aporte', p_valor: valor, p_quantidade: qtd, p_data: data, p_lancar: $('ifLancar').checked });
+  if (r2_.error) toast(rpcMsg(r2_.error));
+  if (ix === 'manual' && $('ifAtual').value.trim()){ const v = parseAmount($('ifAtual').value); if (v > 0) await sb.rpc('mover_investimento', { inv: r1.data, p_tipo: 'saldo', p_valor: v, p_quantidade: null, p_data: todayISO(), p_lancar: false }); }
+  if (ix === 'cotacao' && cot > 0) await sb.rpc('atualizar_cotacao', { inv: r1.data, p_preco: cot });
+  closeDlg2();
+  if (!r2_.error) toast('Investimento adicionado.', true);
+  await refresh();
+});
+
+/* ======================= O QUE O CONTROLE COMPARTILHA ======================= */
+const MODULOS = [
+  { k: 'lanc', nome: 'Gastos (lançamentos)' },
+  { k: 'contas', nome: 'Contas a pagar' },
+  { k: 'metas', nome: 'Metas' },
+  { k: 'invest', nome: 'Investimentos' },
+];
+const modulosDe = c => !c || c.pessoal || !Array.isArray(c.modulos) ? ['lanc', 'contas', 'metas', 'invest'] : c.modulos;
+const modOn = k => modulosDe(current()).includes(k);
+function modulosHtml(c){
+  const ms = modulosDe(c), dono = c.sou_dono;
+  return `
+    <div class="dlg-sec">
+      <h3>O que este controle compartilha</h3>
+      ${MODULOS.map(m => `<label class="chk" style="padding:4px 0;"><input type="checkbox" data-mod="${m.k}"${ms.includes(m.k) ? ' checked' : ''}${dono ? '' : ' disabled'}> ${m.nome}</label>`).join('')}
+      ${dono ? '<div class="row"><button class="btn btn-secondary" type="button" data-a="modulos">Salvar áreas</button></div><p class="hint">Desligar uma área não apaga nada: os dados voltam se você ligar de novo.</p>'
+             : '<p class="hint">Só o dono escolhe o que o controle compartilha.</p>'}
+    </div>`;
+}
+
 /* ======================= MENU ☰ E PERFIL ======================= */
 let perfilNovo = true;   // false enquanto o banco não tiver os campos do perfil
 const iniciais = s => (String(s || '?').trim().split(/[\s._@-]+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('') || '?').toUpperCase();
@@ -1657,6 +2119,7 @@ async function openManage(){
         <div class="row"><button class="btn btn-primary" data-a="gerar">Gerar código</button></div>`}
     </div>` : `
     <p class="hint">Só o dono (${esc(displayName((state.members.find(p => p.eh_dono) || {}).login) || '—')}) pode convidar pessoas e mudar o nome.</p>`}
+    ${modulosHtml(c)}
     <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
       <div class="row" style="flex-wrap:wrap;">
         <button class="btn btn-secondary" data-a="sair">Sair do controle</button>
@@ -1677,6 +2140,13 @@ $('dlgBody').addEventListener('click', async e => {
   const c = current(); if (!c) return;
   const a = b.dataset.a;
   let res;
+  if (a === 'modulos'){
+    const ms = [...document.querySelectorAll('#dlgBody [data-mod]')].filter(x => x.checked).map(x => x.dataset.mod);
+    if (!ms.length) return toast('Deixe pelo menos uma área ligada.');
+    b.disabled = true; res = await sb.rpc('definir_modulos', { cid: c.id, p_modulos: ms });
+    if (res.error){ b.disabled = false; return toast(/function|schema cache/i.test(res.error.message || '') ? 'Rode o arquivo supabase-modulos.sql no Supabase para ativar essa opção.' : rpcMsg(res.error)); }
+    toast('Áreas atualizadas.', true); return afterChange(true);
+  }
   if (a === 'renomear'){
     const n = $('dlgName').value.trim(); if (!n) return;
     b.disabled = true; res = await sb.rpc('renomear_controle', { cid: c.id, p_nome: n });
