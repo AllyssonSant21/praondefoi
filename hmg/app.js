@@ -1774,10 +1774,11 @@ function openInvForm(tipo){
         <select class="input" id="ifIdx">${idxs.map(x => `<option value="${x}">${IDX_LABEL[x]}</option>`).join('')}</select></div>` : ''}
       ${rf && ix !== 'poupanca' ? `
       <div class="grid2">
-        <div class="field"><label for="ifTaxa" id="ifTaxaLbl">${ix === 'selic' ? 'Selic + (% ao ano)' : IDX_LABEL[ix]}</label>
-          <input class="input" id="ifTaxa" inputmode="decimal" placeholder="${ix === 'cdi' ? 'Ex.: 110' : ix === 'selic' ? '0' : 'Ex.: 12'}" value="${ix === 'selic' ? '0' : ''}"></div>
+        <div class="field"><label for="ifTaxa" id="ifTaxaLbl">${ix === 'selic' ? 'Extra além da Selic (% a.a.)' : IDX_LABEL[ix]}</label>
+          <input class="input" id="ifTaxa" inputmode="decimal" placeholder="${ix === 'cdi' ? 'Ex.: 110' : ix === 'selic' ? 'Ex.: 0,05' : 'Ex.: 12'}" value="${ix === 'selic' ? '0' : ''}"></div>
         <div class="field"><label for="ifVenc">Vencimento <span style="color:var(--muted);font-weight:400;">(opcional)</span></label><input class="input" id="ifVenc" type="date"></div>
-      </div>` : ''}
+      </div>
+      ${ix === 'selic' ? '<p class="hint" style="margin:-6px 0 0;">A Selic o app já busca sozinho no Banco Central. Aqui vai só o extra que aparece na compra (ex.: Selic + 0,05%). Se não souber, deixe 0.</p>' : ''}` : ''}
       ${ix !== 'cotacao' ? `
       <div class="grid2">
         <div class="field"><label for="ifValor">Valor aplicado (R$)</label><input class="input" id="ifValor" inputmode="decimal" placeholder="0,00"></div>
