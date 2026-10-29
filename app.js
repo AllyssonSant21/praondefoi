@@ -577,9 +577,10 @@ function render(){
 
   renderCtrlBar();
   $('monthTitle').textContent = `${MONTHS[m]} ${y}`;
+  { const d = new Date(); $('today').hidden = (y === d.getFullYear() && m === d.getMonth()); }
   document.title = `${MONTHS[m]} ${y} · Pra Onde Foi?`;
-  $('incVal').textContent = brl(inc); $('incNote').textContent = plural(month.length - expList.length,'lançamento');
-  $('expVal').textContent = brl(exp); $('expNote').textContent = plural(expList.length,'lançamento');
+  $('incVal').textContent = brl(inc); $('incVal').classList.toggle('zero', !inc); $('incNote').textContent = plural(month.length - expList.length,'lançamento');
+  $('expVal').textContent = brl(exp); $('expVal').classList.toggle('zero', !exp); $('expNote').textContent = plural(expList.length,'lançamento');
   $('balVal').textContent = brl(bal);
   $('balNote').textContent = !month.length ? 'Sem lançamentos'
     : bal >= 0 ? `Sobrou ${inc ? Math.round(bal/inc*100) : 0}% do que entrou` : 'Gastou mais do que entrou';
@@ -616,10 +617,10 @@ function render(){
     return `
     <tr>
       <td style="color:var(--muted);">${e.date.slice(8,10)}/${e.date.slice(5,7)}</td>
-      <td>${esc(e.desc)}${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<span class="tag cat-inline ${e.type === 'inc' ? 'tag-accent' : 'tag-neutral'}">${esc(e.cat)}</span></td>
-      <td><span class="tag ${e.type === 'inc' ? 'tag-accent' : 'tag-neutral'}">${esc(e.cat)}</span></td>
-      <td style="text-align:right;white-space:nowrap;font-weight:500;color:${e.type === 'inc' ? 'var(--accent)' : 'var(--text)'};">${e.type === 'inc' ? '+ ' : '− '}${brl(e.amount)}</td>
-      <td style="text-align:right;">${mine ? `<button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="width:28px;height:28px;color:var(--muted);" aria-label="Excluir"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</td>
+      <td>${esc(e.desc)}${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<span class="tag cat-inline ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(e.cat)}</span></td>
+      <td><span class="tag ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(e.cat)}</span></td>
+      <td style="text-align:right;white-space:nowrap;font-weight:500;color:${e.type === 'inc' ? 'var(--green)' : 'var(--out)'};">${e.type === 'inc' ? '+ ' : '− '}${brl(e.amount)}</td>
+      <td style="text-align:right;">${mine ? `<button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</td>
     </tr>`;
   }).join('');
 
@@ -655,6 +656,7 @@ const quem = uid => uid === myId() ? 'você' : nameOf(uid);
 
 Object.assign(state, { tab: 'lanc', contas: [], partes: {}, cmeses: {}, pags: [], pagsMeses: [], contasOk: true });
 try { const t = localStorage.getItem('pof-aba'); if (['lanc','contas','metas','invest'].includes(t)) state.tab = t; } catch(e){}
+try { const t = new URLSearchParams(location.search).get('aba'); if (['lanc','contas','metas','invest'].includes(t)) state.tab = t; } catch(e){}
 
 function ocorre(c, mk){
   if (c.tipo === 'unica') return mk === c.inicio;
@@ -744,9 +746,9 @@ function alertas(){
 }
 
 const TITULOS = { metas: 'Metas', invest: 'Investimentos' };
-// o aviso de contas vencidas só aparece em Lançamentos e Contas a pagar
+// o aviso de contas vencidas só aparece em Contas a pagar (nas outras abas fica só o número no menu)
 function syncAlerta(){
-  $('billAlert').hidden = !state.alertaN || !modOn('contas') || !['lanc', 'contas'].includes(state.tab);
+  $('billAlert').hidden = !state.alertaN || !modOn('contas') || state.tab !== 'contas';
 }
 function renderTabs(){
   const mods = modulosDe(current());
@@ -776,6 +778,7 @@ function renderTabs(){
 function setTab(t){
   state.tab = t;
   try { localStorage.setItem('pof-aba', t); } catch(e){}
+  try { const u = new URL(location.href); u.searchParams.set('aba', t); history.replaceState(history.state, '', u.pathname + u.search + u.hash); } catch(e){}
   renderTabs();
   window.scrollTo(0, 0);
 }
@@ -793,7 +796,7 @@ $('billAlertGo').onclick = () => {
 };
 
 function partsLine(i){
-  return i.parts.map(p => `${esc(quem(p.uid))} ${p.falta <= 0 ? '<span style="color:var(--accent)">✓</span>' : 'falta ' + brl(p.falta)}`).join(' · ');
+  return i.parts.map(p => `${esc(quem(p.uid))} ${p.falta <= 0 ? '<span style="color:var(--green)">✓</span>' : 'falta ' + brl(p.falta)}`).join(' · ');
 }
 
 function renderContas(){
@@ -830,8 +833,9 @@ function renderContas(){
 
   $('billTotal').textContent = brl(total);
   $('billTotalNote').textContent = plural(list.length, 'conta');
-  $('billPaid').textContent = brl(pago);
-  $('billPaidNote').textContent = list.length ? `${pagas} de ${list.length} ${list.length === 1 ? 'paga' : 'pagas'}` : '';
+  $('billPaid').textContent = brl(pago); $('billPaid').classList.toggle('zero', !pago);
+  const parciais = list.filter(i => !i.paid && i.pago > 0).length;
+  $('billPaidNote').textContent = !list.length ? '' : `${pagas} de ${list.length} ${list.length === 1 ? 'paga' : 'pagas'}` + (parciais ? ` · ${parciais} em parte` : '');
   $('billLeft').textContent = brl(falta);
   $('billLeftNote').textContent = !list.length ? 'Nenhuma conta neste mês'
     : falta <= 0 ? 'Tudo pago ✓'
@@ -860,7 +864,7 @@ function renderContas(){
       </div>
       <div class="bill-side">
         <span class="bill-val">${brl(i.total)}</span>
-        <span class="bill-act" style="display:flex;gap:6px;align-items:center;">${tag}${i.paid ? '' : `<button class="btn btn-primary btn-sm" data-pay="${esc(c.id)}" type="button">Pagar</button>`}</span>
+        <span class="bill-act" style="display:flex;gap:6px;align-items:center;">${tag}${i.paid ? '' : `<button class="btn btn-primary btn-sm" data-pay="${esc(c.id)}" type="button" aria-label="Pagar ${esc(c.nome)}">Pagar</button>`}</span>
       </div>
     </div>`;
   }).join('');
@@ -997,7 +1001,7 @@ function openBillForm(c){
   const parcAtual = c && c.tipo === 'parcelada' ? Math.max(1, Math.min(c.parcelas, mdiff(c.inicio, mk) + 1)) : 1;
   const membros = state.members.length ? state.members : [{ user_id: myId(), login: currentUser.email }];
   const peso = uid => { const p = partes.find(x => x.user_id === uid); return p ? Number(p.peso) : 0; };
-  openDlg2(c ? 'Editar conta' : `Nova conta · a partir de ${mlabel(mk)}`, c ? c.nome : 'Nova conta', `
+  openDlg2(c ? 'Editar conta' : `A partir de ${mlabel(mk)}`, c ? c.nome : 'Nova conta', `
     <form id="billForm" novalidate style="display:flex;flex-direction:column;gap:var(--space-4);">
       <div class="field">
         <label for="bfNome">Nome</label>
@@ -1338,15 +1342,15 @@ function renderMetas(){
   $('mtGuardadoNote').textContent = lista.length ? `em ${plural(lista.length, 'meta')}` : 'Crie sua primeira meta';
   $('mtFalta').textContent = brl(falta);
   const porMesTotal = r2(abertas.reduce((s, x) => s + (x.i.porMes || 0), 0));
-  $('mtFaltaNote').textContent = !abertas.length ? (lista.length ? 'Tudo alcançado 🎉' : '') : porMesTotal ? `Guarde ${brl(porMesTotal)}/mês para chegar nos prazos` : `${plural(abertas.length, 'meta')} em andamento`;
+  $('mtFaltaNote').textContent = !abertas.length ? (lista.length ? 'Tudo alcançado' : '') : porMesTotal ? `Guarde ${brl(porMesTotal)}/mês para chegar nos prazos` : `${plural(abertas.length, 'meta')} em andamento`;
   $('mtConcl').textContent = feitas.length;
-  $('mtConclNote').textContent = feitas.length ? 'Parabéns! 🎉' : 'Nenhuma ainda';
+  $('mtConclNote').textContent = feitas.length ? 'Parabéns!' : 'Nenhuma ainda';
   $('metasVazio').hidden = lista.length > 0;
   $('metasVazio').textContent = 'Nenhuma meta ainda. Toque num modelo acima (Viagem, Reserva de emergência…) ou em "Nova meta".';
   const shared = isShared();
   $('metasGrid').innerHTML = lista.map(({ m, i }) => {
     const sub = [m.prazo ? `até ${mesCurto(m.prazo)}` : 'sem prazo', shared && m.criado_por ? `criada por ${esc(quem(m.criado_por))}` : ''].filter(Boolean).join(' · ');
-    const dica = i.done ? '<b>Concluída 🎉</b>'
+    const dica = i.done ? '<b>Concluída ✓</b>'
       : i.meses !== null && i.meses <= 0 ? '<span style="color:#ff8a8d">Prazo passou</span>'
       : i.porMes ? `Guarde <b>${brl(i.porMes)}/mês</b>`
       : i.chegaEm ? `No ritmo atual: ${mesCurto(i.chegaEm)}` : 'Comece guardando';
@@ -1358,7 +1362,7 @@ function renderMetas(){
       </div>
       <div class="meta-vals"><b>${brl(i.saldo)}</b> <span style="color:var(--muted);font-size:13px;white-space:nowrap;">de ${brl(i.alvo)}</span></div>
       <div class="prog big"><div style="width:${i.pct}%"></div></div>
-      <div class="meta-foot"><span class="meta-pct">${Math.floor(i.pct)}%</span><span>${i.done ? '<b class="ok">Concluída 🎉</b>' : `Faltam <b>${brl(i.falta)}</b>`}</span></div>
+      <div class="meta-foot"><span class="meta-pct">${Math.floor(i.pct)}%</span><span>${i.done ? '<b class="ok">Concluída ✓</b>' : `Faltam <b>${brl(i.falta)}</b>`}</span></div>
       ${i.done ? '' : `<div class="meta-dica">${dica}</div>`}
       <div class="meta-acts">
         ${i.done ? '' : `<button class="btn btn-primary btn-sm" type="button" data-mguardar="${esc(m.id)}">Guardar</button>`}
@@ -1394,7 +1398,7 @@ async function mediaGastos3m(){
 function openMetaForm(m, modelo){
   const ic = m ? m.icone : (modelo ? modelo.icone : '🎯');
   const reserva = modelo && modelo.reserva;
-  openDlg2(m ? 'Editar meta' : 'Nova meta', m ? m.nome : (modelo ? modelo.nome : 'Nova meta'), `
+  openDlg2(m ? 'Editar meta' : (modelo ? 'Nova meta' : 'Metas'), m ? m.nome : (modelo ? modelo.nome : 'Nova meta'), `
     <form id="metaForm" novalidate style="display:flex;flex-direction:column;gap:var(--space-4);">
       <div class="field">
         <label>Ícone</label>
@@ -1462,7 +1466,7 @@ function openMeta(id){
     <div class="dlg-sec">
       <div class="meta-vals"><b>${brl(i.saldo)}</b> <span style="color:var(--muted);">de ${brl(i.alvo)} · ${Math.floor(i.pct)}%</span></div>
       <div class="prog big"><div style="width:${i.pct}%"></div></div>
-      ${i.done ? '<div class="kv"><span>Situação</span><b style="color:var(--accent);">Concluída 🎉</b></div>' : `<div class="kv"><span>Falta</span><b>${brl(i.falta)}</b></div>`}
+      ${i.done ? '<div class="kv"><span>Situação</span><b style="color:var(--accent);">Concluída ✓</b></div>' : `<div class="kv"><span>Falta</span><b>${brl(i.falta)}</b></div>`}
       <div class="kv"><span>Prazo</span><b>${m.prazo ? MONTHS[Number(m.prazo.slice(5,7)) - 1] + ' ' + m.prazo.slice(0, 4) : 'Sem prazo'}</b></div>
       ${!i.done && i.porMes ? `<div class="kv"><span>Para chegar no prazo</span><b>${brl(i.porMes)}/mês</b></div>` : ''}
       ${!i.done && i.ritmo > 0 ? `<div class="kv"><span>Seu ritmo</span><b>${brl(i.ritmo)}/mês${i.chegaEm ? ` · chega em ${mesCurto(i.chegaEm)}` : ''}</b></div>` : ''}
@@ -1508,7 +1512,7 @@ O progresso da meta vai diminuir.`)) return;
     closeDlg2();
     await refresh();
     const depois = m && findMeta(id) ? infoMeta(findMeta(id)).done : false;
-    toast(!antes && depois ? `🎉 Meta "${m.nome}" alcançada!` : mov === 'retirar' ? 'Retirada registrada.' : `${brl(v)} guardados.`, true);
+    toast(!antes && depois ? `Meta "${m.nome}" alcançada!` : mov === 'retirar' ? 'Retirada registrada.' : `${brl(v)} guardados.`, true);
     return;
   }
   if (!m) return closeDlg2();
@@ -1756,6 +1760,7 @@ function renderInvest(){
   $('ivHoje').textContent = brl(hoje);
   $('ivHojeNote').innerHTML = lista.length ? `${ganho >= 0 ? 'Rendeu' : 'Variação de'} <b class="${ganho >= 0 ? 'pos' : 'neg'}">${ganho >= 0 ? '+' : ''}${brl(ganho)}</b> já sem IR` : '';
   $('ivMes').textContent = (mes ? '+ ' : '') + brl(mes);
+  $('ivMes').classList.toggle('zero', !mes); $('ivHoje').classList.toggle('zero', !hoje); $('ivAplicado').classList.toggle('zero', !lista.length);
   $('ivMesNote').textContent = lista.some(x => x.c.mes === null) && lista.length ? 'Renda fixa, já sem IR · ações e "outros" não entram' : 'Estimativa, já sem IR';
   $('invVazio').hidden = lista.length > 0;
   $('invVazio').textContent = 'Nenhum investimento ainda. Toque em "Novo investimento" e escolha o tipo: poupança, CDB, Tesouro, ações…';
@@ -1798,7 +1803,7 @@ function openInvForm(tipo){
   const ix = idxs[0];
   const rf = T && !['cotacao', 'manual'].includes(ix);
   const PH = { poupanca: 'Ex.: Poupança Caixa', cdb: 'Ex.: CDB Banco X', lci: 'Ex.: LCI Banco Y', lca: 'Ex.: LCA Banco Z', tesouro_selic: 'Ex.: Tesouro Selic 2029', tesouro_ipca: 'Ex.: Tesouro IPCA+ 2035', tesouro_pre: 'Ex.: Tesouro Prefixado 2031', outro: 'Ex.: Previdência, cripto…' };
-  openDlg2('Novo investimento', T ? `${T.ic} ${T.nome}` : 'Qual o tipo?', `
+  openDlg2(T ? 'Novo investimento' : 'Investimentos', T ? `${T.ic} ${T.nome}` : 'Qual o tipo?', `
     <div class="tipo-grid" id="ifTipos">${Object.entries(TIPOS_INV).map(([k, t]) => `<button type="button" data-tipo="${k}" aria-pressed="${k === tipo}"><span>${t.ic}</span>${t.nome}</button>`).join('')}</div>
     ${!T ? '<p class="hint">Escolha o tipo para continuar.</p>' : `
     <form id="invForm" novalidate style="display:flex;flex-direction:column;gap:var(--space-4);">
@@ -2438,3 +2443,6 @@ if (!sb){
     setTimeout(() => handleSession(session, event === 'SIGNED_OUT'), 0);
   });
 }
+
+// ícones desenhados são só enfeite: o leitor de tela lê o texto do botão
+document.querySelectorAll('svg:not([aria-hidden])').forEach(s => s.setAttribute('aria-hidden', 'true'));
