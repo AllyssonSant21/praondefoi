@@ -272,6 +272,11 @@
   /* ===== alinhamento dos campos (iPhone) ===== */
   .field{min-width:0}
   .input:not(textarea){height:44px;min-height:44px}
+  .lanc-opts{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+  .vinc{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  .vinc .input{width:auto;min-width:200px;max-width:320px;border-radius:999px;font-weight:600}
+  .input[readonly]{color:var(--muted);border-style:dashed}
+  .input:disabled{opacity:1;color:var(--muted);border-style:dashed}
   input[type=date].input{-webkit-appearance:none;appearance:none;display:flex;align-items:center;width:100%;min-width:0;max-width:100%;text-align:left;line-height:normal}
   input[type=date].input::-webkit-date-and-time-value{text-align:left;margin:0}
   input[type=date].input::-webkit-calendar-picker-indicator{filter:invert(.92);opacity:.75;cursor:pointer}
@@ -427,6 +432,9 @@
     .ctrlbar>span:last-child::-webkit-scrollbar{display:none}
     .ctrlbar>span:last-child .btn{flex:none !important;white-space:nowrap}
     .alert{padding:8px 8px 8px 14px !important;gap:8px;flex-wrap:nowrap}
+    .lanc-opts{width:100%}
+    .vinc{width:100%}
+    .vinc .input{flex:1;min-width:0;max-width:none}
     #metaModelos{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-right:28px;margin-right:-4px;
       -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent)}
     #metaModelos::-webkit-scrollbar{display:none}
@@ -618,9 +626,14 @@
   <section class="blueprint" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4);">
     <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
       <h2 style="font-size:22px;text-transform:uppercase;">Novo lançamento</h2>
-      <div class="seg" id="typeSeg" role="group" aria-label="Tipo">
-        <button type="button" data-type="exp" aria-pressed="true">Saída</button>
-        <button type="button" data-type="inc" aria-pressed="false">Entrada</button>
+      <div class="lanc-opts">
+        <div class="seg" id="typeSeg" role="group" aria-label="Tipo">
+          <button type="button" data-type="exp" aria-pressed="true">Saída</button>
+          <button type="button" data-type="inc" aria-pressed="false">Entrada</button>
+        </div>
+        <label class="vinc" id="vincWrap" hidden><span>Usar para</span>
+          <select class="input" id="vinc"></select>
+        </label>
       </div>
     </div>
     <form id="form" novalidate style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--space-4);align-items:end;">
@@ -644,6 +657,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Adicionar
       </button>
     </form>
+    <span id="vincHint" class="by" hidden style="margin:-4px 0 0;font-size:13px;"></span>
     <span id="error" style="font-size:13px;color:#ff8a8d;" hidden></span>
   </section>
 
@@ -899,6 +913,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="app.js?v=23"></script>
+<script src="app.js?v=24"></script>
 </body>
 </html>

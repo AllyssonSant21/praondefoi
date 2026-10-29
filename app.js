@@ -393,7 +393,66 @@ function fillCats(){
   $('cat').innerHTML = CATS[state.type].map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   document.querySelectorAll('#typeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.type === state.type)));
 }
-document.querySelectorAll('#typeSeg button').forEach(b => b.addEventListener('click', () => { state.type = b.dataset.type; fillCats(); }));
+document.querySelectorAll('#typeSeg button').forEach(b => b.addEventListener('click', () => { state.type = b.dataset.type; fillCats(); vincOpcoes(); }));
+
+/* ---------- "Usar para": lançar já guardando numa meta ou pagando uma conta ---------- */
+function contasAbertasDoMes(){
+  if (!state.contasOk || !modOn('contas')) return [];
+  const mk = mkey(state.y, state.m);
+  return state.contas.filter(c => ocorre(c, mk)).map(c => instancia(c, mk))
+    .filter(i => !i.paid && !(i.antes && i.c.tipo === 'parcelada' && i.pago === 0))
+    .sort((a, b) => (a.due - b.due) || a.c.nome.localeCompare(b.c.nome));
+}
+function vincOpcoes(){
+  const sel = $('vinc'), atual = sel.value;
+  const metas = (state.metasOk && modOn('metas')) ? state.metas.map(m => ({ m, i: infoMeta(m) })) : [];
+  let html = '<option value="">Só lançamento</option>', n = 0;
+  if (state.type === 'exp'){
+    const ms = metas.filter(x => !x.i.done);
+    if (ms.length){ n += ms.length; html += `<optgroup label="Guardar na meta">${ms.map(x => `<option value="m:${esc(x.m.id)}">${esc(x.m.icone)} ${esc(x.m.nome)}</option>`).join('')}</optgroup>`; }
+    const cs = contasAbertasDoMes();
+    if (cs.length){ n += cs.length; html += `<optgroup label="Pagar conta de ${esc(MONTHS[state.m])}">${cs.map(i => `<option value="c:${esc(i.c.id)}">${esc(i.c.nome)}${i.n ? ` ${i.n}/${i.c.parcelas}` : ''} · falta ${brl(i.falta)}</option>`).join('')}</optgroup>`; }
+  } else {
+    const ms = metas.filter(x => x.i.saldo > 0);
+    if (ms.length){ n += ms.length; html += `<optgroup label="Retirar da meta">${ms.map(x => `<option value="r:${esc(x.m.id)}">${esc(x.m.icone)} ${esc(x.m.nome)} · tem ${brl(x.i.saldo)}</option>`).join('')}</optgroup>`; }
+  }
+  sel.innerHTML = html;
+  $('vincWrap').hidden = n === 0;
+  sel.value = [...sel.options].some(o => o.value === atual) ? atual : '';
+  aplicarVinc(false);
+}
+function vincAlvo(){
+  const v = $('vinc').value; if (!v) return null;
+  const k = v.slice(0, 1), id = v.slice(2);
+  if (k === 'c'){ const c = findConta(id); return c ? { k, c, i: instancia(c, mkey(state.y, state.m)) } : null; }
+  const m = state.metas.find(x => x.id === id); return m ? { k, m, i: infoMeta(m) } : null;
+}
+function aplicarVinc(mudou){
+  const a = vincAlvo(), d = $('desc'), cat = $('cat'), hint = $('vincHint');
+  if (!a){
+    if (d.readOnly){ d.readOnly = false; if (d.value === d.dataset.auto) d.value = ''; }
+    if (cat.disabled){ cat.disabled = false; fillCats(); }
+    hint.hidden = true;
+    return;
+  }
+  let nome, categoria, txt;
+  if (a.k === 'c'){
+    nome = a.c.nome + (a.i.n ? ` ${a.i.n}/${a.c.parcelas}` : ''); categoria = a.c.categoria;
+    const minha = a.i.parts.find(p => p.uid === myId());
+    const sugere = minha && minha.falta > 0 ? Math.min(minha.falta, a.i.falta) : a.i.falta;
+    if (mudou && !$('amount').value.trim()) $('amount').value = num(sugere);
+    txt = `Registra o pagamento da conta ${nome} (${MONTHS[state.m]}) e lança a saída. Falta pagar ${brl(a.i.falta)}.`;
+  } else {
+    const g = a.k === 'm';
+    nome = (g ? 'Guardado: ' : 'Retirado: ') + a.m.nome; categoria = 'Metas';
+    txt = g ? `Guarda o valor na meta ${a.m.nome} e lança a saída. Já tem ${brl(a.i.saldo)} de ${brl(Number(a.m.alvo))}.`
+            : `Tira o valor da meta ${a.m.nome} e lança a entrada. Dá pra retirar até ${brl(a.i.saldo)}.`;
+  }
+  d.value = nome; d.dataset.auto = nome; d.readOnly = true;
+  cat.innerHTML = `<option>${esc(categoria)}</option>`; cat.disabled = true;
+  hint.textContent = txt; hint.hidden = false;
+}
+$('vinc').addEventListener('change', () => { $('error').hidden = true; aplicarVinc(true); });
 $('date').value = todayISO();
 ['desc','amount'].forEach(id => $(id).addEventListener('input', () => { $('error').hidden = true; }));
 function showError(msg){ $('error').textContent = msg; $('error').hidden = false; }
@@ -404,6 +463,20 @@ $('form').addEventListener('submit', async e => {
   if (!desc) return showError('Escreva uma descrição.');
   if (!(amount > 0)) return showError('Informe um valor maior que zero.');
   if (!state.cid) return showError('Escolha um controle primeiro.');
+  const alvo = vincAlvo();
+  if (alvo){
+    const data = $('date').value || todayISO();
+    $('addBtn').disabled = true;
+    const res = alvo.k === 'c'
+      ? await sb.rpc('pagar_conta', { conta: alvo.c.id, p_mes: mkey(state.y, state.m), p_valor: amount, p_data: data })
+      : await sb.rpc('mover_meta', { meta: alvo.m.id, p_tipo: alvo.k === 'm' ? 'guardar' : 'retirar', p_valor: amount, p_data: data, p_lancar: true });
+    $('addBtn').disabled = false;
+    if (res.error) return showError(rpcMsg(res.error));
+    $('amount').value = ''; $('vinc').value = ''; aplicarVinc(false);
+    toast(alvo.k === 'c' ? `Pagamento de ${brl(amount)} registrado na conta ${alvo.c.nome}.`
+      : alvo.k === 'm' ? `${brl(amount)} guardados na meta ${alvo.m.nome}.` : `${brl(amount)} retirados da meta ${alvo.m.nome}.`, true);
+    return refresh();
+  }
   const entry = { type: state.type, desc, cat: $('cat').value, amount, date: $('date').value || todayISO() };
   $('addBtn').disabled = true;
   const { data, error } = await sb.from('lancamentos').insert({ ...toRow(entry), controle_id: state.cid }).select(COLS).single();
@@ -632,6 +705,7 @@ function render(){
   renderContas();
   renderMetas();
   renderInvest();
+  vincOpcoes();
   $('cats').innerHTML = list.length ? list.map(([name,v]) => `
     <div style="display:flex;flex-direction:column;gap:5px;">
       <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
