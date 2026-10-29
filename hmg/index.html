@@ -28,6 +28,7 @@
     --accent:#ffc83d;      /* amarelo */
     --red:#e5484d;         /* selo vermelho */
     --green:#4cc38a;       /* dinheiro que entra / pago */
+    --out:#f2a3a3;         /* dinheiro que sai (vermelho suave) */
     --ink:#0b1220;
     --divider:rgba(244,240,230,.16);
     --track:rgba(244,240,230,.10);
@@ -595,7 +596,7 @@
     </div>
     <div class="blueprint stat stat-filtro" data-filtro="exp" role="button" tabindex="0" aria-pressed="false" title="Mostrar só as saídas">
       <span class="kicker">Saídas</span>
-      <span class="big" id="expVal">R$ 0,00</span>
+      <span class="big" id="expVal" style="color:var(--out);">R$ 0,00</span>
       <span class="note" id="expNote"></span>
     </div>
     <div class="blueprint stat stat-bal" id="balCard">
@@ -900,6 +901,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=22"></script>
+<script src="app.js?v=23"></script>
 </body>
 </html>
