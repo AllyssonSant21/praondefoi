@@ -654,7 +654,7 @@ function render(){
   document.title = `${MONTHS[m]} ${y} · Pra Onde Foi?`;
   $('incVal').textContent = brl(inc); $('incVal').classList.toggle('zero', !inc); $('incNote').textContent = plural(month.length - expList.length,'lançamento');
   $('expVal').textContent = brl(exp); $('expVal').classList.toggle('zero', !exp); $('expNote').textContent = plural(expList.length,'lançamento');
-  $('balVal').textContent = brl(bal);
+  $('balVal').textContent = brl(bal); $('balVal').classList.toggle('zero', !bal);
   $('balNote').textContent = !month.length ? 'Sem lançamentos'
     : bal >= 0 ? `Sobrou ${inc ? Math.round(bal/inc*100) : 0}% do que entrou` : 'Gastou mais do que entrou';
   $('balCard').classList.toggle('neg', bal < 0);
