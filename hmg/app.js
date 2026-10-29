@@ -746,9 +746,9 @@ function alertas(){
 }
 
 const TITULOS = { metas: 'Metas', invest: 'Investimentos' };
-// o aviso de contas vencidas só aparece em Lançamentos e Contas a pagar
+// o aviso de contas vencidas só aparece em Contas a pagar (nas outras abas fica só o número no menu)
 function syncAlerta(){
-  $('billAlert').hidden = !state.alertaN || !modOn('contas') || !['lanc', 'contas'].includes(state.tab);
+  $('billAlert').hidden = !state.alertaN || !modOn('contas') || state.tab !== 'contas';
 }
 function renderTabs(){
   const mods = modulosDe(current());
