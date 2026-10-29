@@ -819,6 +819,7 @@ function renderContas(){
   const mk = mkey(state.y, state.m);
   const me = myId();
   const list = state.contas.filter(c => ocorre(c, mk)).map(c => instancia(c, mk))
+    .filter(i => !(i.antes && i.c.tipo === 'parcelada' && i.pago === 0))
     .sort((a, b) => (a.paid - b.paid) || (a.due - b.due) || a.c.nome.localeCompare(b.c.nome));
   const total = r2(list.reduce((s, i) => s + i.total, 0));
   const pago = r2(list.reduce((s, i) => s + i.pago, 0));
@@ -991,7 +992,7 @@ function openBillForm(c){
   const shared = isShared();
   const partes = c ? (state.partes[c.id] || []) : [];
   const iguais = partes.every(p => Number(p.peso) === Number((partes[0] || {}).peso));
-  bf = { c, tipo: c ? c.tipo : 'fixa', dividir: partes.length > 0, modo: partes.length && !iguais ? 'valores' : 'iguais' };
+  bf = { c, tipo: c ? c.tipo : 'fixa', dividir: partes.length > 0, modo: partes.length && !iguais ? 'valores' : 'iguais', valModo: c ? 'parcela' : 'total' };
   const cats = CATS.exp.includes(c && c.categoria) || !c ? CATS.exp : [c.categoria, ...CATS.exp];
   const parcAtual = c && c.tipo === 'parcelada' ? Math.max(1, Math.min(c.parcelas, mdiff(c.inicio, mk) + 1)) : 1;
   const membros = state.members.length ? state.members : [{ user_id: myId(), login: currentUser.email }];
@@ -1004,7 +1005,7 @@ function openBillForm(c){
       </div>
       <div class="grid2">
         <div class="field">
-          <label for="bfValor">Valor (R$)</label>
+          <label for="bfValor" id="bfValorLbl">Valor (R$)</label>
           <input class="input" id="bfValor" inputmode="decimal" placeholder="0,00" value="${c ? num(Number(c.valor)) : ''}">
         </div>
         <div class="field">
@@ -1024,7 +1025,12 @@ function openBillForm(c){
           <button type="button" data-tipo="unica">Só este mês</button>
         </div>
       </div>
-      <div class="grid2" id="bfParc">
+      <div id="bfParc" style="display:flex;flex-direction:column;gap:var(--space-3);">
+      <div class="seg" id="bfValModo" role="group" aria-label="Como informar o valor" style="align-self:flex-start;max-width:100%;overflow-x:auto;">
+        <button type="button" data-vm="total">Valor total</button>
+        <button type="button" data-vm="parcela">Valor da parcela</button>
+      </div>
+      <div class="grid2">
         <div class="field">
           <label for="bfParcTot">Total de parcelas</label>
           <input class="input" id="bfParcTot" type="number" inputmode="numeric" min="2" max="240" placeholder="Ex.: 10" value="${c && c.parcelas ? c.parcelas : ''}">
@@ -1033,6 +1039,8 @@ function openBillForm(c){
           <label for="bfParcAt">Parcela deste mês</label>
           <input class="input" id="bfParcAt" type="number" inputmode="numeric" min="1" max="240" value="${parcAtual}">
         </div>
+      </div>
+      <div class="sugere" id="bfParcInfo" hidden></div>
       </div>
       <p class="hint" id="bfTipoHint" style="margin:0;font-size:13px;color:var(--muted);"></p>
       ${shared ? `
@@ -1057,20 +1065,41 @@ function openBillForm(c){
   bfUpdate();
 }
 
+// valor que cai em cada mês (na parcelada com "valor total", divide pelo nº de parcelas)
+function bfValorMes(){
+  const v = parseAmount($('bfValor').value);
+  if (bf.tipo !== 'parcelada' || bf.valModo !== 'total') return v;
+  const n = parseInt($('bfParcTot').value, 10);
+  return v > 0 && n >= 2 ? Math.round(v / n * 100) / 100 : NaN;
+}
 function bfUpdate(){
   const mk = dlg2.mk;
+  const parc = bf.tipo === 'parcelada';
+  document.querySelectorAll('#bfValModo button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.vm === bf.valModo)));
+  $('bfValorLbl').textContent = !parc ? 'Valor (R$)' : bf.valModo === 'total' ? 'Valor total da compra (R$)' : 'Valor de cada parcela (R$)';
+  if (parc){
+    const n = parseInt($('bfParcTot').value, 10), at = parseInt($('bfParcAt').value, 10), vm = bfValorMes();
+    const ok = n >= 2 && vm > 0 && at >= 1 && at <= n;
+    $('bfParcInfo').hidden = !ok;
+    if (ok){
+      const rest = n - at;
+      $('bfParcInfo').innerHTML = `<div><b>${n}x de ${brl(vm)}</b> (total ${brl(r2(vm * n))})</div>
+        <div>Este mês é a <b>${at}ª</b>${rest ? ` · depois faltam mais <b>${rest}</b>, até ${mesCurto(mkey(state.y, state.m + rest))}` : ' · é a última'}.</div>
+        <div style="color:var(--muted);">Ao pagar, vem ${brl(vm)} por mês.</div>`;
+    }
+  }
   document.querySelectorAll('#bfTipo button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tipo === bf.tipo)));
   $('bfParc').hidden = bf.tipo !== 'parcelada';
   const ini = bf.c && bf.c.tipo === bf.tipo && bf.tipo !== 'parcelada' ? bf.c.inicio : mk;
   $('bfTipoHint').textContent = bf.tipo === 'fixa' ? `Aparece todo mês a partir de ${mlabel(ini)}, até você encerrar.`
     : bf.tipo === 'unica' ? `Aparece só em ${mlabel(ini)}.`
-    : 'Aparece mês a mês até a última parcela.';
+    : 'Aparece deste mês até a última parcela; as anteriores não entram.';
   if (!$('bfDiv')) return;
   const on = $('bfDiv').checked;
   $('bfDivBox').hidden = !on;
   if (!on) return;
   document.querySelectorAll('#bfModo button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.modo === bf.modo)));
-  const valor = parseAmount($('bfValor').value);
+  const valor = bfValorMes();
   const iguais = bf.modo === 'iguais';
   const marcados = [...document.querySelectorAll('[data-pu]')].filter(x => x.checked).map(x => x.dataset.pu);
   document.querySelectorAll('[data-pu]').forEach(x => { x.disabled = !iguais; x.style.visibility = iguais ? '' : 'hidden'; });
@@ -1099,7 +1128,7 @@ $('dlg2Body').addEventListener('submit', async e => {
   e.preventDefault();
   const c = bf.c, mk = dlg2.mk;
   const nome = $('bfNome').value.trim();
-  const valor = parseAmount($('bfValor').value);
+  const valor = bfValorMes();
   const dia = parseInt($('bfDia').value, 10);
   if (!nome) return toast('Dê um nome para a conta.');
   if (!(valor > 0)) return toast('Informe o valor da conta.');
@@ -1142,12 +1171,22 @@ $('dlg2Body').addEventListener('click', async e => {
   if (fill){ $('payVal').value = fill.dataset.fill; return; }
   const tb = e.target.closest('#bfTipo button');
   if (tb){ bf.tipo = tb.dataset.tipo; return bfUpdate(); }
+  const vmb = e.target.closest('#bfValModo button');
+  if (vmb){
+    if (vmb.dataset.vm !== bf.valModo){
+      // converte o número digitado para não perder o que a pessoa já escreveu
+      const v = parseAmount($('bfValor').value), n = parseInt($('bfParcTot').value, 10);
+      if (v > 0 && n >= 2) $('bfValor').value = num(vmb.dataset.vm === 'total' ? r2(v * n) : Math.round(v / n * 100) / 100);
+      bf.valModo = vmb.dataset.vm;
+    }
+    return bfUpdate();
+  }
   const mb = e.target.closest('#bfModo button');
   if (mb){
     bf.modo = mb.dataset.modo;
     if (bf.modo === 'valores'){
       // começa preenchido com a divisão igual entre os marcados
-      const valor = parseAmount($('bfValor').value);
+      const valor = bfValorMes();
       const marc = [...document.querySelectorAll('[data-pu]')].filter(x => x.checked).map(x => x.dataset.pu);
       const vazios = [...document.querySelectorAll('[data-pv]')].every(x => !x.value.trim());
       if (vazios && valor > 0 && marc.length){
