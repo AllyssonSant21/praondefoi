@@ -1,3 +1,5 @@
+// o app não pode ser aberto dentro de outro site (proteção contra clique disfarçado)
+if (window.top !== window.self){ document.documentElement.style.display = 'none'; try { window.top.location = window.self.location.href; } catch(e){} }
 // Pra Onde Foi? — código do app
 /* =====================================================================
    CONFIGURAÇÃO — cole aqui os dados do seu projeto Supabase
@@ -81,8 +83,10 @@ function setAuthMode(m){
   $('authPassWrap').hidden = m === 'esqueci';
   $('authPassLabel').textContent = m === 'nova' ? 'Nova senha' : 'Senha';
   $('authPass').autocomplete = (m === 'criar' || m === 'nova') ? 'new-password' : 'current-password';
+  $('authPass').placeholder = (m === 'criar' || m === 'nova') ? 'Mínimo de 8 caracteres' : 'Sua senha';
   $('authSubmit').textContent = {entrar:'Entrar', criar:'Criar conta', esqueci:'Enviar link de recuperação', nova:'Salvar nova senha'}[m];
   $('forgot').hidden = m !== 'entrar';
+  $('authAceite').hidden = m !== 'criar';
   $('backLogin').hidden = m !== 'esqueci';
   $('googleWrap').hidden = !googleOn || special;
   authMsg('');
@@ -118,7 +122,9 @@ $('authForm').addEventListener('submit', async e => {
     return authMsg(typed.includes('@') ? 'Digite um e-mail válido.' : 'O usuário precisa ter de 3 a 30 caracteres, só letras, números, ponto, hífen ou _ (sem espaço nem acento).', 'err');
   if (authMode === 'esqueci' && isUsernameLogin(email))
     return authMsg('Contas com nome de usuário não recebem e-mail. Peça ao administrador uma senha temporária e depois troque em "Trocar senha".', 'err');
-  if (authMode !== 'esqueci' && pass.length < 6) return authMsg('A senha precisa ter pelo menos 6 caracteres.', 'err');
+  // senha nova: mínimo 8. Para entrar, aceita as senhas antigas de 6 ou 7.
+  if ((authMode === 'criar' || authMode === 'nova') && pass.length < 8) return authMsg('A senha precisa ter pelo menos 8 caracteres.', 'err');
+  if (authMode === 'entrar' && !pass) return authMsg('Digite a sua senha.', 'err');
   const btn = $('authSubmit'); btn.disabled = true; authMsg('');
   try {
     if (authMode === 'entrar'){
@@ -152,9 +158,9 @@ $('authForm').addEventListener('submit', async e => {
 });
 
 document.querySelectorAll('[data-changepass]').forEach(b => b.addEventListener('click', async () => {
-  const nova = prompt('Digite a nova senha (mínimo de 6 caracteres):');
+  const nova = prompt('Digite a nova senha (mínimo de 8 caracteres):');
   if (nova === null) return;
-  if (nova.length < 6) return toast('A senha precisa ter pelo menos 6 caracteres.');
+  if (nova.length < 8) return toast('A senha precisa ter pelo menos 8 caracteres.');
   const confirma = prompt('Digite a nova senha de novo para confirmar:');
   if (confirma === null) return;
   if (confirma !== nova) return toast('As senhas não conferem. Tente de novo.');
@@ -534,7 +540,7 @@ $('ctrlNew').onclick = async () => {
   openManage();
 };
 $('ctrlJoin').onclick = async () => {
-  const cod = prompt('Digite o código que você recebeu (ex.: K7P-4QX):');
+  const cod = prompt('Digite o código que você recebeu (ex.: K7P4-QX9M):');
   if (cod === null || !cod.trim()) return;
   const { data, error } = await sb.rpc('entrar_com_codigo', { p_codigo: cod });
   if (error) return toast(rpcMsg(error));
@@ -2477,9 +2483,9 @@ $('userRows').addEventListener('click', async e => {
   const id = b.dataset.id, act = b.dataset.act;
   let error;
   if (act === 'senha'){
-    const nova = prompt(`Senha temporária para ${b.dataset.email} (mínimo de 6 caracteres):`);
+    const nova = prompt(`Senha temporária para ${b.dataset.email} (mínimo de 8 caracteres):`);
     if (nova === null) return;
-    if (nova.length < 6) return toast('A senha precisa ter pelo menos 6 caracteres.');
+    if (nova.length < 8) return toast('A senha precisa ter pelo menos 8 caracteres.');
     b.disabled = true;
     ({ error } = await sb.rpc('admin_definir_senha', { alvo: id, nova }));
     b.disabled = false;
