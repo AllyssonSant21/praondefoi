@@ -1,0 +1,33 @@
+# Segredos e configurações locais: nunca vão para o GitHub
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.keystore
+*.jks
+credentials*.json
+service-account*.json
+google-services.json
+GoogleService-Info.plist
+
+# Supabase CLI (se um dia for usado)
+supabase/.temp/
+supabase/.branches/
+supabase/.env
+
+# Cópias de banco e registros
+*.dump
+*.sql.gz
+*.backup
+*.log
+
+# Ferramentas e lixo de sistema
+node_modules/
+.taste-skill/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
