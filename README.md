@@ -19,6 +19,7 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   9. `supabase-investimentos.sql` — Investimentos e taxas do Banco Central (ative pg_net e pg_cron antes).
   10. `supabase-modulos.sql` — o dono escolhe o que cada controle compartilha (rodar por último).
   11. `supabase-seguranca2.sql` — revisão de segurança: códigos de convite de 8 caracteres, saldo de meta protegido e gravação só pelas funções (rodar por último).
+- **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os 11 scripts na ordem; ative pg_net e pg_cron antes e rode uma vez só.
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.
 - **Marca:** pasta `logo/` (SVG e PNG).
 
