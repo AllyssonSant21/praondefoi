@@ -325,7 +325,27 @@
   .metas-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr));gap:var(--space-4)}
   .meta{display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:18px;background:rgba(244,240,230,.035);border:1px solid rgba(244,240,230,.08);cursor:pointer;transition:border-color .15s}
   .meta:hover{border-color:rgba(244,240,230,.22)}
-  .meta.done{border-color:rgba(255,200,61,.45)}
+  /* meta concluída: verde (o mesmo verde de "entrou" e "pago") */
+  .meta.done{border-color:rgba(76,195,138,.55);background:rgba(76,195,138,.05)}
+  .meta.done .prog>div,.prog.ok>div{background:var(--green)}
+  .meta.done .meta-ic{background:rgba(76,195,138,.14)}
+  .meta-conq{font-size:13px;color:#7fdcae;margin-top:-4px}
+  .meta-acts.duas{flex-wrap:wrap}
+  .meta-acts.duas .btn-usar{flex:1 1 100%}
+  .btn-ok{background:var(--green);border-color:var(--green);color:var(--ink)}
+  .btn-ok:hover{background:#63d29c}
+  .meta-abas{align-self:flex-start;max-width:100%}
+  .meta-abas .cnt{opacity:.7;font-weight:500}
+  .meta-abas button[aria-pressed="true"] .cnt{opacity:.75}
+  .verde{color:var(--green)}
+  .stat-bal .big.verde{color:var(--green)}
+  .stat-bal:has(.big.verde){border-color:rgba(76,195,138,.5)}
+  @media (max-width:560px){ .stats>.stat-bal:has(.big.verde){box-shadow:inset 3px 0 0 var(--green)} }
+  .festa{display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;padding:6px 0}
+  .festa-ic{width:84px;height:84px;border-radius:50%;background:rgba(76,195,138,.16);color:var(--green);display:grid;place-items:center;font-size:40px;line-height:1;animation:festa .55s cubic-bezier(.2,1.4,.4,1)}
+  .festa p{margin:0}
+  .festa .valor{font-family:var(--font-heading);font-weight:900;font-size:30px;color:var(--green);font-variant-numeric:tabular-nums}
+  @keyframes festa{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
   .meta-top{display:flex;gap:12px;align-items:center;min-width:0}
   .meta-ic{flex:none;width:46px;height:46px;border-radius:14px;background:rgba(255,200,61,.12);display:grid;place-items:center;font-size:24px;line-height:1}
   .meta-vals{font-variant-numeric:tabular-nums}
@@ -334,7 +354,7 @@
   .meta-foot{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px;color:var(--muted)}
   .meta-foot span{white-space:nowrap}
   .meta-foot b{color:var(--text);font-size:14px}
-  .meta-foot b.ok{color:var(--accent)}
+  .meta-foot b.ok{color:var(--green)}
   .meta-pct{font-weight:700;color:var(--text)}
   .meta-dica{font-size:13px;color:var(--muted);margin-top:-4px}
   .meta-dica b{color:var(--accent)}
@@ -738,7 +758,7 @@
     </div>
     <div class="blueprint stat stat-bal">
       <span class="kicker">Metas concluídas</span>
-      <span class="big" id="mtConcl">0</span>
+      <span class="big verde" id="mtConcl">0</span>
       <span class="note" id="mtConclNote"></span>
     </div>
   </section>
@@ -747,7 +767,11 @@
       <h2 style="font-size:22px;text-transform:uppercase;">Minhas metas</h2>
       <button class="btn btn-primary" id="metaNova" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Nova meta</button>
     </div>
-    <div style="display:flex;flex-direction:column;gap:8px;">
+    <div class="seg meta-abas" id="metaAbas" role="tablist" aria-label="Metas">
+      <button type="button" role="tab" data-maba="andamento" aria-pressed="true">Em andamento <span class="cnt" id="mtCntAnd"></span></button>
+      <button type="button" role="tab" data-maba="concluidas" aria-pressed="false">Concluídas <span class="cnt" id="mtCntConc"></span></button>
+    </div>
+    <div id="metaRapido" style="display:flex;flex-direction:column;gap:8px;">
       <span class="kicker">Comece rápido</span>
       <div class="chips" id="metaModelos"></div>
     </div>
@@ -925,6 +949,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=31"></script>
+<script src="app.js?v=35"></script>
 </body>
 </html>
