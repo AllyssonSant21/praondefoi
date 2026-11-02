@@ -102,7 +102,7 @@ function translateError(err){
   if (/not confirmed/i.test(msg)) return 'Confirme seu e-mail pelo link que enviamos antes de entrar.';
   if (/already registered|already been registered|already exists/i.test(msg)) return 'Esse usuário já existe. Use "Entrar" ou escolha outro nome.';
   if (/email address .* invalid|invalid email/i.test(msg)) return 'Esse nome de usuário não foi aceito. Tente só letras e números.';
-  if (/email rate limit/i.test(msg)) return 'O Supabase atingiu o limite de envio de e-mails. Desligue "Confirm email" em Authentication → Sign In / Providers → Email e tente de novo em alguns minutos.';
+  if (/email rate limit/i.test(msg)) return 'Não conseguimos enviar o e-mail agora. Tente de novo em alguns minutos.';
   if (/rate limit|security purposes|too many/i.test(msg)) return 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo. (' + msg + ')';
   if (/should contain|weak|pwned|leaked|compromised/i.test(msg)) return 'O Supabase recusou essa senha pelas regras dele: ' + msg;
   if (/at least \d+ characters|password should be at least/i.test(msg)) return 'A senha é curta demais para as regras do Supabase: ' + msg;
@@ -234,7 +234,7 @@ async function handleSession(session, force){
     profile = null;
     return waitScreen('Algo não<br>carregou', error
       ? 'Não foi possível carregar sua conta. Verifique a internet e tente de novo.'
-      : 'Seu perfil ainda não existe. Confira se o script do banco (supabase-setup.sql) foi executado.');
+      : 'Não foi possível carregar a sua conta agora. Tente de novo em alguns minutos.');
   }
   profile = data;
   if (profile.status === 'pendente')
@@ -277,7 +277,7 @@ async function loadControles(){
   const g = await sb.rpc('garantir_controle_pessoal');
   if (g.error){
     if (g.error.code === 'PGRST202' || /could not find the function|does not exist/i.test(g.error.message || '')){
-      waitScreen('Falta<br>atualizar', 'O banco ainda não tem os controles compartilhados. Rode o arquivo supabase-controles.sql no SQL Editor do Supabase e toque em "Verificar de novo".');
+      waitScreen('Falta<br>atualizar', 'O app está passando por uma atualização. Tente de novo em alguns minutos tocando em "Verificar de novo".');
     } else toast(rpcMsg(g.error));
     return false;
   }
@@ -896,7 +896,7 @@ function renderContas(){
     $('billNew').disabled = true;
     $('billList').innerHTML = '';
     $('billEmpty').hidden = false;
-    $('billEmpty').textContent = 'As contas a pagar ainda não foram ativadas no banco. Rode o arquivo supabase-contas.sql no SQL Editor do Supabase e recarregue a página.';
+    $('billEmpty').textContent = 'Esta área está temporariamente indisponível. Tente de novo mais tarde.';
     ['billTotal','billPaid','billLeft'].forEach(id => { $(id).textContent = brl(0); });
     ['billTotalNote','billPaidNote','billLeftNote'].forEach(id => { $(id).textContent = ''; });
     return;
@@ -1411,7 +1411,7 @@ function renderMetas(){
   if (!state.metasOk){
     $('metasGrid').innerHTML = '';
     $('metasVazio').hidden = false;
-    $('metasVazio').textContent = 'As metas ainda não foram ativadas no banco. Rode o arquivo supabase-metas.sql no SQL Editor do Supabase e recarregue a página.';
+    $('metasVazio').textContent = 'Esta área está temporariamente indisponível. Tente de novo mais tarde.';
     $('metaNova').disabled = true;
     return;
   }
@@ -1458,7 +1458,7 @@ function renderMetas(){
 $('metaNova').onclick = () => openMetaForm(null, null);
 $('metaModelos').addEventListener('click', e => {
   const b = e.target.closest('[data-modelo]'); if (!b) return;
-  if (!state.metasOk) return toast('Rode o arquivo supabase-metas.sql no Supabase para ativar as metas.');
+  if (!state.metasOk) return toast('Esta área está temporariamente indisponível. Tente de novo mais tarde.');
   openMetaForm(null, MODELOS_META[Number(b.dataset.modelo)]);
 });
 $('metasGrid').addEventListener('click', e => {
@@ -1828,7 +1828,7 @@ function renderInvest(){
   if (!state.invOk){
     $('invList').innerHTML = ''; $('invDist').innerHTML = '';
     $('invVazio').hidden = false;
-    $('invVazio').textContent = 'Os investimentos ainda não foram ativados no banco. Rode o arquivo supabase-investimentos.sql no SQL Editor do Supabase e recarregue a página.';
+    $('invVazio').textContent = 'Esta área está temporariamente indisponível. Tente de novo mais tarde.';
     $('invNovo').disabled = true;
     return;
   }
@@ -2134,7 +2134,7 @@ function lerFoto(file){
 async function openPerfil(){
   if (!profile) return;
   if (!perfilNovo){
-    return openDlg2('Minha conta', 'Meu perfil', `<p class="hint">Para usar o perfil, rode o arquivo <b>supabase-perfil.sql</b> no SQL Editor do Supabase e recarregue a página.</p>`, { tipo: 'perfil' });
+    return openDlg2('Minha conta', 'Meu perfil', `<p class="hint">Esta área está temporariamente indisponível. Tente de novo mais tarde.</p>`, { tipo: 'perfil' });
   }
   let ids = currentUser.identities || [];
   try { const r = await sb.auth.getUserIdentities(); if (r && r.data && r.data.identities) ids = r.data.identities; } catch(e){}
@@ -2317,7 +2317,7 @@ $('dlgBody').addEventListener('click', async e => {
     const ms = [...document.querySelectorAll('#dlgBody [data-mod]')].filter(x => x.checked).map(x => x.dataset.mod);
     if (!ms.length) return toast('Deixe pelo menos uma área ligada.');
     b.disabled = true; res = await sb.rpc('definir_modulos', { cid: c.id, p_modulos: ms });
-    if (res.error){ b.disabled = false; return toast(/function|schema cache/i.test(res.error.message || '') ? 'Rode o arquivo supabase-modulos.sql no Supabase para ativar essa opção.' : rpcMsg(res.error)); }
+    if (res.error){ b.disabled = false; return toast(/function|schema cache/i.test(res.error.message || '') ? 'Esta área está temporariamente indisponível. Tente de novo mais tarde.' : rpcMsg(res.error)); }
     toast('Áreas atualizadas.', true); return afterChange(true);
   }
   if (a === 'renomear'){
