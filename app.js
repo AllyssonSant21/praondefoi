@@ -1,3 +1,5 @@
+// o app não pode ser aberto dentro de outro site (proteção contra clique disfarçado)
+if (window.top !== window.self){ document.documentElement.style.display = 'none'; try { window.top.location = window.self.location.href; } catch(e){} }
 // Pra Onde Foi? — código do app
 /* =====================================================================
    CONFIGURAÇÃO — cole aqui os dados do seu projeto Supabase
@@ -81,8 +83,10 @@ function setAuthMode(m){
   $('authPassWrap').hidden = m === 'esqueci';
   $('authPassLabel').textContent = m === 'nova' ? 'Nova senha' : 'Senha';
   $('authPass').autocomplete = (m === 'criar' || m === 'nova') ? 'new-password' : 'current-password';
+  $('authPass').placeholder = (m === 'criar' || m === 'nova') ? 'Mínimo de 8 caracteres' : 'Sua senha';
   $('authSubmit').textContent = {entrar:'Entrar', criar:'Criar conta', esqueci:'Enviar link de recuperação', nova:'Salvar nova senha'}[m];
   $('forgot').hidden = m !== 'entrar';
+  $('authAceite').hidden = m !== 'criar';
   $('backLogin').hidden = m !== 'esqueci';
   $('googleWrap').hidden = !googleOn || special;
   authMsg('');
@@ -97,7 +101,7 @@ function translateError(err){
   if (/not confirmed/i.test(msg)) return 'Confirme seu e-mail pelo link que enviamos antes de entrar.';
   if (/already registered|already been registered|already exists/i.test(msg)) return 'Esse usuário já existe. Use "Entrar" ou escolha outro nome.';
   if (/email address .* invalid|invalid email/i.test(msg)) return 'Esse nome de usuário não foi aceito. Tente só letras e números.';
-  if (/email rate limit/i.test(msg)) return 'O Supabase atingiu o limite de envio de e-mails. Desligue "Confirm email" em Authentication → Sign In / Providers → Email e tente de novo em alguns minutos.';
+  if (/email rate limit/i.test(msg)) return 'Não conseguimos enviar o e-mail agora. Tente de novo em alguns minutos.';
   if (/rate limit|security purposes|too many/i.test(msg)) return 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo. (' + msg + ')';
   if (/should contain|weak|pwned|leaked|compromised/i.test(msg)) return 'O Supabase recusou essa senha pelas regras dele: ' + msg;
   if (/at least \d+ characters|password should be at least/i.test(msg)) return 'A senha é curta demais para as regras do Supabase: ' + msg;
@@ -118,7 +122,9 @@ $('authForm').addEventListener('submit', async e => {
     return authMsg(typed.includes('@') ? 'Digite um e-mail válido.' : 'O usuário precisa ter de 3 a 30 caracteres, só letras, números, ponto, hífen ou _ (sem espaço nem acento).', 'err');
   if (authMode === 'esqueci' && isUsernameLogin(email))
     return authMsg('Contas com nome de usuário não recebem e-mail. Peça ao administrador uma senha temporária e depois troque em "Trocar senha".', 'err');
-  if (authMode !== 'esqueci' && pass.length < 6) return authMsg('A senha precisa ter pelo menos 6 caracteres.', 'err');
+  // senha nova: mínimo 8. Para entrar, aceita as senhas antigas de 6 ou 7.
+  if ((authMode === 'criar' || authMode === 'nova') && pass.length < 8) return authMsg('A senha precisa ter pelo menos 8 caracteres.', 'err');
+  if (authMode === 'entrar' && !pass) return authMsg('Digite a sua senha.', 'err');
   const btn = $('authSubmit'); btn.disabled = true; authMsg('');
   try {
     if (authMode === 'entrar'){
@@ -152,9 +158,9 @@ $('authForm').addEventListener('submit', async e => {
 });
 
 document.querySelectorAll('[data-changepass]').forEach(b => b.addEventListener('click', async () => {
-  const nova = prompt('Digite a nova senha (mínimo de 6 caracteres):');
+  const nova = prompt('Digite a nova senha (mínimo de 8 caracteres):');
   if (nova === null) return;
-  if (nova.length < 6) return toast('A senha precisa ter pelo menos 6 caracteres.');
+  if (nova.length < 8) return toast('A senha precisa ter pelo menos 8 caracteres.');
   const confirma = prompt('Digite a nova senha de novo para confirmar:');
   if (confirma === null) return;
   if (confirma !== nova) return toast('As senhas não conferem. Tente de novo.');
@@ -227,7 +233,7 @@ async function handleSession(session, force){
     profile = null;
     return waitScreen('Algo não<br>carregou', error
       ? 'Não foi possível carregar sua conta. Verifique a internet e tente de novo.'
-      : 'Seu perfil ainda não existe. Confira se o script do banco (supabase-setup.sql) foi executado.');
+      : 'Não foi possível carregar a sua conta agora. Tente de novo em alguns minutos.');
   }
   profile = data;
   if (profile.status === 'pendente')
@@ -270,7 +276,7 @@ async function loadControles(){
   const g = await sb.rpc('garantir_controle_pessoal');
   if (g.error){
     if (g.error.code === 'PGRST202' || /could not find the function|does not exist/i.test(g.error.message || '')){
-      waitScreen('Falta<br>atualizar', 'O banco ainda não tem os controles compartilhados. Rode o arquivo supabase-controles.sql no SQL Editor do Supabase e toque em "Verificar de novo".');
+      waitScreen('Falta<br>atualizar', 'O app está passando por uma atualização. Tente de novo em alguns minutos tocando em "Verificar de novo".');
     } else toast(rpcMsg(g.error));
     return false;
   }
@@ -417,9 +423,14 @@ function vincOpcoes(){
     if (ms.length){ n += ms.length; html += `<optgroup label="Retirar da meta">${ms.map(x => `<option value="r:${esc(x.m.id)}">${esc(x.m.icone)} ${esc(x.m.nome)} · tem ${brl(x.i.saldo)}</option>`).join('')}</optgroup>`; }
   }
   sel.innerHTML = html;
-  $('vincWrap').hidden = n === 0;
+  // sempre visível (não muda o lugar de nada); sem opções, fica travado em "Só lançamento"
+  sel.disabled = n === 0;
+  sel.title = n === 0 ? (state.type === 'exp' ? 'Crie uma meta ou conta a pagar para usar aqui.' : 'Nenhuma meta com dinheiro guardado para retirar.') : '';
   sel.value = [...sel.options].some(o => o.value === atual) ? atual : '';
   aplicarVinc(false);
+  // travado: explica do lado por que e como liberar
+  $('vincHint').classList.toggle('trava', n === 0);
+  if (n === 0){ $('vincHint').textContent = sel.title + ' Por enquanto, os lançamentos entram normalmente.'; $('vincHint').hidden = false; }
 }
 function vincAlvo(){
   const v = $('vinc').value; if (!v) return null;
@@ -534,7 +545,7 @@ $('ctrlNew').onclick = async () => {
   openManage();
 };
 $('ctrlJoin').onclick = async () => {
-  const cod = prompt('Digite o código que você recebeu (ex.: K7P-4QX):');
+  const cod = prompt('Digite o código que você recebeu (ex.: K7P4-QX9M):');
   if (cod === null || !cod.trim()) return;
   const { data, error } = await sb.rpc('entrar_com_codigo', { p_codigo: cod });
   if (error) return toast(rpcMsg(error));
@@ -654,7 +665,7 @@ function render(){
   document.title = `${MONTHS[m]} ${y} · Pra Onde Foi?`;
   $('incVal').textContent = brl(inc); $('incVal').classList.toggle('zero', !inc); $('incNote').textContent = plural(month.length - expList.length,'lançamento');
   $('expVal').textContent = brl(exp); $('expVal').classList.toggle('zero', !exp); $('expNote').textContent = plural(expList.length,'lançamento');
-  $('balVal').textContent = brl(bal);
+  $('balVal').textContent = brl(bal); $('balVal').classList.toggle('zero', !bal);
   $('balNote').textContent = !month.length ? 'Sem lançamentos'
     : bal >= 0 ? `Sobrou ${inc ? Math.round(bal/inc*100) : 0}% do que entrou` : 'Gastou mais do que entrou';
   $('balCard').classList.toggle('neg', bal < 0);
@@ -887,7 +898,7 @@ function renderContas(){
     $('billNew').disabled = true;
     $('billList').innerHTML = '';
     $('billEmpty').hidden = false;
-    $('billEmpty').textContent = 'As contas a pagar ainda não foram ativadas no banco. Rode o arquivo supabase-contas.sql no SQL Editor do Supabase e recarregue a página.';
+    $('billEmpty').textContent = 'Esta área está temporariamente indisponível. Tente de novo mais tarde.';
     ['billTotal','billPaid','billLeft'].forEach(id => { $(id).textContent = brl(0); });
     ['billTotalNote','billPaidNote','billLeftNote'].forEach(id => { $(id).textContent = ''; });
     return;
@@ -1402,7 +1413,7 @@ function renderMetas(){
   if (!state.metasOk){
     $('metasGrid').innerHTML = '';
     $('metasVazio').hidden = false;
-    $('metasVazio').textContent = 'As metas ainda não foram ativadas no banco. Rode o arquivo supabase-metas.sql no SQL Editor do Supabase e recarregue a página.';
+    $('metasVazio').textContent = 'Esta área está temporariamente indisponível. Tente de novo mais tarde.';
     $('metaNova').disabled = true;
     return;
   }
@@ -1449,7 +1460,7 @@ function renderMetas(){
 $('metaNova').onclick = () => openMetaForm(null, null);
 $('metaModelos').addEventListener('click', e => {
   const b = e.target.closest('[data-modelo]'); if (!b) return;
-  if (!state.metasOk) return toast('Rode o arquivo supabase-metas.sql no Supabase para ativar as metas.');
+  if (!state.metasOk) return toast('Esta área está temporariamente indisponível. Tente de novo mais tarde.');
   openMetaForm(null, MODELOS_META[Number(b.dataset.modelo)]);
 });
 $('metasGrid').addEventListener('click', e => {
@@ -1819,7 +1830,7 @@ function renderInvest(){
   if (!state.invOk){
     $('invList').innerHTML = ''; $('invDist').innerHTML = '';
     $('invVazio').hidden = false;
-    $('invVazio').textContent = 'Os investimentos ainda não foram ativados no banco. Rode o arquivo supabase-investimentos.sql no SQL Editor do Supabase e recarregue a página.';
+    $('invVazio').textContent = 'Esta área está temporariamente indisponível. Tente de novo mais tarde.';
     $('invNovo').disabled = true;
     return;
   }
@@ -2125,7 +2136,7 @@ function lerFoto(file){
 async function openPerfil(){
   if (!profile) return;
   if (!perfilNovo){
-    return openDlg2('Minha conta', 'Meu perfil', `<p class="hint">Para usar o perfil, rode o arquivo <b>supabase-perfil.sql</b> no SQL Editor do Supabase e recarregue a página.</p>`, { tipo: 'perfil' });
+    return openDlg2('Minha conta', 'Meu perfil', `<p class="hint">Esta área está temporariamente indisponível. Tente de novo mais tarde.</p>`, { tipo: 'perfil' });
   }
   let ids = currentUser.identities || [];
   try { const r = await sb.auth.getUserIdentities(); if (r && r.data && r.data.identities) ids = r.data.identities; } catch(e){}
@@ -2308,7 +2319,7 @@ $('dlgBody').addEventListener('click', async e => {
     const ms = [...document.querySelectorAll('#dlgBody [data-mod]')].filter(x => x.checked).map(x => x.dataset.mod);
     if (!ms.length) return toast('Deixe pelo menos uma área ligada.');
     b.disabled = true; res = await sb.rpc('definir_modulos', { cid: c.id, p_modulos: ms });
-    if (res.error){ b.disabled = false; return toast(/function|schema cache/i.test(res.error.message || '') ? 'Rode o arquivo supabase-modulos.sql no Supabase para ativar essa opção.' : rpcMsg(res.error)); }
+    if (res.error){ b.disabled = false; return toast(/function|schema cache/i.test(res.error.message || '') ? 'Esta área está temporariamente indisponível. Tente de novo mais tarde.' : rpcMsg(res.error)); }
     toast('Áreas atualizadas.', true); return afterChange(true);
   }
   if (a === 'renomear'){
@@ -2477,9 +2488,9 @@ $('userRows').addEventListener('click', async e => {
   const id = b.dataset.id, act = b.dataset.act;
   let error;
   if (act === 'senha'){
-    const nova = prompt(`Senha temporária para ${b.dataset.email} (mínimo de 6 caracteres):`);
+    const nova = prompt(`Senha temporária para ${b.dataset.email} (mínimo de 8 caracteres):`);
     if (nova === null) return;
-    if (nova.length < 6) return toast('A senha precisa ter pelo menos 6 caracteres.');
+    if (nova.length < 8) return toast('A senha precisa ter pelo menos 8 caracteres.');
     b.disabled = true;
     ({ error } = await sb.rpc('admin_definir_senha', { alvo: id, nova }));
     b.disabled = false;
