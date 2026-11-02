@@ -396,6 +396,8 @@ function confirmar(msg, okTxt){
 
 /* ======================= FORMULÁRIO ======================= */
 function fillCats(){
+  // exemplo do campo Descrição combina com o tipo (saída ou entrada)
+  if (!$('desc').readOnly) $('desc').placeholder = state.type === 'inc' ? 'Ex.: Salário, freela, Pix recebido' : 'Ex.: Mercado da semana';
   $('cat').innerHTML = CATS[state.type].map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   document.querySelectorAll('#typeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.type === state.type)));
 }
@@ -418,19 +420,16 @@ function vincOpcoes(){
     if (ms.length){ n += ms.length; html += `<optgroup label="Guardar na meta">${ms.map(x => `<option value="m:${esc(x.m.id)}">${esc(x.m.icone)} ${esc(x.m.nome)}</option>`).join('')}</optgroup>`; }
     const cs = contasAbertasDoMes();
     if (cs.length){ n += cs.length; html += `<optgroup label="Pagar conta de ${esc(MONTHS[state.m])}">${cs.map(i => `<option value="c:${esc(i.c.id)}">${esc(i.c.nome)}${i.n ? ` ${i.n}/${i.c.parcelas}` : ''} · falta ${brl(i.falta)}</option>`).join('')}</optgroup>`; }
-  } else {
-    const ms = metas.filter(x => x.i.saldo > 0);
-    if (ms.length){ n += ms.length; html += `<optgroup label="Retirar da meta">${ms.map(x => `<option value="r:${esc(x.m.id)}">${esc(x.m.icone)} ${esc(x.m.nome)} · tem ${brl(x.i.saldo)}</option>`).join('')}</optgroup>`; }
-  }
+  }   // entrada não usa "Usar para": retirar dinheiro de meta é feito na aba Metas
   sel.innerHTML = html;
   // sempre visível (não muda o lugar de nada); sem opções, fica travado em "Só lançamento"
   sel.disabled = n === 0;
-  sel.title = n === 0 ? (state.type === 'exp' ? 'Crie uma meta ou conta a pagar para usar aqui.' : 'Nenhuma meta com dinheiro guardado para retirar.') : '';
+  sel.title = n === 0 ? (state.type === 'exp' ? 'Crie uma meta ou conta a pagar para usar aqui.' : 'Em entradas o "Usar para" não se aplica.') : '';
   sel.value = [...sel.options].some(o => o.value === atual) ? atual : '';
   aplicarVinc(false);
   // travado: explica do lado por que e como liberar
   $('vincHint').classList.toggle('trava', n === 0);
-  if (n === 0){ $('vincHint').textContent = sel.title + ' Por enquanto, os lançamentos entram normalmente.'; $('vincHint').hidden = false; }
+  if (n === 0 && state.type === 'exp'){ $('vincHint').textContent = sel.title + ' Por enquanto, os lançamentos entram normalmente.'; $('vincHint').hidden = false; }
 }
 function vincAlvo(){
   const v = $('vinc').value; if (!v) return null;
@@ -486,7 +485,9 @@ $('form').addEventListener('submit', async e => {
     $('amount').value = ''; $('vinc').value = ''; aplicarVinc(false);
     toast(alvo.k === 'c' ? `Pagamento de ${brl(amount)} registrado na conta ${alvo.c.nome}.`
       : alvo.k === 'm' ? `${brl(amount)} guardados na meta ${alvo.m.nome}.` : `${brl(amount)} retirados da meta ${alvo.m.nome}.`, true);
-    return refresh();
+    await refresh();
+    if (alvo.k === 'm' && !alvo.i.done){ const m2 = findMeta(alvo.m.id); if (m2 && infoMeta(m2).done) comemorar(m2.id); }
+    return;
   }
   const entry = { type: state.type, desc, cat: $('cat').value, amount, date: $('date').value || todayISO() };
   $('addBtn').disabled = true;
@@ -628,7 +629,7 @@ function renderInvites(){
   $('invites').innerHTML = list.map(v => `
     <div class="blueprint invite">
       <div style="min-width:0;">
-        <span class="kicker" style="color:var(--accent);">Convite</span>
+        <span class="kicker" style="color:var(--accent-text);">Convite</span>
         <div style="font-weight:600;"><b>${esc(v.de_nome || displayName(v.de_login) || 'Alguém')}</b> te convidou para o controle <b>"${esc(v.controle_nome)}"</b></div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -708,8 +709,13 @@ function render(){
     </tr>`;
   }).join('');
 
+  // "Guardado: …" (dinheiro que foi para uma meta) não é gasto: fica fora do ranking e aparece separado
+  const guardadoMeta = e => e.cat === 'Metas' && /^Guardado: /.test(e.desc);
+  const gastos = expList.filter(e => !guardadoMeta(e));
+  const guardadoMes = r2(expList.filter(guardadoMeta).reduce((s, e) => s + e.amount, 0));
+  const totalGastos = r2(gastos.reduce((s, e) => s + e.amount, 0));
   const byCat = {};
-  expList.forEach(e => { byCat[e.cat] = (byCat[e.cat] || 0) + e.amount; });
+  gastos.forEach(e => { byCat[e.cat] = (byCat[e.cat] || 0) + e.amount; });
   const list = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
   const max = list.length ? list[0][1] : 0;
   renderTabs();
@@ -721,10 +727,17 @@ function render(){
     <div style="display:flex;flex-direction:column;gap:5px;">
       <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
         <span>${esc(name)}</span>
-        <span style="font-variant-numeric:tabular-nums;color:var(--muted);">${brl(v)} · ${Math.round(exp ? v/exp*100 : 0)}%</span>
+        <span style="font-variant-numeric:tabular-nums;color:var(--muted);">${brl(v)} · ${Math.round(totalGastos ? v/totalGastos*100 : 0)}%</span>
       </div>
       <div style="height:6px;background:var(--track);border-radius:999px;overflow:hidden;"><div style="height:100%;width:${max ? v/max*100 : 0}%;background:var(--accent);border-radius:999px;"></div></div>
-    </div>`).join('') : '<span style="font-size:14px;color:var(--muted);">Sem saídas neste mês.</span>';
+    </div>`).join('') : '<span style="font-size:14px;color:var(--muted);">Sem gastos neste mês.</span>';
+  if (guardadoMes > 0) $('cats').insertAdjacentHTML('beforeend', `
+    <div class="guardado-mes">
+      <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
+        <span>Guardado em metas</span><b class="verde" style="font-variant-numeric:tabular-nums;">${brl(guardadoMes)}</b>
+      </div>
+      <span class="by" style="margin:0;">Não é gasto: o dinheiro continua seu, só foi separado para as metas.</span>
+    </div>`);
 }
 
 /* ======================= CONTAS A PAGAR ======================= */
@@ -999,7 +1012,7 @@ function openPay(id){
     <div class="dlg-sec">
       <div class="kv"><span>Valor do mês</span><b>${brl(i.total)}</b></div>
       ${i.pago > 0 ? `<div class="kv"><span>Já pago</span><b>${brl(i.pago)}</b></div>` : ''}
-      <div class="kv"><span>Falta pagar</span><b style="color:var(--accent);">${brl(i.falta)}</b></div>
+      <div class="kv"><span>Falta pagar</span><b style="color:var(--accent-text);">${brl(i.falta)}</b></div>
       ${i.parts.length ? `<div class="kv"><span>Divisão</span><b style="text-align:right;font-weight:500;">${partsLine(i)}</b></div>` : ''}
     </div>
     <div class="dlg-sec" style="gap:var(--space-3);">
@@ -1031,9 +1044,9 @@ function openBill(id){
   const tipoLonga = c.tipo === 'parcelada' ? `Parcela ${i.n} de ${c.parcelas}`
     : c.tipo === 'fixa' ? `Todo mês desde ${mlabel(c.inicio)}${c.fim ? ` até ${mlabel(c.fim)}` : ''}`
     : `Só em ${mlabel(c.inicio)}`;
-  const status = i.paid ? 'Paga ✓' : i.st === 'late' ? '<span style="color:#ff8a8d;">Vencida</span>'
+  const status = i.paid ? 'Paga ✓' : i.st === 'late' ? '<span style="color:var(--alerta);">Vencida</span>'
     : i.antes ? (i.pago > 0 ? `Parcial · falta ${brl(i.falta)}` : 'Em aberto')
-    : i.days === 0 ? '<span style="color:var(--accent);">Vence hoje</span>'
+    : i.days === 0 ? '<span style="color:var(--accent-text);">Vence hoje</span>'
     : i.pago > 0 ? `Parcial · falta ${brl(i.falta)}` : `Em aberto · vence em ${plural(i.days, 'dia')}`;
   openDlg2(`Conta · ${mlabel(mk)}`, c.nome, `
     <div class="dlg-sec">
@@ -1204,7 +1217,7 @@ function bfUpdate(){
   } else {
     const soma = r2([...document.querySelectorAll('[data-pv]')].reduce((s, x) => s + (parseAmount(x.value) || 0), 0));
     const ok = valor > 0 && Math.abs(soma - valor) < 0.005;
-    hint.style.color = ok ? '' : '#ff8a8d';
+    hint.style.color = ok ? '' : 'var(--alerta)';
     hint.textContent = `Soma das partes: ${brl(soma)} de ${valor > 0 ? brl(valor) : 'R$ —'}`;
   }
 }
@@ -1405,7 +1418,19 @@ function infoMeta(m){
   }
   const porPessoa = {};
   movs.forEach(x => { porPessoa[x.user_id] = r2((porPessoa[x.user_id] || 0) + (x.tipo === 'guardar' ? 1 : -1) * Number(x.valor)); });
-  return { movs, saldo, alvo, falta, pct, meses, porMes, ritmo, chegaEm, porPessoa, done: falta <= 0 };
+  const enc = !!m.encerrada_em;
+  const juntado = enc ? Number(m.usado || 0) : saldo;
+  return { movs, saldo, alvo, falta: enc ? 0 : falta, pct: enc ? 100 : pct, meses, porMes, ritmo, chegaEm, porPessoa,
+           done: enc || falta <= 0, enc, juntado };
+}
+// "Concluída em nov/2026 · levou 3 meses" / "Usada em nov/2026"
+function conquistaMeta(m, i, curto){
+  const mk = d => d ? d.slice(0, 7) + '-01' : null;
+  const fim = mk(m.concluida_em) || mk(new Date().toISOString());
+  const n = Math.max(0, mdiff(mk(m.criado_em), fim));
+  const levou = n === 0 ? 'em menos de 1 mês' : `levou ${plural(n, 'mês').replace('mêss', 'meses')}`;
+  if (i.enc) return curto ? `Em ${mesCurto(mk(m.encerrada_em))}` : `Usada em ${mesCurto(mk(m.encerrada_em))} · ${brl(i.juntado)}`;
+  return `${curto ? 'Em' : 'Concluída em'} ${mesCurto(fim)} · ${levou}`;
 }
 
 function renderMetas(){
@@ -1418,44 +1443,68 @@ function renderMetas(){
     return;
   }
   $('metaNova').disabled = false;
-  const lista = state.metas.map(m => ({ m, i: infoMeta(m) }))
-    .sort((a, b) => (a.i.done - b.i.done) || ((a.m.prazo || '9999') .localeCompare(b.m.prazo || '9999')) || a.m.criado_em.localeCompare(b.m.criado_em));
-  const abertas = lista.filter(x => !x.i.done), feitas = lista.filter(x => x.i.done);
-  const guardado = r2(lista.reduce((s, x) => s + x.i.saldo, 0));
+  const lista = state.metas.map(m => ({ m, i: infoMeta(m) }));
+  const abertas = lista.filter(x => !x.i.done)
+    .sort((a, b) => ((a.m.prazo || '9999').localeCompare(b.m.prazo || '9999')) || a.m.criado_em.localeCompare(b.m.criado_em));
+  const feitas = lista.filter(x => x.i.done)
+    .sort((a, b) => (a.i.enc - b.i.enc) || String(b.m.concluida_em || '').localeCompare(String(a.m.concluida_em || '')));
+  const ativas = lista.filter(x => !x.i.enc);
+  const guardado = r2(ativas.reduce((s, x) => s + x.i.saldo, 0));
   const falta = r2(abertas.reduce((s, x) => s + x.i.falta, 0));
+  const juntado = r2(feitas.reduce((s, x) => s + x.i.juntado, 0));
   $('mtGuardado').textContent = brl(guardado);
-  $('mtGuardadoNote').textContent = lista.length ? `em ${plural(lista.length, 'meta')}` : 'Crie sua primeira meta';
+  $('mtGuardado').classList.toggle('zero', !guardado);
+  $('mtGuardadoNote').textContent = ativas.length ? `em ${plural(ativas.length, 'meta')}` : (lista.length ? 'Nada guardado agora' : 'Crie sua primeira meta');
   $('mtFalta').textContent = brl(falta);
+  $('mtFalta').classList.toggle('zero', !falta);
   const porMesTotal = r2(abertas.reduce((s, x) => s + (x.i.porMes || 0), 0));
   $('mtFaltaNote').textContent = !abertas.length ? (lista.length ? 'Tudo alcançado' : '') : porMesTotal ? `Guarde ${brl(porMesTotal)}/mês para chegar nos prazos` : `${plural(abertas.length, 'meta')} em andamento`;
   $('mtConcl').textContent = feitas.length;
-  $('mtConclNote').textContent = feitas.length ? 'Parabéns!' : 'Nenhuma ainda';
-  $('metasVazio').hidden = lista.length > 0;
-  $('metasVazio').textContent = 'Nenhuma meta ainda. Toque num modelo acima (Viagem, Reserva de emergência…) ou em "Nova meta".';
+  $('mtConcl').classList.toggle('zero', !feitas.length);
+  $('mtConclNote').innerHTML = feitas.length ? `<b class="verde">${brl(juntado)}</b> juntados` : 'Nenhuma ainda';
+  // abas
+  const aba = state.metaAba === 'concluidas' ? 'concluidas' : 'andamento';
+  $('mtCntAnd').textContent = abertas.length ? `(${abertas.length})` : '';
+  $('mtCntConc').textContent = feitas.length ? `(${feitas.length})` : '';
+  document.querySelectorAll('#metaAbas [data-maba]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.maba === aba)));
+  $('metaAbas').hidden = !lista.length;
+  $('metaRapido').hidden = aba === 'concluidas';
+  const mostrar = aba === 'concluidas' ? feitas : abertas;
+  $('metasVazio').hidden = mostrar.length > 0;
+  $('metasVazio').textContent = !lista.length ? 'Nenhuma meta ainda. Toque num modelo acima (Viagem, Reserva de emergência…) ou em "Nova meta".'
+    : aba === 'concluidas' ? 'Nenhuma meta concluída ainda. Quando uma meta chegar a 100%, ela aparece aqui.'
+    : 'Nenhuma meta em andamento. Que tal começar a próxima? Toque num modelo acima ou em "Nova meta".';
   const shared = isShared();
-  $('metasGrid').innerHTML = lista.map(({ m, i }) => {
-    const sub = [m.prazo ? `até ${mesCurto(m.prazo)}` : 'sem prazo', shared && m.criado_por ? `criada por ${esc(quem(m.criado_por))}` : ''].filter(Boolean).join(' · ');
-    const dica = i.done ? '<b>Concluída ✓</b>'
-      : i.meses !== null && i.meses <= 0 ? '<span style="color:#ff8a8d">Prazo passou</span>'
+  $('metasGrid').innerHTML = mostrar.map(({ m, i }) => {
+    const por = shared && m.criado_por ? `criada por ${esc(quem(m.criado_por))}` : '';
+    const sub = i.done ? por : [m.prazo ? `até ${mesCurto(m.prazo)}` : 'sem prazo', por].filter(Boolean).join(' · ');
+    const dica = i.meses !== null && i.meses <= 0 ? '<span style="color:var(--alerta)">Prazo passou</span>'
       : i.porMes ? `Guarde <b>${brl(i.porMes)}/mês</b>`
       : i.chegaEm ? `No ritmo atual: ${mesCurto(i.chegaEm)}` : 'Comece guardando';
+    const acoes = !i.done
+      ? `<div class="meta-acts"><button class="btn btn-primary btn-sm" type="button" data-mguardar="${esc(m.id)}">Guardar</button>${i.saldo > 0 ? `<button class="btn btn-secondary btn-sm" type="button" data-mretirar="${esc(m.id)}">Retirar</button>` : ''}</div>`
+      : i.enc ? ''
+      : `<div class="meta-acts duas">
+          <button class="btn btn-ok btn-sm btn-usar" type="button" data-musar="${esc(m.id)}">Usei o dinheiro</button>
+          <button class="btn btn-secondary btn-sm" type="button" data-mretirar="${esc(m.id)}">Retirar</button>
+          ${m.criado_por === myId() ? `<button class="btn btn-secondary btn-sm" type="button" data-mmais="${esc(m.id)}">Aumentar meta</button>` : ''}
+        </div>`;
     return `
-    <div class="meta${i.done ? ' done' : ''}" data-meta="${esc(m.id)}">
+    <div class="meta${i.done ? ' done' : ''}${i.enc ? ' usada' : ''}" data-meta="${esc(m.id)}">
       <div class="meta-top">
         <span class="meta-ic">${esc(m.icone)}</span>
-        <div style="min-width:0;"><div style="font-weight:700;" class="ellip">${esc(m.nome)}</div><div class="by" style="margin:0;">${sub}</div></div>
+        <div style="min-width:0;"><div style="font-weight:700;" class="ellip">${esc(m.nome)}</div>${sub ? `<div class="by" style="margin:0;">${sub}</div>` : ''}</div>
       </div>
-      <div class="meta-vals"><b>${brl(i.saldo)}</b> <span style="color:var(--muted);font-size:13px;white-space:nowrap;">de ${brl(i.alvo)}</span></div>
+      <div class="meta-vals"><b>${brl(i.juntado)}</b> <span style="color:var(--muted);font-size:13px;white-space:nowrap;">${i.enc ? 'usados' : `de ${brl(i.alvo)}`}</span></div>
       <div class="prog big"><div style="width:${i.pct}%"></div></div>
-      <div class="meta-foot"><span class="meta-pct">${Math.floor(i.pct)}%</span><span>${i.done ? '<b class="ok">Concluída ✓</b>' : `Faltam <b>${brl(i.falta)}</b>`}</span></div>
-      ${i.done ? '' : `<div class="meta-dica">${dica}</div>`}
-      <div class="meta-acts">
-        ${i.done ? '' : `<button class="btn btn-primary btn-sm" type="button" data-mguardar="${esc(m.id)}">Guardar</button>`}
-        ${i.saldo > 0 ? `<button class="btn btn-secondary btn-sm" type="button" data-mretirar="${esc(m.id)}">Retirar</button>` : ''}
-      </div>
+      <div class="meta-foot"><span class="meta-pct">${Math.floor(i.pct)}%</span><span>${i.done ? `<b class="ok">${i.enc ? 'Usada ✓' : 'Concluída ✓'}</b>` : `Faltam <b>${brl(i.falta)}</b>`}</span></div>
+      ${i.done ? `<div class="meta-conq">${conquistaMeta(m, i, true)}</div>` : `<div class="meta-dica">${dica}</div>`}
+      ${acoes}
     </div>`;
   }).join('');
 }
+
+document.querySelectorAll('#metaAbas [data-maba]').forEach(b => b.addEventListener('click', () => { state.metaAba = b.dataset.maba; renderMetas(); }));
 
 $('metaNova').onclick = () => openMetaForm(null, null);
 $('metaModelos').addEventListener('click', e => {
@@ -1466,6 +1515,8 @@ $('metaModelos').addEventListener('click', e => {
 $('metasGrid').addEventListener('click', e => {
   const g = e.target.closest('[data-mguardar]'); if (g) return openMetaMov(g.dataset.mguardar, 'guardar');
   const r = e.target.closest('[data-mretirar]'); if (r) return openMetaMov(r.dataset.mretirar, 'retirar');
+  const u = e.target.closest('[data-musar]'); if (u) return openMetaUsar(u.dataset.musar);
+  const mais = e.target.closest('[data-mmais]'); if (mais){ const m = findMeta(mais.dataset.mmais); if (m) return openMetaForm(m, null); }
   const c = e.target.closest('[data-meta]'); if (c) openMeta(c.dataset.meta);
 });
 const findMeta = id => state.metas.find(m => m.id === id);
@@ -1526,7 +1577,7 @@ function openMetaMov(id, tipo){
   openDlg2(`${g ? 'Guardar em' : 'Retirar de'} · ${m.icone}`, m.nome, `
     <div class="dlg-sec">
       <div class="kv"><span>Guardado</span><b>${brl(i.saldo)} de ${brl(i.alvo)}</b></div>
-      ${g ? `<div class="kv"><span>Falta</span><b style="color:var(--accent);">${brl(i.falta)}</b></div>` : ''}
+      ${g ? `<div class="kv"><span>Falta</span><b style="color:var(--accent-text);">${brl(i.falta)}</b></div>` : ''}
     </div>
     <div class="field">
       <label for="mmValor">${g ? 'Quanto você está guardando (R$)' : 'Quanto vai retirar (R$)'}</label>
@@ -1542,6 +1593,38 @@ function openMetaMov(id, tipo){
     { tipo: 'metaMov', id, mov: tipo });
 }
 
+function openMetaUsar(id){
+  const m = findMeta(id); if (!m) return;
+  const i = infoMeta(m);
+  openDlg2(`Usei o dinheiro · ${m.icone}`, m.nome, `
+    <div class="dlg-sec">
+      <div class="kv"><span>Juntado nesta meta</span><b class="verde">${brl(i.saldo)}</b></div>
+    </div>
+    <p class="hint" style="margin:0;">Use quando o dinheiro já foi usado para o objetivo (a viagem, a compra…). A meta fica em <b>Concluídas</b> como usada e sai do total guardado.</p>
+    <div class="field">
+      <label for="muData">Data</label>
+      <input class="input" id="muData" type="date" value="${todayISO()}">
+    </div>
+    <label class="chk"><input type="checkbox" id="muLancar"> Lançar também como saída em Lançamentos</label>
+    <p class="hint" style="margin:-8px 0 0;">Marque só se você ainda não lançou esse gasto. Se, quando guardou, o dinheiro já saiu como saída, deixe desmarcado para não contar duas vezes.</p>
+    <button class="btn btn-ok" type="button" data-act="mmUsarOk" style="min-height:44px;">Confirmar: usei ${brl(i.saldo)}</button>`,
+    { tipo: 'metaUsar', id });
+}
+
+function comemorar(id){
+  const m = findMeta(id); if (!m) return;
+  const i = infoMeta(m);
+  openDlg2('Parabéns!', 'Meta concluída', `
+    <div class="festa">
+      <div class="festa-ic">${esc(m.icone)}</div>
+      <p>Você chegou lá na meta <b>${esc(m.nome)}</b>.</p>
+      <div class="valor">${brl(i.juntado)}</div>
+      <p class="hint">${conquistaMeta(m, i)}</p>
+    </div>
+    <button class="btn btn-ok" type="button" data-act="mmVerConcl" style="min-height:44px;">Ver minhas conquistas</button>`,
+    { tipo: 'metaFesta', id });
+}
+
 function openMeta(id){
   const m = findMeta(id); if (!m) return closeDlg2();
   const i = infoMeta(m);
@@ -1549,9 +1632,9 @@ function openMeta(id){
   const pessoas = Object.entries(i.porPessoa).filter(([, v]) => v !== 0);
   openDlg2(`Meta · ${m.icone}`, m.nome, `
     <div class="dlg-sec">
-      <div class="meta-vals"><b>${brl(i.saldo)}</b> <span style="color:var(--muted);">de ${brl(i.alvo)} · ${Math.floor(i.pct)}%</span></div>
-      <div class="prog big"><div style="width:${i.pct}%"></div></div>
-      ${i.done ? '<div class="kv"><span>Situação</span><b style="color:var(--accent);">Concluída ✓</b></div>' : `<div class="kv"><span>Falta</span><b>${brl(i.falta)}</b></div>`}
+      <div class="meta-vals"><b>${brl(i.juntado)}</b> <span style="color:var(--muted);">${i.enc ? 'usados' : `de ${brl(i.alvo)}`} · ${Math.floor(i.pct)}%</span></div>
+      <div class="prog big${i.done ? ' ok' : ''}"><div style="width:${i.pct}%"></div></div>
+      ${i.done ? `<div class="kv"><span>Situação</span><b class="verde">${conquistaMeta(m, i)}</b></div>` : `<div class="kv"><span>Falta</span><b>${brl(i.falta)}</b></div>`}
       <div class="kv"><span>Prazo</span><b>${m.prazo ? MONTHS[Number(m.prazo.slice(5,7)) - 1] + ' ' + m.prazo.slice(0, 4) : 'Sem prazo'}</b></div>
       ${!i.done && i.porMes ? `<div class="kv"><span>Para chegar no prazo</span><b>${brl(i.porMes)}/mês</b></div>` : ''}
       ${!i.done && i.ritmo > 0 ? `<div class="kv"><span>Seu ritmo</span><b>${brl(i.ritmo)}/mês${i.chegaEm ? ` · chega em ${mesCurto(i.chegaEm)}` : ''}</b></div>` : ''}
@@ -1561,14 +1644,17 @@ function openMeta(id){
       <h3>Histórico</h3>
       ${i.movs.length ? i.movs.slice().reverse().map(x => {
         const d = x.data.split('-');
-        return `<div class="person"><span>${d[2]}/${d[1]} · ${esc(quem(x.user_id))} · <b style="color:${x.tipo === 'guardar' ? 'var(--accent)' : '#ff8a8d'};">${x.tipo === 'guardar' ? '+' : '−'} ${brl(Number(x.valor))}</b></span>
-          ${x.user_id === myId() ? `<button class="btn btn-secondary btn-sm" type="button" data-act="mmDesfazer" data-id="${esc(x.id)}">Desfazer</button>` : ''}</div>`;
+        return `<div class="person"><span>${d[2]}/${d[1]} · ${esc(quem(x.user_id))} · <b style="color:${x.tipo === 'guardar' ? 'var(--green)' : 'var(--alerta)'};">${x.tipo === 'guardar' ? '+' : '−'} ${brl(Number(x.valor))}</b></span>
+          ${x.user_id === myId() && !i.enc ? `<button class="btn btn-secondary btn-sm" type="button" data-act="mmDesfazer" data-id="${esc(x.id)}">Desfazer</button>` : ''}</div>`;
       }).join('') : '<p class="hint">Nada guardado ainda.</p>'}
     </div>
     <div class="row" style="flex-wrap:wrap;">
       ${i.done ? '' : '<button class="btn btn-primary" type="button" data-act="mmGuardar">Guardar</button>'}
+      ${i.done && !i.enc ? '<button class="btn btn-ok" type="button" data-act="mmUsar">Usei o dinheiro</button>' : ''}
       ${i.saldo > 0 ? '<button class="btn btn-secondary" type="button" data-act="mmRetirar">Retirar</button>' : ''}
-      ${mine ? '<button class="btn btn-secondary" type="button" data-act="mmEditar">Editar</button>' : ''}
+      ${i.done && !i.enc && mine ? '<button class="btn btn-secondary" type="button" data-act="mmEditar">Aumentar meta</button>' : ''}
+      ${i.enc ? '<button class="btn btn-secondary" type="button" data-act="mmReabrir">Desfazer: usei o dinheiro</button>' : ''}
+      ${mine && !(i.done && !i.enc) ? '<button class="btn btn-secondary" type="button" data-act="mmEditar">Editar</button>' : ''}
       ${mine ? '<button class="btn btn-danger" type="button" data-act="mmExcluir">Excluir</button>' : ''}
     </div>
     ${mine ? '' : `<p class="hint">Só ${esc(quem(m.criado_por))} (quem criou) pode editar ou excluir esta meta.</p>`}`,
@@ -1597,10 +1683,27 @@ O progresso da meta vai diminuir.`)) return;
     closeDlg2();
     await refresh();
     const depois = m && findMeta(id) ? infoMeta(findMeta(id)).done : false;
-    toast(!antes && depois ? `Meta "${m.nome}" alcançada!` : mov === 'retirar' ? 'Retirada registrada.' : `${brl(v)} guardados.`, true);
+    if (!antes && depois) return comemorar(id);
+    toast(mov === 'retirar' ? 'Retirada registrada.' : `${brl(v)} guardados.`, true);
     return;
   }
+  if (a === 'mmVerConcl'){ closeDlg2(); state.metaAba = 'concluidas'; if (state.tab !== 'metas') setTab('metas'); renderMetas(); return; }
   if (!m) return closeDlg2();
+  if (a === 'mmUsar') return openMetaUsar(id);
+  if (a === 'mmUsarOk'){
+    b.disabled = true;
+    res = await sb.rpc('usar_meta', { meta: id, p_data: $('muData').value || todayISO(), p_lancar: $('muLancar').checked });
+    if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+    closeDlg2(); state.metaAba = 'concluidas';
+    toast(`Meta "${m.nome}" marcada como usada.`, true);
+    return refresh();
+  }
+  if (a === 'mmReabrir'){
+    if (!await confirmar(`Desfazer o "usei o dinheiro" da meta "${m.nome}"?\n\nO dinheiro volta para a meta${m.usado ? ` (${brl(Number(m.usado))})` : ''}. Se a saída foi lançada em Lançamentos, ela será apagada.`)) return;
+    res = await sb.rpc('reabrir_meta', { meta: id });
+    if (res.error) return toast(rpcMsg(res.error));
+    await refresh(); return openMeta(id);
+  }
   if (a === 'mmGuardar') return openMetaMov(id, 'guardar');
   if (a === 'mmRetirar') return openMetaMov(id, 'retirar');
   if (a === 'mmEditar') return openMetaForm(m, null);
@@ -2113,6 +2216,11 @@ $('menuBtn').onclick = openMenu;
 $('drClose').onclick = closeMenu;
 $('drawer').addEventListener('click', e => { if (e.target.id === 'drawer' || e.target.closest('.drawer-item')) closeMenu(); });
 $('drPerfil').addEventListener('click', () => openPerfil());
+$('drCodigo').addEventListener('click', () => $('ctrlJoin').click());
+// aparência: claro (padrão), escuro ou igual ao celular — guardado neste aparelho
+function marcarTema(){ const t = window.temaEscolhido ? window.temaEscolhido() : 'claro'; document.querySelectorAll('#temaSeg [data-tema]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tema === t))); }
+document.querySelectorAll('#temaSeg [data-tema]').forEach(b => b.addEventListener('click', () => { if (window.definirTema) window.definirTema(b.dataset.tema); marcarTema(); }));
+marcarTema();
 
 function lerFoto(file){
   return new Promise((resolve, reject) => {
