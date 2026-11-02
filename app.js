@@ -158,15 +158,15 @@ $('authForm').addEventListener('submit', async e => {
 });
 
 document.querySelectorAll('[data-changepass]').forEach(b => b.addEventListener('click', async () => {
-  const nova = prompt('Digite a nova senha (mínimo de 8 caracteres):');
+  const nova = await pedirTexto('Trocar senha', '', { rotulo: 'Nova senha (mínimo de 8 caracteres)', tipo: 'password', okTxt: 'Continuar' });
   if (nova === null) return;
   if (nova.length < 8) return toast('A senha precisa ter pelo menos 8 caracteres.');
-  const confirma = prompt('Digite a nova senha de novo para confirmar:');
+  const confirma = await pedirTexto('Trocar senha', '', { rotulo: 'Digite a nova senha de novo', tipo: 'password', okTxt: 'Trocar senha' });
   if (confirma === null) return;
   if (confirma !== nova) return toast('As senhas não conferem. Tente de novo.');
   const { error } = await sb.auth.updateUser({ password: nova });
   if (error) return toast(translateError(error));
-  alert('Senha alterada com sucesso.');
+  toast('Senha alterada com sucesso.', true);
 }));
 
 document.querySelectorAll('[data-logout]').forEach(b => b.addEventListener('click', async () => {
@@ -370,11 +370,42 @@ $('importLocal').onclick = async () => {
 /* ======================= CONFIRMAÇÃO (janela do app) ======================= */
 // Mesmo formato do confirm() do navegador: 1ª parte vira o título, o resto o texto.
 const PERIGO = ['Excluir','Remover','Sair','Desfazer','Encerrar','Retirar','Resgatar','Vender','Apagar'];
-function confirmar(msg, okTxt){
-  const [titulo, ...resto] = String(msg).split('\n\n');
-  const verbo = okTxt || (titulo.match(/^[A-Za-zÀ-ú]+/) || ['Confirmar'])[0];
+// pede um texto numa janela do app (no lugar da caixinha do navegador). Devolve o texto ou null.
+function pedirTexto(titulo, texto, { rotulo = '', valor = '', placeholder = '', okTxt = 'Confirmar', tipo = 'text', modo = '', vazioOk = false } = {}){
   return new Promise(res => {
-    $('confTitle').textContent = titulo.replace(/\?$/, '') + '?';
+    $('confTitle').textContent = titulo;
+    $('confText').textContent = texto || ''; $('confText').hidden = !texto;
+    $('confCampo').hidden = false; $('confLabel').textContent = rotulo; $('confLabel').hidden = !rotulo;
+    const inp = $('confInput'); inp.type = tipo; inp.value = valor; inp.placeholder = placeholder;
+    if (modo) inp.setAttribute('inputmode', modo); else inp.removeAttribute('inputmode');
+    inp.autocomplete = tipo === 'password' ? 'new-password' : 'off';
+    $('confYes').textContent = okTxt; $('confYes').className = 'btn btn-primary';
+    $('dlgConf').hidden = false;
+    setTimeout(() => { inp.focus(); inp.select(); }, 0);
+    const tecla = e => {
+      if (e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); fim(null); }
+      if (e.key === 'Enter' && document.activeElement === inp){ e.preventDefault(); ok(); }
+    };
+    const ok = () => { const v = inp.value; if (!vazioOk && !v.trim()){ inp.focus(); return; } fim(v); };
+    const fim = v => {
+      $('dlgConf').hidden = true; $('confCampo').hidden = true; inp.value = '';
+      $('confYes').onclick = $('confNo').onclick = null;
+      document.removeEventListener('keydown', tecla, true);
+      res(v);
+    };
+    $('confYes').onclick = ok;
+    $('confNo').onclick = () => fim(null);
+    document.addEventListener('keydown', tecla, true);
+  });
+}
+
+function confirmar(msg, okTxt){
+  $('confCampo').hidden = true;
+  const [titulo, ...resto] = String(msg).split('\n\n');
+  const primeira = (titulo.match(/^[A-Za-zÀ-ú]+/) || [''])[0];
+  const verbo = okTxt || (/(ar|er|ir)$/i.test(primeira) ? primeira : 'Confirmar');
+  return new Promise(res => {
+    $('confTitle').textContent = /[.!?]$/.test(titulo) ? titulo : titulo + '?';
     $('confText').textContent = resto.join('\n\n');
     $('confText').hidden = !resto.length;
     $('confYes').textContent = verbo.charAt(0).toUpperCase() + verbo.slice(1);
@@ -588,17 +619,21 @@ $('ctrlSelect').addEventListener('change', async e => {
   render();
   await loadMembers(); await refresh();
 });
-$('ctrlNew').onclick = async () => {
-  const nome = prompt('Nome do novo controle (ex.: Casa, Família, Viagem):');
-  if (nome === null || !nome.trim()) return;
+async function criarControle(nome){
   const { data, error } = await sb.rpc('criar_controle', { p_nome: nome.trim() });
   if (error) return toast(rpcMsg(error));
   await loadControles(); selectControle(data); await loadMembers(); await refresh();
   openManage();
+}
+$('ctrlNew').onclick = async () => {
+  const nome = await pedirTexto('Novo controle', 'Um controle separado para dividir com outras pessoas (casal, família, viagem).',
+    { rotulo: 'Nome', placeholder: 'Ex.: Casa, Família, Viagem', okTxt: 'Criar controle' });
+  if (nome === null) return;
+  await criarControle(nome);
 };
 $('ctrlJoin').onclick = async () => {
-  const cod = prompt('Digite o código que você recebeu (ex.: K7P4-QX9M):');
-  if (cod === null || !cod.trim()) return;
+  const cod = await pedirTexto('Entrar com código', 'Digite o código que a pessoa te mandou.', { rotulo: 'Código', placeholder: 'Ex.: K7P4-QX9M', okTxt: 'Entrar' });
+  if (cod === null) return;
   const { data, error } = await sb.rpc('entrar_com_codigo', { p_codigo: cod });
   if (error) return toast(rpcMsg(error));
   await loadControles(); selectControle(data); await loadMembers(); await refresh();
@@ -1031,8 +1066,11 @@ $('billNew').onclick = () => openBillForm(null);
 $('ctrlShare').onclick = async () => {
   const c = current(); if (!c) return;
   if (!c.pessoal) return openManage();
-  if (!await confirmar('O "Meu controle" é só seu.\n\nPara dividir com alguém, crie um controle compartilhado (ex.: Casa, Apê) e convide a pessoa. Seus lançamentos pessoais continuam só seus.\n\nCriar agora?')) return;
-  $('ctrlNew').click();
+  const nome = await pedirTexto('Compartilhar com alguém',
+    'O "Meu controle" é só seu. Para dividir, criamos um controle compartilhado e você convida a pessoa. Seus lançamentos pessoais continuam só seus.',
+    { rotulo: 'Nome do controle compartilhado', placeholder: 'Ex.: Casa, Apê, Família', okTxt: 'Compartilhar' });
+  if (nome === null) return;
+  await criarControle(nome);
 };
 
 /* ---------- janela ---------- */
@@ -1384,7 +1422,7 @@ $('dlg2Body').addEventListener('click', async e => {
   }
   if (a === 'monthVal'){
     const i = instancia(c, mk);
-    const v = prompt(`Valor de "${c.nome}" só em ${mlabel(mk)} (R$).\nDeixe em branco para voltar ao valor normal (${brl(Number(c.valor))}).`, num(i.total));
+    const v = await pedirTexto(`Valor só em ${mlabel(mk)}`, `Deixe em branco para voltar ao valor normal (${brl(Number(c.valor))}).`, { rotulo: `Valor de "${c.nome}" (R$)`, valor: num(i.total), modo: 'decimal', okTxt: 'Salvar', vazioOk: true });
     if (v === null) return;
     const val = v.trim() ? parseAmount(v) : null;
     if (val !== null && !(val > 0)) return toast('Informe um valor maior que zero.');
@@ -2171,7 +2209,7 @@ O valor sai deste investimento.`)) return;
   if (a === 'ivResgate') return openInvMov(id, 'resgate');
   if (a === 'ivSaldo') return openInvMov(id, 'saldo');
   if (a === 'ivCotacao'){
-    const v = prompt(`Cotação de hoje de ${inv.ticker || inv.nome} (R$ por unidade):`, inv.cotacao ? num(Number(inv.cotacao)) : '');
+    const v = await pedirTexto('Atualizar cotação', '', { rotulo: `Cotação de hoje de ${inv.ticker || inv.nome} (R$ por unidade)`, valor: inv.cotacao ? num(Number(inv.cotacao)) : '', modo: 'decimal', okTxt: 'Salvar' });
     if (v === null) return;
     const p = parseAmount(v); if (!(p > 0)) return toast('Informe um preço maior que zero.');
     res = await sb.rpc('atualizar_cotacao', { inv: id, p_preco: p });
@@ -2504,7 +2542,7 @@ $('dlgBody').addEventListener('click', async e => {
     return afterChange(true);
   }
   if (a === 'gerar'){
-    if (c.codigo && !await confirmar('Gerar outro código? O código atual deixa de funcionar.')) return;
+    if (c.codigo && !await confirmar('Gerar outro código?\n\nO código atual deixa de funcionar.', 'Gerar código')) return;
     b.disabled = true; res = await sb.rpc('gerar_codigo', { cid: c.id });
     if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
     return afterChange(true);
@@ -2518,7 +2556,7 @@ $('dlgBody').addEventListener('click', async e => {
     const texto = `Bora controlar os gastos juntos no Pra Onde Foi? 💸\n\n1. Abra ${REDIRECT}\n2. Entre com a sua conta\n3. Toque em "Entrar com código" e digite: ${c.codigo}\n\n(O código vale até ${fmtDateTime(c.codigo_expira)}.)`;
     if (navigator.share){ try { await navigator.share({ text: texto }); return; } catch(err){ if (err && err.name === 'AbortError') return; } }
     try { await navigator.clipboard.writeText(texto); toast('Mensagem copiada! É só colar no WhatsApp.'); }
-    catch(err){ prompt('Copie a mensagem abaixo:', texto); }
+    catch(err){ await pedirTexto('Copie a mensagem', 'Não deu para copiar sozinho. Segure no campo, selecione tudo e copie.', { valor: texto, okTxt: 'Fechar' }); }
     return;
   }
   if (a === 'remover'){
@@ -2549,7 +2587,7 @@ $('dlgBody').addEventListener('click', async e => {
 
 /* ======================= PLANILHA EXCEL ======================= */
 $('export').onclick = async () => {
-  if (!window.XLSX){ alert('Não foi possível gerar a planilha. Verifique a conexão e tente de novo.'); return; }
+  if (!window.XLSX){ toast('Não foi possível gerar a planilha. Verifique a conexão e tente de novo.'); return; }
   const c = current(); if (!c) return;
   $('export').disabled = true;
   const entries = await fetchAllEntries();
@@ -2650,14 +2688,14 @@ $('userRows').addEventListener('click', async e => {
   const id = b.dataset.id, act = b.dataset.act;
   let error;
   if (act === 'senha'){
-    const nova = prompt(`Senha temporária para ${b.dataset.email} (mínimo de 8 caracteres):`);
+    const nova = await pedirTexto('Senha temporária', `Para ${b.dataset.email}. Passe para a pessoa e peça para trocar depois.`, { rotulo: 'Senha (mínimo de 8 caracteres)', tipo: 'text', okTxt: 'Definir senha' });
     if (nova === null) return;
     if (nova.length < 8) return toast('A senha precisa ter pelo menos 8 caracteres.');
     b.disabled = true;
     ({ error } = await sb.rpc('admin_definir_senha', { alvo: id, nova }));
     b.disabled = false;
     if (error) return toast('Não foi possível concluir: ' + error.message);
-    alert(`Senha de ${b.dataset.email} redefinida.\n\nPasse a senha temporária para a pessoa e peça que ela troque em "Trocar senha" assim que entrar.`);
+    toast(`Senha de ${b.dataset.email} redefinida. Peça para a pessoa trocar em "Trocar senha" ao entrar.`, true);
     return;
   }
   if (act === 'excluir'){
