@@ -20,7 +20,8 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   10. `supabase-modulos.sql` — o dono escolhe o que cada controle compartilha (rodar por último).
   11. `supabase-seguranca2.sql` — revisão de segurança: códigos de convite de 8 caracteres, saldo de meta protegido e gravação só pelas funções (rodar por último).
   12. `supabase-metas2.sql` — metas concluídas: "usei o dinheiro" e desfazer (rodar depois do supabase-metas.sql).
-- **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os 12 scripts na ordem; ative pg_net e pg_cron antes e rode uma vez só.
+  13. `supabase-seguranca3.sql` — checklist OWASP/LGPD: "Excluir minha conta" pelo app, registro de eventos de segurança (180 dias) e senha temporária com mínimo de 8.
+- **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os 13 scripts na ordem; ative pg_net e pg_cron antes e rode uma vez só.
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.
 - **Marca:** pasta `logo/` (SVG e PNG).
 

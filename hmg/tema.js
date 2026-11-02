@@ -1,4 +1,9 @@
 // Pra Onde Foi? — tema (claro ou escuro). Roda antes da página aparecer, para não piscar.
+// o app não pode ser aberto dentro de outro site (proteção contra clique disfarçado)
+if (window.top !== window.self){
+  document.documentElement.style.visibility = 'hidden';
+  try { window.top.location.replace(window.self.location.href); } catch(e){}
+}
 (function(){
   var KEY = 'pof-tema', mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
   function escolha(){ try { return localStorage.getItem(KEY) === 'escuro' ? 'escuro' : 'claro'; } catch(e){ return 'claro'; } }

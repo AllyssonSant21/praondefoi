@@ -103,16 +103,16 @@ function translateError(err){
   if (/already registered|already been registered|already exists/i.test(msg)) return 'Esse usuário já existe. Use "Entrar" ou escolha outro nome.';
   if (/email address .* invalid|invalid email/i.test(msg)) return 'Esse nome de usuário não foi aceito. Tente só letras e números.';
   if (/email rate limit/i.test(msg)) return 'Não conseguimos enviar o e-mail agora. Tente de novo em alguns minutos.';
-  if (/rate limit|security purposes|too many/i.test(msg)) return 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo. (' + msg + ')';
-  if (/should contain|weak|pwned|leaked|compromised/i.test(msg)) return 'O Supabase recusou essa senha pelas regras dele: ' + msg;
-  if (/at least \d+ characters|password should be at least/i.test(msg)) return 'A senha é curta demais para as regras do Supabase: ' + msg;
+  if (/rate limit|security purposes|too many/i.test(msg)) return 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo.';
+  if (/should contain|weak|pwned|leaked|compromised/i.test(msg)) return 'Essa senha é fraca ou já apareceu em vazamentos. Escolha outra, misturando letras, números e símbolos.';
+  if (/at least \d+ characters|password should be at least/i.test(msg)) return 'A senha precisa ter pelo menos 8 caracteres.';
   if (/same password|different from the old/i.test(msg)) return 'A nova senha precisa ser diferente da anterior.';
   if (/already linked|identity_already_exists|already exists for another user/i.test(msg)) return 'Essa conta Google já está ligada a outro usuário do app.';
-  if (/manual linking/i.test(msg)) return 'Falta ativar "Allow manual linking" no Supabase (Authentication → Sign In / Providers).';
-  if (/provider is not enabled|unsupported provider/i.test(msg)) return 'O login com Google ainda não foi ativado no Supabase.';
+  if (/manual linking/i.test(msg)) return 'Ligar a conta Google ainda não está disponível. Tente mais tarde.';
+  if (/provider is not enabled|unsupported provider/i.test(msg)) return 'O login com Google ainda não está disponível.';
   if (/access_denied|cancel/i.test(msg)) return 'O login com Google foi cancelado.';
   if (/failed to fetch|network/i.test(msg)) return 'Sem conexão com o servidor. Verifique a internet.';
-  return 'Algo deu errado: ' + msg;
+  return 'Algo deu errado. Tente de novo.';
 }
 
 $('authForm').addEventListener('submit', async e => {
@@ -167,7 +167,8 @@ document.querySelectorAll('[data-changepass]').forEach(b => b.addEventListener('
   if (confirma !== nova) return toast('As senhas não conferem. Tente de novo.');
   const { error } = await sb.auth.updateUser({ password: nova });
   if (error) return toast(translateError(error));
-  toast('Senha alterada com sucesso.', true);
+  try { await sb.auth.signOut({ scope: 'others' }); } catch(e){}
+  toast('Senha alterada. Os outros aparelhos conectados foram desconectados.', true);
 }));
 
 document.querySelectorAll('[data-logout]').forEach(b => b.addEventListener('click', async () => {
@@ -267,10 +268,18 @@ const nameOf = uid => {
   const m = state.members.find(x => x.user_id === uid);
   return m ? (m.nome || displayName(m.login)) : 'ex-participante';
 };
+// mensagens que o próprio app escreveu no banco (raise exception) aparecem; erro técnico vira texto simples
 function rpcMsg(error){
-  const msg = (error && error.message) || '';
-  if (/failed to fetch|network/i.test(msg)) return 'Sem conexão com o servidor. Verifique a internet.';
-  return msg || 'Algo deu errado.';
+  const msg = (error && error.message) || '', code = (error && error.code) || '';
+  if (/failed to fetch|network|load failed/i.test(msg)) return 'Sem conexão com o servidor. Verifique a internet.';
+  if (code === 'P0001' && msg && msg.length <= 200) return msg;
+  if (code === '42501' || /row-level security|permission denied/i.test(msg)) return 'Você não tem permissão para fazer isso.';
+  if (code === '23505') return 'Isso já existe.';
+  if (code === '23514' || code === '22001' || code === '22P02' || code === '22003') return 'Algum valor não foi aceito. Confira os campos.';
+  if (/JWT|token/i.test(msg)) return 'Sua sessão expirou. Entre de novo.';
+  if (code === 'PGRST202' || /function|schema cache/i.test(msg)) return 'Esta área está temporariamente indisponível. Tente de novo mais tarde.';
+  if (msg && !code && /^[A-ZÀ-Ú]/.test(msg) && /[áéíóúãõçê]/i.test(msg)) return msg;
+  return 'Algo deu errado. Tente de novo.';
 }
 
 async function loadControles(){
@@ -372,7 +381,7 @@ $('importLocal').onclick = async () => {
 // Mesmo formato do confirm() do navegador: 1ª parte vira o título, o resto o texto.
 const PERIGO = ['Excluir','Remover','Sair','Desfazer','Encerrar','Retirar','Resgatar','Vender','Apagar'];
 // pede um texto numa janela do app (no lugar da caixinha do navegador). Devolve o texto ou null.
-function pedirTexto(titulo, texto, { rotulo = '', valor = '', placeholder = '', okTxt = 'Confirmar', tipo = 'text', modo = '', vazioOk = false } = {}){
+function pedirTexto(titulo, texto, { rotulo = '', valor = '', placeholder = '', okTxt = 'Confirmar', tipo = 'text', modo = '', vazioOk = false, perigo = false } = {}){
   return new Promise(res => {
     $('confTitle').textContent = titulo;
     $('confText').textContent = texto || ''; $('confText').hidden = !texto;
@@ -380,7 +389,7 @@ function pedirTexto(titulo, texto, { rotulo = '', valor = '', placeholder = '', 
     const inp = $('confInput'); inp.type = tipo; inp.value = valor; inp.placeholder = placeholder;
     if (modo) inp.setAttribute('inputmode', modo); else inp.removeAttribute('inputmode');
     inp.autocomplete = tipo === 'password' ? 'new-password' : 'off';
-    $('confYes').textContent = okTxt; $('confYes').className = 'btn btn-primary';
+    $('confYes').textContent = okTxt; $('confYes').className = perigo ? 'btn btn-danger' : 'btn btn-primary';
     $('dlgConf').hidden = false;
     setTimeout(() => { inp.focus(); inp.select(); }, 0);
     const tecla = e => {
@@ -2317,6 +2326,8 @@ marcarTema();
 
 function lerFoto(file){
   return new Promise((resolve, reject) => {
+    if (!/^image\/(jpeg|png|webp|gif|heic|heif)$/i.test(file.type || '')) return reject(new Error('Escolha uma foto (JPG, PNG ou WEBP).'));
+    if (file.size > 15 * 1024 * 1024) return reject(new Error('Foto grande demais. Escolha uma de até 15 MB.'));
     const url = URL.createObjectURL(file), img = new Image();
     img.onload = () => {
       const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
@@ -2380,6 +2391,14 @@ async function openPerfil(){
       <div class="person"><span>Conta Google</span>${temGoogle ? '<span class="tag tag-accent">Conectada ✓</span>'
         : googleOn ? '<button class="btn btn-secondary btn-sm" type="button" data-act="pfGoogle">Conectar</button>'
         : '<span class="by" style="margin:0;">em breve</span>'}</div>
+    </div>
+    <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
+      <h3>Seus dados</h3>
+      <p class="hint" style="margin:0 0 10px;">Você pode baixar uma cópia dos lançamentos em planilha ou apagar a sua conta de vez. <a href="privacidade.html" target="_blank" rel="noopener" style="color:inherit;">Política de privacidade</a></p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" type="button" data-act="pfBaixar">Baixar meus dados</button>
+        <button class="btn btn-danger btn-sm" type="button" data-act="pfExcluir">Excluir minha conta</button>
+      </div>
     </div>`, { tipo: 'perfil' });
 }
 
@@ -2404,6 +2423,21 @@ $('dlg2Body').addEventListener('click', async e => {
     const { error } = await sb.rpc('salvar_foto', { p_foto: null });
     if (error) return toast(rpcMsg(error));
     profile.foto = null; renderMe(); await loadMembers(); render(); openPerfil();
+  }
+  if (b.dataset.act === 'pfBaixar'){ $('export').click(); return; }
+  if (b.dataset.act === 'pfExcluir'){
+    const t = await pedirTexto('Excluir minha conta',
+      'Isso apaga de vez o seu perfil, a sua foto e o "Meu controle" com tudo dentro. Nos controles que você divide, eles passam para outra pessoa e os seus lançamentos ficam lá sem o seu nome. Não dá para desfazer.\n\nSe quiser, baixe seus dados antes.',
+      { rotulo: 'Para confirmar, digite EXCLUIR', placeholder: 'EXCLUIR', okTxt: 'Excluir conta', perigo: true });
+    if (t === null) return;
+    if (t.trim().toUpperCase() !== 'EXCLUIR') return toast('Digite EXCLUIR para confirmar.');
+    b.disabled = true;
+    const { error } = await sb.rpc('excluir_minha_conta', { p_confirma: t });
+    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+    closeDlg2();
+    toast('Sua conta foi excluída. Até mais!', true);
+    await sb.auth.signOut({ scope: 'local' });
+    return;
   }
   if (b.dataset.act === 'pfGoogle'){
     b.disabled = true;
@@ -2695,7 +2729,7 @@ $('userRows').addEventListener('click', async e => {
     b.disabled = true;
     ({ error } = await sb.rpc('admin_definir_senha', { alvo: id, nova }));
     b.disabled = false;
-    if (error) return toast('Não foi possível concluir: ' + error.message);
+    if (error) return toast(rpcMsg(error));
     toast(`Senha de ${b.dataset.email} redefinida. Peça para a pessoa trocar em "Trocar senha" ao entrar.`, true);
     return;
   }
@@ -2707,7 +2741,7 @@ $('userRows').addEventListener('click', async e => {
     b.disabled = true;
     ({ error } = await sb.rpc('admin_mudar_status', { alvo: id, novo: act }));
   }
-  if (error){ b.disabled = false; return toast('Não foi possível concluir: ' + error.message); }
+  if (error){ b.disabled = false; return toast(rpcMsg(error)); }
   await loadUsers();
 });
 
