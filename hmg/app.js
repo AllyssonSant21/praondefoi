@@ -2667,7 +2667,8 @@ $('export').onclick = async () => {
 };
 
 /* ======================= ADMINISTRAÇÃO ======================= */
-let users = [], adminFilter = 'pendente';
+let users = [], adminFilter = 'pendente', adminBusca = '';
+const semAcento = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const STATUS_TAG = {
   pendente: '<span class="tag tag-accent">Aguardando</span>',
   aprovado: '<span class="tag tag-neutral">Com acesso</span>',
@@ -2691,10 +2692,17 @@ function renderAdmin(){
   $('cntBlock').textContent = count('bloqueado');
   document.querySelectorAll('#adminSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.filter === adminFilter)));
 
-  const list = adminFilter === 'todos' ? users : users.filter(u => u.status === adminFilter);
+  const q = semAcento(adminBusca.trim());
+  const acha = u => !q || semAcento(`${u.email} ${displayName(u.email)} ${u.nome || ''}`).includes(q);
+  const daAba = u => adminFilter === 'todos' || u.status === adminFilter;
+  const list = users.filter(u => daAba(u) && acha(u));
   $('usersEmpty').hidden = list.length > 0;
   $('usersTable').hidden = list.length === 0;
-  $('usersEmpty').textContent = adminFilter === 'pendente' ? 'Ninguém aguardando aprovação.' : 'Ninguém por aqui.';
+  const fora = q && !list.length ? users.filter(acha).length : 0;
+  $('usersEmpty').innerHTML = q
+    ? (fora ? `Nenhuma conta com "${esc(adminBusca.trim())}" nesta aba. <button class="btn btn-secondary btn-sm" type="button" id="adminVerTodos">Ver em Todos (${fora})</button>`
+            : `Nenhuma conta encontrada com "${esc(adminBusca.trim())}".`)
+    : (adminFilter === 'pendente' ? 'Ninguém aguardando aprovação.' : 'Ninguém por aqui.');
   $('userRows').innerHTML = list.map(u => {
     const me = currentUser && u.id === currentUser.id;
     let actions = '';
@@ -2716,6 +2724,9 @@ function renderAdmin(){
 
 $('adminRefresh').onclick = () => loadUsers();
 document.querySelectorAll('#adminSeg button').forEach(b => b.addEventListener('click', () => { adminFilter = b.dataset.filter; renderAdmin(); }));
+$('adminBusca').addEventListener('input', e => { adminBusca = e.target.value; renderAdmin(); });
+$('adminBusca').addEventListener('keydown', e => { if (e.key === 'Escape'){ e.target.value = ''; adminBusca = ''; renderAdmin(); } });
+$('usersEmpty').addEventListener('click', e => { if (e.target.id === 'adminVerTodos'){ adminFilter = 'todos'; renderAdmin(); } });
 
 $('userRows').addEventListener('click', async e => {
   const b = e.target.closest('[data-act]');
