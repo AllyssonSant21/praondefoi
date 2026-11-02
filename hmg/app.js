@@ -397,6 +397,8 @@ function confirmar(msg, okTxt){
 
 /* ======================= FORMULÁRIO ======================= */
 function fillCats(){
+  // exemplo do campo Descrição combina com o tipo (saída ou entrada)
+  if (!$('desc').readOnly) $('desc').placeholder = state.type === 'inc' ? 'Ex.: Salário, freela, Pix recebido' : 'Ex.: Mercado da semana';
   $('cat').innerHTML = CATS[state.type].map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   document.querySelectorAll('#typeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.type === state.type)));
 }
@@ -428,7 +430,7 @@ function vincOpcoes(){
   aplicarVinc(false);
   // travado: explica do lado por que e como liberar
   $('vincHint').classList.toggle('trava', n === 0);
-  if (n === 0){ $('vincHint').textContent = state.type === 'exp' ? sel.title + ' Por enquanto, os lançamentos entram normalmente.' : 'Em entradas o lançamento entra normalmente. Para tirar dinheiro de uma meta, use a aba Metas.'; $('vincHint').hidden = false; }
+  if (n === 0 && state.type === 'exp'){ $('vincHint').textContent = sel.title + ' Por enquanto, os lançamentos entram normalmente.'; $('vincHint').hidden = false; }
 }
 function vincAlvo(){
   const v = $('vinc').value; if (!v) return null;
