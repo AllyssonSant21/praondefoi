@@ -1019,6 +1019,7 @@ function renderContas(){
       </div>
     </div>`;
   }).join('');
+  vincOpcoes();   // a conta nova aparece na hora no "Usar para" de Lançamentos
 }
 
 $('billList').addEventListener('click', e => {
@@ -1555,6 +1556,7 @@ function renderMetas(){
       ${acoes}
     </div>`;
   }).join('');
+  vincOpcoes();   // a meta nova aparece na hora no "Usar para" de Lançamentos
 }
 
 document.querySelectorAll('#metaAbas [data-maba]').forEach(b => b.addEventListener('click', () => { state.metaAba = b.dataset.maba; renderMetas(); }));
