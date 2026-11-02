@@ -6,8 +6,9 @@ if (window.top !== window.self){ document.documentElement.style.display = 'none'
    (Project Settings → API). A chave "anon public" pode ficar no código.
    NUNCA coloque aqui a chave "service_role".
    ===================================================================== */
-const SUPABASE_URL = 'https://syffvgczgukoickcprni.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_r8xTsMwtJbJ64IVZP5-RBw_S53BVlkr';
+// HMG usa um banco só de testes (projeto Supabase separado do oficial)
+const SUPABASE_URL = 'https://ocasqtkfzddskvguuwkr.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_2w23PbGgEhhWTQYUAf-erw_af2TTyku';
 
 const KEY = 'cf-lancamentos-v1';        // dados antigos, salvos só neste aparelho
 const IMPORTED_KEY = 'cf-importado-v1';
