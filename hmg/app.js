@@ -373,9 +373,10 @@ $('importLocal').onclick = async () => {
 const PERIGO = ['Excluir','Remover','Sair','Desfazer','Encerrar','Retirar','Resgatar','Vender','Apagar'];
 function confirmar(msg, okTxt){
   const [titulo, ...resto] = String(msg).split('\n\n');
-  const verbo = okTxt || (titulo.match(/^[A-Za-zÀ-ú]+/) || ['Confirmar'])[0];
+  const primeira = (titulo.match(/^[A-Za-zÀ-ú]+/) || [''])[0];
+  const verbo = okTxt || (/(ar|er|ir)$/i.test(primeira) ? primeira : 'Confirmar');
   return new Promise(res => {
-    $('confTitle').textContent = titulo.replace(/\?$/, '') + '?';
+    $('confTitle').textContent = /[.!?]$/.test(titulo) ? titulo : titulo + '?';
     $('confText').textContent = resto.join('\n\n');
     $('confText').hidden = !resto.length;
     $('confYes').textContent = verbo.charAt(0).toUpperCase() + verbo.slice(1);
@@ -1032,7 +1033,7 @@ $('billNew').onclick = () => openBillForm(null);
 $('ctrlShare').onclick = async () => {
   const c = current(); if (!c) return;
   if (!c.pessoal) return openManage();
-  if (!await confirmar('O "Meu controle" é só seu.\n\nPara dividir com alguém, crie um controle compartilhado (ex.: Casa, Apê) e convide a pessoa. Seus lançamentos pessoais continuam só seus.\n\nCriar agora?')) return;
+  if (!await confirmar('Criar um controle compartilhado?\n\nO "Meu controle" é só seu. Para dividir com alguém, crie um controle compartilhado (ex.: Casa, Apê) e convide a pessoa. Seus lançamentos pessoais continuam só seus.', 'Criar controle')) return;
   $('ctrlNew').click();
 };
 
@@ -2505,7 +2506,7 @@ $('dlgBody').addEventListener('click', async e => {
     return afterChange(true);
   }
   if (a === 'gerar'){
-    if (c.codigo && !await confirmar('Gerar outro código? O código atual deixa de funcionar.')) return;
+    if (c.codigo && !await confirmar('Gerar outro código?\n\nO código atual deixa de funcionar.', 'Gerar código')) return;
     b.disabled = true; res = await sb.rpc('gerar_codigo', { cid: c.id });
     if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
     return afterChange(true);
