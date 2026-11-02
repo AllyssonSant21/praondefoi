@@ -711,8 +711,13 @@ function render(){
     </tr>`;
   }).join('');
 
+  // "Guardado: …" (dinheiro que foi para uma meta) não é gasto: fica fora do ranking e aparece separado
+  const guardadoMeta = e => e.cat === 'Metas' && /^Guardado: /.test(e.desc);
+  const gastos = expList.filter(e => !guardadoMeta(e));
+  const guardadoMes = r2(expList.filter(guardadoMeta).reduce((s, e) => s + e.amount, 0));
+  const totalGastos = r2(gastos.reduce((s, e) => s + e.amount, 0));
   const byCat = {};
-  expList.forEach(e => { byCat[e.cat] = (byCat[e.cat] || 0) + e.amount; });
+  gastos.forEach(e => { byCat[e.cat] = (byCat[e.cat] || 0) + e.amount; });
   const list = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
   const max = list.length ? list[0][1] : 0;
   renderTabs();
@@ -724,10 +729,17 @@ function render(){
     <div style="display:flex;flex-direction:column;gap:5px;">
       <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
         <span>${esc(name)}</span>
-        <span style="font-variant-numeric:tabular-nums;color:var(--muted);">${brl(v)} · ${Math.round(exp ? v/exp*100 : 0)}%</span>
+        <span style="font-variant-numeric:tabular-nums;color:var(--muted);">${brl(v)} · ${Math.round(totalGastos ? v/totalGastos*100 : 0)}%</span>
       </div>
       <div style="height:6px;background:var(--track);border-radius:999px;overflow:hidden;"><div style="height:100%;width:${max ? v/max*100 : 0}%;background:var(--accent);border-radius:999px;"></div></div>
-    </div>`).join('') : '<span style="font-size:14px;color:var(--muted);">Sem saídas neste mês.</span>';
+    </div>`).join('') : '<span style="font-size:14px;color:var(--muted);">Sem gastos neste mês.</span>';
+  if (guardadoMes > 0) $('cats').insertAdjacentHTML('beforeend', `
+    <div class="guardado-mes">
+      <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
+        <span>Guardado em metas</span><b class="verde" style="font-variant-numeric:tabular-nums;">${brl(guardadoMes)}</b>
+      </div>
+      <span class="by" style="margin:0;">Não é gasto: o dinheiro continua seu, só foi separado para as metas.</span>
+    </div>`);
 }
 
 /* ======================= CONTAS A PAGAR ======================= */
@@ -2206,6 +2218,7 @@ $('menuBtn').onclick = openMenu;
 $('drClose').onclick = closeMenu;
 $('drawer').addEventListener('click', e => { if (e.target.id === 'drawer' || e.target.closest('.drawer-item')) closeMenu(); });
 $('drPerfil').addEventListener('click', () => openPerfil());
+$('drCodigo').addEventListener('click', () => $('ctrlJoin').click());
 
 function lerFoto(file){
   return new Promise((resolve, reject) => {
