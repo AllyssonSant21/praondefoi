@@ -430,6 +430,7 @@ function vincOpcoes(){
   sel.value = [...sel.options].some(o => o.value === atual) ? atual : '';
   aplicarVinc(false);
   // travado: explica do lado por que e como liberar
+  $('vincHint').classList.toggle('trava', n === 0);
   if (n === 0){ $('vincHint').textContent = sel.title + ' Por enquanto, os lançamentos entram normalmente.'; $('vincHint').hidden = false; }
 }
 function vincAlvo(){

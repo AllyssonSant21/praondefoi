@@ -444,6 +444,7 @@
     .vinc{width:100%}
     .vinc .input{flex:1;width:auto;min-width:0}
     #vincHint{flex-basis:100%}
+    #vincHint.trava{display:none}   /* no celular a explicação do campo travado empurraria o formulário ao trocar Saída/Entrada */
     #metaModelos{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-right:28px;margin-right:-4px;
       -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent)}
     #metaModelos::-webkit-scrollbar{display:none}
@@ -924,6 +925,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=30"></script>
+<script src="app.js?v=31"></script>
 </body>
 </html>
