@@ -429,6 +429,8 @@ function vincOpcoes(){
   sel.title = n === 0 ? (state.type === 'exp' ? 'Crie uma meta ou conta a pagar para usar aqui.' : 'Nenhuma meta com dinheiro guardado para retirar.') : '';
   sel.value = [...sel.options].some(o => o.value === atual) ? atual : '';
   aplicarVinc(false);
+  // travado: explica do lado por que e como liberar
+  if (n === 0){ $('vincHint').textContent = sel.title + ' Por enquanto, os lançamentos entram normalmente.'; $('vincHint').hidden = false; }
 }
 function vincAlvo(){
   const v = $('vinc').value; if (!v) return null;
