@@ -419,19 +419,16 @@ function vincOpcoes(){
     if (ms.length){ n += ms.length; html += `<optgroup label="Guardar na meta">${ms.map(x => `<option value="m:${esc(x.m.id)}">${esc(x.m.icone)} ${esc(x.m.nome)}</option>`).join('')}</optgroup>`; }
     const cs = contasAbertasDoMes();
     if (cs.length){ n += cs.length; html += `<optgroup label="Pagar conta de ${esc(MONTHS[state.m])}">${cs.map(i => `<option value="c:${esc(i.c.id)}">${esc(i.c.nome)}${i.n ? ` ${i.n}/${i.c.parcelas}` : ''} · falta ${brl(i.falta)}</option>`).join('')}</optgroup>`; }
-  } else {
-    const ms = metas.filter(x => x.i.saldo > 0);
-    if (ms.length){ n += ms.length; html += `<optgroup label="Retirar da meta">${ms.map(x => `<option value="r:${esc(x.m.id)}">${esc(x.m.icone)} ${esc(x.m.nome)} · tem ${brl(x.i.saldo)}</option>`).join('')}</optgroup>`; }
-  }
+  }   // entrada não usa "Usar para": retirar dinheiro de meta é feito na aba Metas
   sel.innerHTML = html;
   // sempre visível (não muda o lugar de nada); sem opções, fica travado em "Só lançamento"
   sel.disabled = n === 0;
-  sel.title = n === 0 ? (state.type === 'exp' ? 'Crie uma meta ou conta a pagar para usar aqui.' : 'Nenhuma meta com dinheiro guardado para retirar.') : '';
+  sel.title = n === 0 ? (state.type === 'exp' ? 'Crie uma meta ou conta a pagar para usar aqui.' : 'Em entradas o "Usar para" não se aplica.') : '';
   sel.value = [...sel.options].some(o => o.value === atual) ? atual : '';
   aplicarVinc(false);
   // travado: explica do lado por que e como liberar
   $('vincHint').classList.toggle('trava', n === 0);
-  if (n === 0){ $('vincHint').textContent = sel.title + ' Por enquanto, os lançamentos entram normalmente.'; $('vincHint').hidden = false; }
+  if (n === 0){ $('vincHint').textContent = state.type === 'exp' ? sel.title + ' Por enquanto, os lançamentos entram normalmente.' : 'Em entradas o lançamento entra normalmente. Para tirar dinheiro de uma meta, use a aba Metas.'; $('vincHint').hidden = false; }
 }
 function vincAlvo(){
   const v = $('vinc').value; if (!v) return null;
