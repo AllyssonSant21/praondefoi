@@ -1,0 +1,15 @@
+// Pra Onde Foi? — tema (claro, escuro ou igual ao celular). Roda antes da página aparecer, para não piscar.
+(function(){
+  var KEY = 'pof-tema', mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function escolha(){ try { return localStorage.getItem(KEY) || 'claro'; } catch(e){ return 'claro'; } }
+  function aplicar(){
+    var e = escolha(), t = e === 'auto' ? (mq && mq.matches ? 'escuro' : 'claro') : e;
+    document.documentElement.setAttribute('data-tema', t);
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.setAttribute('content', t === 'escuro' ? '#141414' : '#f5f6f8');
+  }
+  window.temaEscolhido = escolha;
+  window.definirTema = function(e){ try { localStorage.setItem(KEY, e); } catch(err){} aplicar(); };
+  if (mq && mq.addEventListener) mq.addEventListener('change', function(){ if (escolha() === 'auto') aplicar(); });
+  aplicar();
+})();

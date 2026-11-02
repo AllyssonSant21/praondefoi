@@ -631,7 +631,7 @@ function renderInvites(){
   $('invites').innerHTML = list.map(v => `
     <div class="blueprint invite">
       <div style="min-width:0;">
-        <span class="kicker" style="color:var(--accent);">Convite</span>
+        <span class="kicker" style="color:var(--accent-text);">Convite</span>
         <div style="font-weight:600;"><b>${esc(v.de_nome || displayName(v.de_login) || 'Alguém')}</b> te convidou para o controle <b>"${esc(v.controle_nome)}"</b></div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -1014,7 +1014,7 @@ function openPay(id){
     <div class="dlg-sec">
       <div class="kv"><span>Valor do mês</span><b>${brl(i.total)}</b></div>
       ${i.pago > 0 ? `<div class="kv"><span>Já pago</span><b>${brl(i.pago)}</b></div>` : ''}
-      <div class="kv"><span>Falta pagar</span><b style="color:var(--accent);">${brl(i.falta)}</b></div>
+      <div class="kv"><span>Falta pagar</span><b style="color:var(--accent-text);">${brl(i.falta)}</b></div>
       ${i.parts.length ? `<div class="kv"><span>Divisão</span><b style="text-align:right;font-weight:500;">${partsLine(i)}</b></div>` : ''}
     </div>
     <div class="dlg-sec" style="gap:var(--space-3);">
@@ -1046,9 +1046,9 @@ function openBill(id){
   const tipoLonga = c.tipo === 'parcelada' ? `Parcela ${i.n} de ${c.parcelas}`
     : c.tipo === 'fixa' ? `Todo mês desde ${mlabel(c.inicio)}${c.fim ? ` até ${mlabel(c.fim)}` : ''}`
     : `Só em ${mlabel(c.inicio)}`;
-  const status = i.paid ? 'Paga ✓' : i.st === 'late' ? '<span style="color:#ff8a8d;">Vencida</span>'
+  const status = i.paid ? 'Paga ✓' : i.st === 'late' ? '<span style="color:var(--alerta);">Vencida</span>'
     : i.antes ? (i.pago > 0 ? `Parcial · falta ${brl(i.falta)}` : 'Em aberto')
-    : i.days === 0 ? '<span style="color:var(--accent);">Vence hoje</span>'
+    : i.days === 0 ? '<span style="color:var(--accent-text);">Vence hoje</span>'
     : i.pago > 0 ? `Parcial · falta ${brl(i.falta)}` : `Em aberto · vence em ${plural(i.days, 'dia')}`;
   openDlg2(`Conta · ${mlabel(mk)}`, c.nome, `
     <div class="dlg-sec">
@@ -1219,7 +1219,7 @@ function bfUpdate(){
   } else {
     const soma = r2([...document.querySelectorAll('[data-pv]')].reduce((s, x) => s + (parseAmount(x.value) || 0), 0));
     const ok = valor > 0 && Math.abs(soma - valor) < 0.005;
-    hint.style.color = ok ? '' : '#ff8a8d';
+    hint.style.color = ok ? '' : 'var(--alerta)';
     hint.textContent = `Soma das partes: ${brl(soma)} de ${valor > 0 ? brl(valor) : 'R$ —'}`;
   }
 }
@@ -1480,7 +1480,7 @@ function renderMetas(){
   $('metasGrid').innerHTML = mostrar.map(({ m, i }) => {
     const por = shared && m.criado_por ? `criada por ${esc(quem(m.criado_por))}` : '';
     const sub = i.done ? por : [m.prazo ? `até ${mesCurto(m.prazo)}` : 'sem prazo', por].filter(Boolean).join(' · ');
-    const dica = i.meses !== null && i.meses <= 0 ? '<span style="color:#ff8a8d">Prazo passou</span>'
+    const dica = i.meses !== null && i.meses <= 0 ? '<span style="color:var(--alerta)">Prazo passou</span>'
       : i.porMes ? `Guarde <b>${brl(i.porMes)}/mês</b>`
       : i.chegaEm ? `No ritmo atual: ${mesCurto(i.chegaEm)}` : 'Comece guardando';
     const acoes = !i.done
@@ -1579,7 +1579,7 @@ function openMetaMov(id, tipo){
   openDlg2(`${g ? 'Guardar em' : 'Retirar de'} · ${m.icone}`, m.nome, `
     <div class="dlg-sec">
       <div class="kv"><span>Guardado</span><b>${brl(i.saldo)} de ${brl(i.alvo)}</b></div>
-      ${g ? `<div class="kv"><span>Falta</span><b style="color:var(--accent);">${brl(i.falta)}</b></div>` : ''}
+      ${g ? `<div class="kv"><span>Falta</span><b style="color:var(--accent-text);">${brl(i.falta)}</b></div>` : ''}
     </div>
     <div class="field">
       <label for="mmValor">${g ? 'Quanto você está guardando (R$)' : 'Quanto vai retirar (R$)'}</label>
@@ -1646,7 +1646,7 @@ function openMeta(id){
       <h3>Histórico</h3>
       ${i.movs.length ? i.movs.slice().reverse().map(x => {
         const d = x.data.split('-');
-        return `<div class="person"><span>${d[2]}/${d[1]} · ${esc(quem(x.user_id))} · <b style="color:${x.tipo === 'guardar' ? 'var(--green)' : '#ff8a8d'};">${x.tipo === 'guardar' ? '+' : '−'} ${brl(Number(x.valor))}</b></span>
+        return `<div class="person"><span>${d[2]}/${d[1]} · ${esc(quem(x.user_id))} · <b style="color:${x.tipo === 'guardar' ? 'var(--green)' : 'var(--alerta)'};">${x.tipo === 'guardar' ? '+' : '−'} ${brl(Number(x.valor))}</b></span>
           ${x.user_id === myId() && !i.enc ? `<button class="btn btn-secondary btn-sm" type="button" data-act="mmDesfazer" data-id="${esc(x.id)}">Desfazer</button>` : ''}</div>`;
       }).join('') : '<p class="hint">Nada guardado ainda.</p>'}
     </div>
@@ -2219,6 +2219,10 @@ $('drClose').onclick = closeMenu;
 $('drawer').addEventListener('click', e => { if (e.target.id === 'drawer' || e.target.closest('.drawer-item')) closeMenu(); });
 $('drPerfil').addEventListener('click', () => openPerfil());
 $('drCodigo').addEventListener('click', () => $('ctrlJoin').click());
+// aparência: claro (padrão), escuro ou igual ao celular — guardado neste aparelho
+function marcarTema(){ const t = window.temaEscolhido ? window.temaEscolhido() : 'claro'; document.querySelectorAll('#temaSeg [data-tema]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tema === t))); }
+document.querySelectorAll('#temaSeg [data-tema]').forEach(b => b.addEventListener('click', () => { if (window.definirTema) window.definirTema(b.dataset.tema); marcarTema(); }));
+marcarTema();
 
 function lerFoto(file){
   return new Promise((resolve, reject) => {
