@@ -24,7 +24,7 @@
   /* ===== TEMAS ===== claro é o padrão; escuro (grafite) é opção no Menu → Aparência */
   :root{
     color-scheme:light;
-    --bg:#f5f6f8; --surface:#ffffff; --field:#ffffff; --side-bg:#ffffff; --nav-bg:rgba(255,255,255,.97);
+    --bg:#f5f6f8; --surface:#ffffff; --surface-rgb:255,255,255; --field:#ffffff; --side-bg:#ffffff; --nav-bg:rgba(255,255,255,.97);
     --text:#1f1d1e; --muted:#67645d; --ph:#706d66;
     --fg-rgb:31,29,30;
     --accent:#fed13d; --accent-rgb:254,209,61; --accent-text:#7f6200; --accent-hover:#ffdb5c; --accent-active:#ecbd1f;
@@ -43,7 +43,7 @@
   }
   html[data-tema="escuro"]{
     color-scheme:dark;
-    --bg:#141414; --surface:#1e1e1e; --field:#161616; --side-bg:#181818; --nav-bg:rgba(24,24,24,.97);
+    --bg:#141414; --surface:#1e1e1e; --surface-rgb:30,30,30; --field:#161616; --side-bg:#181818; --nav-bg:rgba(24,24,24,.97);
     --text:#f2f2f0; --muted:#a3a3a0; --ph:#8c8c88;
     --fg-rgb:242,242,240;
     --accent-text:#fed13d;
@@ -535,14 +535,25 @@
 
   /* ===== MARCA D'ÁGUA: o "?" do logo, bem clarinho, atrás ===== */
   .auth-page{position:relative;overflow:hidden;isolation:isolate}
-  .auth-page::before{content:"";position:absolute;z-index:-1;pointer-events:none;width:min(100vmin,860px);aspect-ratio:1;left:-12vmin;top:-16vmin;
+  .auth-page::before{content:"";position:absolute;z-index:-1;pointer-events:none;width:min(100vmin,860px);aspect-ratio:300/392;left:-12vmin;top:-16vmin;
     background:rgba(var(--accent-rgb),.16);-webkit-mask:url(../logo/marca-dagua.svg) center/contain no-repeat;mask:url(../logo/marca-dagua.svg) center/contain no-repeat}
   html[data-tema="escuro"] .auth-page::before{background:rgba(var(--accent-rgb),.07)}
   #viewApp{position:relative;isolation:isolate}
-  #viewApp::before{content:"";position:fixed;z-index:-1;pointer-events:none;width:min(56vmin,520px);aspect-ratio:1;right:-3vmin;bottom:-2vmin;
+  #viewApp::before{content:"";position:fixed;z-index:-1;pointer-events:none;width:min(56vmin,520px);aspect-ratio:300/392;right:-3vmin;bottom:-2vmin;
     background:rgba(var(--accent-rgb),.12);-webkit-mask:url(../logo/marca-dagua.svg) center/contain no-repeat;mask:url(../logo/marca-dagua.svg) center/contain no-repeat}
   html[data-tema="escuro"] #viewApp::before{background:rgba(var(--accent-rgb),.045)}
-  @media (max-width:899px){ #viewApp::before{bottom:calc(70px + env(safe-area-inset-bottom))} }
+  /* celular: marca d'água centralizada e sempre fixa no fundo (não rola junto), nos dois temas */
+  @media (max-width:899px){
+    #viewApp::before{width:min(92vw,440px);right:auto;bottom:auto;left:50%;top:52%;transform:translate(-50%,-50%);background:rgba(var(--accent-rgb),.16)}
+    html[data-tema="escuro"] #viewApp::before{background:rgba(var(--accent-rgb),.075)}
+    /* cartões levemente transparentes para a marca aparecer por trás, sem atrapalhar a leitura */
+    .blueprint,.stats{background:rgba(var(--surface-rgb),.86)}
+    .meta{background:rgba(var(--surface-rgb),.6)}
+    .bottomnav{background:rgba(var(--surface-rgb),.9)}
+  }
+  @media (max-width:959px){
+    .auth-page::before{position:fixed;width:min(96vw,460px);left:50%;top:50%;transform:translate(-50%,-50%)}
+  }
 
   /* no claro, número grande em destaque fica escuro (o amarelo vai na borda); detalhe grande usa o dourado */
   html:not([data-tema="escuro"]) .stat-bal .big{color:var(--text)}
@@ -1026,6 +1037,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=38"></script>
+<script src="app.js?v=40"></script>
 </body>
 </html>
