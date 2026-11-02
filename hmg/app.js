@@ -423,7 +423,9 @@ function vincOpcoes(){
     if (ms.length){ n += ms.length; html += `<optgroup label="Retirar da meta">${ms.map(x => `<option value="r:${esc(x.m.id)}">${esc(x.m.icone)} ${esc(x.m.nome)} · tem ${brl(x.i.saldo)}</option>`).join('')}</optgroup>`; }
   }
   sel.innerHTML = html;
-  $('vincWrap').hidden = n === 0;
+  // sempre visível (não muda o lugar de nada); sem opções, fica travado em "Só lançamento"
+  sel.disabled = n === 0;
+  sel.title = n === 0 ? (state.type === 'exp' ? 'Crie uma meta ou conta a pagar para usar aqui.' : 'Nenhuma meta com dinheiro guardado para retirar.') : '';
   sel.value = [...sel.options].some(o => o.value === atual) ? atual : '';
   aplicarVinc(false);
 }

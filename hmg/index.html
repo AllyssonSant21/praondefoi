@@ -271,9 +271,12 @@
   /* ===== alinhamento dos campos (iPhone) ===== */
   .field{min-width:0}
   .input:not(textarea){height:44px;min-height:44px}
-  .lanc-opts{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
-  .vinc{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
-  .vinc .input{width:auto;min-width:200px;max-width:320px;border-radius:999px;font-weight:600}
+  /* "Usar para" numa linha própria, sempre no mesmo lugar e com largura fixa */
+  .vinc-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:-4px}
+  .vinc{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);flex:none}
+  .vinc .input{width:280px;border-radius:999px;font-weight:600}
+  .vinc .input:disabled{border-style:solid;opacity:.6;cursor:not-allowed}
+  #vincHint{margin:0;font-size:13px;flex:1 1 260px;min-width:0}
   .input[readonly]{color:var(--muted);border-style:dashed}
   .input:disabled{opacity:1;color:var(--muted);border-style:dashed}
   input[type=date].input{-webkit-appearance:none;appearance:none;display:flex;align-items:center;width:100%;min-width:0;max-width:100%;text-align:left;line-height:normal}
@@ -438,9 +441,9 @@
     .ctrlbar>span:last-child::-webkit-scrollbar{display:none}
     .ctrlbar>span:last-child .btn{flex:none !important;white-space:nowrap}
     .alert{padding:8px 8px 8px 14px !important;gap:8px;flex-wrap:nowrap}
-    .lanc-opts{width:100%}
     .vinc{width:100%}
-    .vinc .input{flex:1;min-width:0;max-width:none}
+    .vinc .input{flex:1;width:auto;min-width:0}
+    #vincHint{flex-basis:100%}
     #metaModelos{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-right:28px;margin-right:-4px;
       -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent)}
     #metaModelos::-webkit-scrollbar{display:none}
@@ -633,15 +636,16 @@
   <section class="blueprint" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4);">
     <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
       <h2 style="font-size:22px;text-transform:uppercase;">Novo lançamento</h2>
-      <div class="lanc-opts">
-        <div class="seg" id="typeSeg" role="group" aria-label="Tipo">
-          <button type="button" data-type="exp" aria-pressed="true">Saída</button>
-          <button type="button" data-type="inc" aria-pressed="false">Entrada</button>
-        </div>
-        <label class="vinc" id="vincWrap" hidden><span>Usar para</span>
-          <select class="input" id="vinc"></select>
-        </label>
+      <div class="seg" id="typeSeg" role="group" aria-label="Tipo">
+        <button type="button" data-type="exp" aria-pressed="true">Saída</button>
+        <button type="button" data-type="inc" aria-pressed="false">Entrada</button>
       </div>
+    </div>
+    <div class="vinc-row">
+      <label class="vinc" id="vincWrap"><span>Usar para</span>
+        <select class="input" id="vinc"></select>
+      </label>
+      <span id="vincHint" class="by" hidden></span>
     </div>
     <form id="form" novalidate style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--space-4);align-items:end;">
       <div class="field span2" style="min-width:0;">
@@ -664,7 +668,6 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Adicionar
       </button>
     </form>
-    <span id="vincHint" class="by" hidden style="margin:-4px 0 0;font-size:13px;"></span>
     <span id="error" style="font-size:13px;color:#ff8a8d;" hidden></span>
   </section>
 
@@ -921,6 +924,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=26"></script>
+<script src="app.js?v=27"></script>
 </body>
 </html>
