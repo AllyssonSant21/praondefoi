@@ -516,6 +516,8 @@ $('prev').onclick = () => shift(-1);
 $('next').onclick = () => shift(1);
 $('today').onclick = () => { const d = new Date(); state.y = d.getFullYear(); state.m = d.getMonth(); render(); refresh(); };
 $('rows').addEventListener('click', async e => {
+  const ed = e.target.closest('[data-edit]');
+  if (ed) return openLancEdit(ed.dataset.edit);
   const b = e.target.closest('[data-del]');
   if (!b) return;
   const id = b.dataset.del;
@@ -529,6 +531,55 @@ ${ent.desc} · ${ent.type === 'inc' ? '+' : '−'} ${brl(ent.amount)}`)) return;
   const { error, count } = await sb.from('lancamentos').delete({ count: 'exact' }).eq('id', id);
   if (error || count === 0){ state.entries = before; render(); toast('Não foi possível excluir. Tente de novo.'); return; }
   if (state.contas.length && await loadContas()) renderContas();   // se era o pagamento de uma conta, ela volta a ficar em aberto
+});
+
+/* ---------- editar um lançamento (lápis) ---------- */
+async function openLancEdit(id){
+  const ent = state.entries.find(x => x.id === id); if (!ent) return;
+  // lançamentos criados por pagamento de conta ou por meta mudam por lá, para os valores não ficarem diferentes
+  const [pg, mm] = await Promise.all([
+    sb.from('pagamentos').select('conta_id').eq('lancamento_id', id).limit(1),
+    sb.from('meta_movs').select('meta_id').eq('lancamento_id', id).limit(1)
+  ]);
+  if (pg.data && pg.data.length){ const c = findConta(pg.data[0].conta_id); return toast(`Esse lançamento é o pagamento da conta ${c ? '"' + c.nome + '"' : ''}. Para mudar, desfaça o pagamento na aba Contas a pagar.`); }
+  if (mm.data && mm.data.length){ const m = state.metas.find(x => x.id === mm.data[0].meta_id); return toast(`Esse lançamento veio da meta ${m ? '"' + m.nome + '"' : ''}. Para mudar, desfaça o movimento na aba Metas.`); }
+  const tipoBtn = (t, lab) => `<button type="button" data-letipo="${t}" aria-pressed="${ent.type === t}">${lab}</button>`;
+  openDlg2('Editar lançamento', ent.desc, `
+    <div class="seg" id="leTipo" role="group" aria-label="Tipo" style="align-self:flex-start;">${tipoBtn('exp','Saída')}${tipoBtn('inc','Entrada')}</div>
+    <div class="field"><label for="leDesc">Descrição</label><input class="input" id="leDesc" maxlength="200" autocomplete="off" value="${esc(ent.desc)}"></div>
+    <div class="grid2">
+      <div class="field"><label for="leValor">Valor (R$)</label><input class="input" id="leValor" inputmode="decimal" value="${num(ent.amount)}" style="font-variant-numeric:tabular-nums;"></div>
+      <div class="field"><label for="leCat">Categoria</label><select class="input" id="leCat"></select></div>
+    </div>
+    <div class="field"><label for="leData">Data</label><input class="input" id="leData" type="date" value="${esc(ent.date)}"></div>
+    <button class="btn btn-primary" type="button" data-act="leSalvar" style="min-height:44px;">Salvar alterações</button>`,
+    { tipo: 'lancEdit', id, letipo: ent.type, cat: ent.cat });
+  leCats();
+}
+function leCats(){
+  const lista = CATS[dlg2.letipo].slice();
+  if (dlg2.cat && !lista.includes(dlg2.cat) && dlg2.letipo === (state.entries.find(x => x.id === dlg2.id) || {}).type) lista.unshift(dlg2.cat);
+  $('leCat').innerHTML = lista.map(c => `<option${c === dlg2.cat ? ' selected' : ''}>${esc(c)}</option>`).join('');
+}
+$('dlg2Body').addEventListener('click', async e => {
+  if (dlg2.tipo !== 'lancEdit') return;
+  const t = e.target.closest('[data-letipo]');
+  if (t){ dlg2.letipo = t.dataset.letipo; document.querySelectorAll('#leTipo [data-letipo]').forEach(b => b.setAttribute('aria-pressed', String(b === t))); leCats(); return; }
+  const b = e.target.closest('[data-act="leSalvar"]'); if (!b) return;
+  const desc = $('leDesc').value.trim(), valor = parseAmount($('leValor').value), data = $('leData').value;
+  if (!desc) return toast('Escreva uma descrição.');
+  if (!(valor > 0)) return toast('Informe um valor maior que zero.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return toast('Escolha a data.');
+  b.disabled = true;
+  const novo = { type: dlg2.letipo, desc, cat: $('leCat').value, amount: valor, date: data };
+  const { data: row, error } = await sb.from('lancamentos').update(toRow(novo)).eq('id', dlg2.id).select(COLS).single();
+  if (error || !row){ b.disabled = false; return toast('Não foi possível salvar. Tente de novo.'); }
+  const i = state.entries.findIndex(x => x.id === dlg2.id);
+  if (i >= 0) state.entries[i] = fromRow(row);
+  closeDlg2();
+  const [y, m] = data.split('-').map(Number);
+  if (y !== state.y || m - 1 !== state.m){ toast(`Lançamento atualizado e movido para ${MONTHS[m - 1]} ${y}.`, true); await refresh(); }
+  else { toast('Lançamento atualizado.', true); render(); }
 });
 
 $('ctrlSelect').addEventListener('change', async e => {
@@ -670,6 +721,7 @@ function render(){
   $('balNote').textContent = !month.length ? 'Sem lançamentos'
     : bal >= 0 ? `Sobrou ${inc ? Math.round(bal/inc*100) : 0}% do que entrou` : 'Gastou mais do que entrou';
   $('balCard').classList.toggle('neg', bal < 0);
+  $('balCard').classList.toggle('pos', bal > 0);   // saldo positivo verde, negativo vermelho
 
   const limit = state.budget;
   $('budget').hidden = !(limit > 0);
@@ -705,7 +757,7 @@ function render(){
       <td>${esc(e.desc)}${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<span class="tag cat-inline ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(e.cat)}</span></td>
       <td><span class="tag ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(e.cat)}</span></td>
       <td style="text-align:right;white-space:nowrap;font-weight:500;color:${e.type === 'inc' ? 'var(--green)' : 'var(--out)'};">${e.type === 'inc' ? '+ ' : '− '}${brl(e.amount)}</td>
-      <td style="text-align:right;">${mine ? `<button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</td>
+      <td style="text-align:right;white-space:nowrap;">${mine ? `<button class="btn btn-ghost btn-icon" data-edit="${esc(e.id)}" style="color:var(--muted);" aria-label="Editar ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</td>
     </tr>`;
   }).join('');
 
@@ -1305,7 +1357,7 @@ $('dlg2Body').addEventListener('click', async e => {
   const b = e.target.closest('[data-act]');
   if (!b) return;
   const a = b.dataset.act, id = dlg2.id, mk = dlg2.mk;
-  if (a.startsWith('pf') || a.startsWith('mm') || a.startsWith('iv')) return;   // perfil e metas têm o próprio tratamento
+  if (a.startsWith('pf') || a.startsWith('mm') || a.startsWith('iv') || a.startsWith('le')) return;   // perfil e metas têm o próprio tratamento
   const c = findConta(id);
   let res;
   if (a === 'confirmPay'){

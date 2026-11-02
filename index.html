@@ -161,7 +161,7 @@
     #tableWrap .table{font-size:13px}
     #tableWrap .table td,#tableWrap .table th{padding:6px 4px}
     #tableWrap .table th:first-child,#rows td:first-child{width:40px !important}
-    #rows td:last-child{width:30px}
+    #rows td:last-child{width:72px}
   }
   @media (max-width:560px){
     #tableWrap .table th:nth-child(3), #rows td:nth-child(3){display:none}
@@ -558,6 +558,13 @@
   html:not([data-tema="escuro"]) .stat-bal .big{color:var(--text)}
   html:not([data-tema="escuro"]) .hl{color:#b8860b}
   .auth-feat{background:var(--surface)}
+  /* saldo do mês: positivo verde, negativo vermelho alerta (os dois temas) */
+  #balCard.pos{border-color:rgba(var(--green-rgb),.55)}
+  #balCard.pos .big{color:var(--green)}
+  #balCard.neg .big{color:var(--alerta)}
+  @media (max-width:560px){ .stats>#balCard.pos{box-shadow:inset 3px 0 0 var(--green)} }
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  @media (max-width:560px){ #rows .btn-icon{width:36px !important;height:40px !important} #tableWrap .table th:last-child{width:76px !important} }
   /* ===== Menu → Aparência ===== */
   .aparencia{display:flex;flex-direction:column;gap:8px;padding:10px 10px 4px}
   .aparencia .seg{display:flex;width:100%}
@@ -779,7 +786,7 @@
       </div>
       <div id="tableWrap" style="overflow-x:auto;">
         <table class="table">
-          <thead><tr><th style="width:72px;">Dia</th><th>Descrição</th><th>Categoria</th><th style="text-align:right;">Valor</th><th style="width:44px;"></th></tr></thead>
+          <thead><tr><th style="width:72px;">Dia</th><th>Descrição</th><th>Categoria</th><th style="text-align:right;">Valor</th><th style="width:88px;"><span class="sr-only">Ações</span></th></tr></thead>
           <tbody id="rows"></tbody>
         </table>
       </div>
@@ -1034,6 +1041,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="app.js?v=43"></script>
+<script src="app.js?v=46"></script>
 </body>
 </html>
