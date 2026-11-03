@@ -2622,6 +2622,79 @@ $('dlgBody').addEventListener('click', async e => {
 });
 
 /* ======================= PLANILHA EXCEL ======================= */
+/* ======================= COMPARATIVO DE MESES ======================= */
+// Botão abaixo dos resumos: este mês × mês anterior (até o mesmo dia, se o mês ainda não acabou),
+// as categorias de saída que mais mudaram e as entradas e saídas dos últimos 6 meses.
+const mes7 = (y, m) => mkey(y, m).slice(0, 7);   // "2026-11"
+const variacao = (a, b) => b ? Math.round((a - b) / b * 100) : null;
+function difHtml(atual, antes, maisEhBom, semPct){
+  const d = r2(atual - antes);
+  if (Math.abs(d) < 0.005) return '<span class="cmp-dif igual">igual</span>';
+  const sobe = d > 0, bom = sobe === maisEhBom, p = semPct ? null : variacao(atual, antes);
+  return `<span class="cmp-dif ${bom ? 'bom' : 'ruim'}">${sobe ? '↑' : '↓'} ${brl(Math.abs(d))}${p !== null ? ` (${sobe ? '+' : '−'}${Math.abs(p)}%)` : ''}</span>`;
+}
+async function openComparativo(){
+  if (!state.cid) return;
+  const { y, m } = state;
+  const ini = mkey(y, m - 5), fim = mkey(y, m + 1);
+  const mAnt = (m + 11) % 12;
+  openDlg2('Comparativo', `${MONTHS[m]} × ${MONTHS[mAnt]}`, '<p class="hint">Carregando…</p>', { tipo: 'comparativo' });
+  const rows = [];
+  for (let from = 0; ; from += 1000){
+    const { data, error } = await sb.from('lancamentos').select('tipo,categoria,valor,data')
+      .eq('controle_id', state.cid).gte('data', ini).lt('data', fim).range(from, from + 999);
+    if (error){ $('dlg2Body').innerHTML = '<p class="hint">Não foi possível carregar agora. Tente de novo.</p>'; return; }
+    rows.push(...data); if (data.length < 1000) break;
+  }
+  if (dlg2.tipo !== 'comparativo') return;          // fechou ou abriu outra janela
+  const hoje = new Date();
+  const mesAberto = y === hoje.getFullYear() && m === hoje.getMonth();
+  const ate = mesAberto ? hoje.getDate() : 31;      // mês em andamento: compara até o mesmo dia
+  const soma = (k, limite) => {
+    const t = { inc: 0, exp: 0, cats: {} };
+    rows.forEach(r => {
+      if (r.data.slice(0, 7) !== k || Number(r.data.slice(8, 10)) > limite) return;
+      const v = Number(r.valor); t[r.tipo] += v;
+      if (r.tipo === 'exp') t.cats[r.categoria] = (t.cats[r.categoria] || 0) + v;
+    });
+    return t;
+  };
+  const A = soma(mes7(y, m), ate), B = soma(mes7(y, m - 1), ate);
+  const linha = (nome, a, b, maisEhBom, semPct) => `<div class="cmp-item"><span class="lb">${nome}</span>${difHtml(a, b, maisEhBom, semPct)}<span class="vl">${brl(r2(a))}</span><span class="ant">em ${MONTHS[mAnt]}: ${brl(r2(b))}</span></div>`;
+  const cats = [...new Set([...Object.keys(A.cats), ...Object.keys(B.cats)])]
+    .map(c => ({ c, a: A.cats[c] || 0, b: B.cats[c] || 0 }))
+    .filter(x => Math.abs(x.a - x.b) >= 0.005)
+    .sort((x, z) => Math.abs(z.a - z.b) - Math.abs(x.a - x.b));
+  const catHtml = (x, i) => `<div class="cmp-cat"${i >= 4 ? ' data-mais hidden' : ''}><span class="nm">${esc(x.c)}${!x.b ? ' <span class="tag tag-neutral">novo</span>' : ''}</span>${difHtml(x.a, x.b, false)}<span class="de">${brl(r2(x.b))} → ${brl(r2(x.a))}</span></div>`;
+  // gráfico: 6 meses, barras de entrada e saída lado a lado (meses inteiros; o atual até hoje)
+  const meses = [5, 4, 3, 2, 1, 0].map(k => { const kk = mes7(y, m - k); const t = soma(kk, 31); return { k: kk, inc: t.inc, exp: t.exp }; });
+  const max = Math.max(1, ...meses.flatMap(x => [x.inc, x.exp]));
+  const W = 600, H = 200, base = 160, larg = 34, passo = W / 6;
+  const barras = meses.map((x, i) => {
+    const cx = passo * i + passo / 2, hi = x.inc / max * 140, he = x.exp / max * 140, mm = Number(x.k.slice(5, 7)) - 1;
+    return `<rect x="${cx - larg - 2}" y="${base - hi}" width="${larg}" height="${hi}" rx="3" style="fill:var(--green)"><title>Entradas ${MONTHS[mm]}: ${brl(r2(x.inc))}</title></rect>`
+      + `<rect x="${cx + 2}" y="${base - he}" width="${larg}" height="${he}" rx="3" style="fill:var(--out)"><title>Saídas ${MONTHS[mm]}: ${brl(r2(x.exp))}</title></rect>`
+      + `<text x="${cx}" y="${base + 32}" text-anchor="middle" style="fill:var(--muted);font-size:24px;font-weight:${i === 5 ? 700 : 500}">${MES_CURTO[mm].toLowerCase()}${i === 5 && mesAberto ? '*' : ''}</text>`;
+  }).join('');
+  $('dlg2Body').innerHTML = `<div id="cmpBox" style="display:flex;flex-direction:column;gap:var(--space-4);">
+    <p class="hint" style="margin:0;">${mesAberto ? `O mês ainda não acabou: comparando do dia 1 ao dia ${ate} de cada mês.` : `Mês inteiro de ${MONTHS[m]} contra o mês inteiro de ${MONTHS[mAnt]}.`}</p>
+    <div class="cmp-tot">${linha('Entradas', A.inc, B.inc, true)}${linha('Saídas', A.exp, B.exp, false)}${linha('Saldo', A.inc - A.exp, B.inc - B.exp, true, true)}</div>
+    <div class="dlg-sec"><h3>Onde as saídas mudaram</h3>
+      ${cats.length ? cats.map(catHtml).join('') + (cats.length > 4 ? `<button class="btn btn-ghost btn-sm" type="button" data-act="cmpMais" style="margin-top:6px;">Ver todas as categorias (${cats.length})</button>` : '')
+                    : '<p class="hint" style="margin:6px 0 0;">Nenhuma diferença nas categorias de saída.</p>'}
+    </div>
+    <div class="dlg-sec"><h3>Últimos 6 meses</h3>
+      <svg class="cmp-graf" viewBox="0 0 ${W} ${H}" role="img" aria-label="Entradas e saídas dos últimos 6 meses"><line x1="0" x2="${W}" y1="${base}" y2="${base}" style="stroke:var(--divider)"/>${barras}</svg>
+      <div class="cmp-leg"><span><i style="background:var(--green)"></i>Entradas</span><span><i style="background:var(--out)"></i>Saídas</span>${mesAberto ? '<span>* até hoje</span>' : ''}</div>
+    </div></div>`;
+  if (valoresOcultos) mascararValores();
+}
+$('btnComparar').onclick = openComparativo;
+$('dlg2Body').addEventListener('click', e => {
+  const b = e.target.closest('[data-act="cmpMais"]'); if (!b) return;
+  $('dlg2Body').querySelectorAll('[data-mais]').forEach(x => x.hidden = false); b.remove();
+});
+
 /* ======================= ESCONDER VALORES ======================= */
 // Botão "Esconder valores": troca os valores dos resumos e das listas por "R$ ••••". Fica guardado neste aparelho.
 const MASCARA = 'R$ ••••', RX_DINHEIRO = /-?R\$\s?-?[\d.]+,\d{2}/g;
@@ -2629,7 +2702,7 @@ const valoresOriginais = new Map();
 let valoresOcultos = false;
 try { valoresOcultos = localStorage.getItem('pof-ocultar') === '1'; } catch(e){}
 // resumos e listas (lançamentos, categorias, contas, metas, investimentos); os campos de digitar ficam de fora
-const areasValores = () => document.querySelectorAll('#viewApp .stats, #viewApp #budget, #rows, #cats, #billList, #metasGrid, #invList, #invDist');
+const areasValores = () => document.querySelectorAll('#viewApp .stats, #viewApp #budget, #rows, #cats, #billList, #metasGrid, #invList, #invDist, #cmpBox');
 function mascararValores(){
   areasValores().forEach(raiz => {
     const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT); let n;

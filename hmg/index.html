@@ -440,6 +440,24 @@
   #ctrlJoin,#export{color:var(--muted)}
   #ctrlJoin:hover,#export:hover{color:var(--text)}
   /* esconder valores: olho no topo; os números grandes viram R$ •••• */
+  #btnComparar{align-self:flex-start;color:var(--text)}
+  #btnComparar svg{color:var(--accent-text)}
+  .cmp-tot{display:flex;flex-direction:column;font-variant-numeric:tabular-nums}
+  .cmp-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center;padding:10px 0;border-top:1px solid var(--divider)}
+  .cmp-item:first-child{border-top:0;padding-top:0}
+  .cmp-item .lb{font-size:13px;font-weight:600;color:var(--muted)}
+  .cmp-item .vl{grid-column:1;font-family:var(--font-heading);font-weight:800;font-size:22px;line-height:1.1}
+  .cmp-item .cmp-dif{grid-column:2;grid-row:1 / span 2}
+  .cmp-item .ant{grid-column:1 / -1;font-size:12.5px;color:var(--muted)}
+  .cmp-dif{text-align:right;font-size:13px;font-weight:700;white-space:nowrap}
+  .cmp-dif.bom{color:var(--green)} .cmp-dif.ruim{color:var(--alerta)} .cmp-dif.igual{color:var(--muted)}
+  .cmp-cat{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-top:1px solid var(--divider);font-variant-numeric:tabular-nums}
+  .cmp-cat .nm{font-weight:600}
+  .cmp-cat .de{grid-column:1;font-size:12.5px;color:var(--muted)}
+  .cmp-cat .cmp-dif{grid-row:1 / span 2;grid-column:2;align-self:center}
+  .cmp-graf{width:100%;height:auto;display:block}
+  .cmp-leg{display:flex;gap:14px;font-size:12.5px;color:var(--muted)}
+  .cmp-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
   .olho-linha{display:flex;justify-content:flex-end;margin:0 0 calc(-1 * var(--space-2))}
   .olho-btn{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:6px 12px;border:1px solid var(--divider);border-radius:var(--r-btn);background:var(--surface);color:var(--muted);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
   .olho-btn:hover{color:var(--text)}
@@ -573,6 +591,7 @@
     .blueprint,.stats{background:rgba(var(--surface-rgb),.86)}
     .meta{background:rgba(var(--surface-rgb),.6)}
     .bottomnav{background:rgba(var(--surface-rgb),.9)}
+    .blueprint.dlg{background:var(--surface)}   /* janelas sempre opacas: o app de trás não aparece através */
   }
   @media (max-width:959px){
     .auth-page::before{position:fixed;width:min(96vw,460px);left:50%;top:50%;transform:translate(-50%,-50%)}
@@ -755,6 +774,8 @@
       <span class="note" id="balNote"></span>
     </div>
   </section>
+
+  <button class="btn btn-secondary" id="btnComparar" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Comparativo de meses</button>
 
   <section id="budget" hidden style="display:flex;flex-direction:column;gap:var(--space-2);">
     <div style="display:flex;justify-content:space-between;gap:var(--space-4);font-size:13px;">
@@ -1076,6 +1097,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=55"></script>
+<script src="app.js?v=56"></script>
 </body>
 </html>
