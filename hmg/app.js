@@ -2623,12 +2623,13 @@ $('dlgBody').addEventListener('click', async e => {
 
 /* ======================= PLANILHA EXCEL ======================= */
 /* ======================= ESCONDER VALORES ======================= */
-// Olho no topo: troca os valores dos cartões de resumo por "R$ ••••". Fica guardado neste aparelho.
+// Botão "Esconder valores": troca os valores dos resumos e das listas por "R$ ••••". Fica guardado neste aparelho.
 const MASCARA = 'R$ ••••', RX_DINHEIRO = /-?R\$\s?-?[\d.]+,\d{2}/g;
 const valoresOriginais = new Map();
 let valoresOcultos = false;
 try { valoresOcultos = localStorage.getItem('pof-ocultar') === '1'; } catch(e){}
-const areasValores = () => document.querySelectorAll('#viewApp .stats, #viewApp #budget');
+// resumos e listas (lançamentos, categorias, contas, metas, investimentos); os campos de digitar ficam de fora
+const areasValores = () => document.querySelectorAll('#viewApp .stats, #viewApp #budget, #rows, #cats, #billList, #metasGrid, #invList, #invDist');
 function mascararValores(){
   areasValores().forEach(raiz => {
     const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT); let n;
