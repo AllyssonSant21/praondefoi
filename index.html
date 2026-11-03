@@ -305,8 +305,8 @@
   html[data-tema="escuro"] select.input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f2f2f0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")}
   @media (max-width:560px){
     .ctrl-select{width:100%}
-    .ctrlbar>span:last-child{margin-left:0 !important;width:100%}
-    .ctrlbar>span:last-child .btn{flex:1 1 auto}
+    .ctrlbar>span:last-of-type{margin-left:0 !important;width:100%}
+    .ctrlbar>span:last-of-type .btn{flex:1 1 auto}
   }
 
   /* ===== navegação: barra embaixo (celular) e menu lateral (PC) ===== */
@@ -438,6 +438,23 @@
   .btn-ghost:hover{background:rgba(var(--fg-rgb),.07)}
   #ctrlJoin,#export{color:var(--muted)}
   #ctrlJoin:hover,#export:hover{color:var(--text)}
+  /* esconder valores: olho no topo; os números grandes viram R$ •••• */
+  .olho-linha{display:flex;justify-content:flex-end;margin:0 0 calc(-1 * var(--space-2))}
+  .olho-btn{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:6px 12px;border:1px solid var(--divider);border-radius:var(--r-btn);background:var(--surface);color:var(--muted);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+  .olho-btn:hover{color:var(--text)}
+  .olho-btn .ic-olho-fechado{display:none}
+  .olho-mini{display:none}
+  @media (max-width:560px){
+    .olho-linha{display:none}   /* no celular o olho fica ao lado de "+ Novo controle" */
+    .olho-mini{display:inline-flex;flex:none;justify-content:center;width:44px;padding:0}
+    .ctrlbar .note{flex-basis:100%}
+    .ctrlbar>span:last-of-type{width:auto !important;flex:1 1 0;min-width:0}
+    .ctrlbar .olho-mini{align-self:stretch}
+  }
+  .olho-btn[aria-pressed="true"]{color:var(--accent-text);border-color:rgba(var(--accent-rgb),.6);background:rgba(var(--accent-rgb),.12)}
+  .olho-btn[aria-pressed="true"] .ic-olho{display:none}
+  .olho-btn[aria-pressed="true"] .ic-olho-fechado{display:block}
+  html.valores-ocultos #viewApp .stats .big{color:var(--muted) !important}
   .side-item.on{background:rgba(var(--fg-rgb),.08);color:var(--text)}
   .side-item.on svg{color:var(--accent-text)}
   .side-new{background:rgba(var(--fg-rgb),.10);color:var(--text);font-size:11px;font-weight:600;letter-spacing:0}
@@ -472,7 +489,7 @@
     .app-head>div:first-child{display:contents !important}
     .app-head .app-kicker{grid-area:marca;min-width:0}
     .app-head #monthTitle{grid-area:titulo}
-    .app-head #monthNav{grid-area:nav;justify-self:end}
+    .app-head #topoDir{grid-area:nav;justify-self:end;gap:6px !important}
     #monthTitle{font-size:clamp(22px,6.6vw,28px) !important;white-space:nowrap}
     #monthNav{flex:none;gap:6px !important}
     #monthNav .btn-secondary{padding-inline:12px}
@@ -482,10 +499,10 @@
     /* controle: escolha + botões numa linha só, que rola de lado */
     .ctrlbar{gap:6px 8px}
     .ctrlbar .note{font-size:12.5px}
-    .ctrlbar>span:last-child{flex-wrap:nowrap !important;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px;padding-right:28px;
+    .ctrlbar>span:last-of-type{flex-wrap:nowrap !important;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px;padding-right:28px;
       -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent)}
-    .ctrlbar>span:last-child::-webkit-scrollbar{display:none}
-    .ctrlbar>span:last-child .btn{flex:none !important;white-space:nowrap}
+    .ctrlbar>span:last-of-type::-webkit-scrollbar{display:none}
+    .ctrlbar>span:last-of-type .btn{flex:none !important;white-space:nowrap}
     .alert{padding:8px 8px 8px 14px !important;gap:8px;flex-wrap:nowrap}
     .vinc{width:100%}
     #form .span2{grid-column:1 / -1}          /* Descrição ocupa a linha inteira no celular */
@@ -691,11 +708,13 @@
       <span class="app-kicker" style="display:flex;align-items:center;gap:9px;"><img class="marca-img" src="logo/logo-simbolo.svg" alt="" width="40" height="40"><span class="marca-nome" style="font-size:18px;">Pra onde<br>foi<span class="q">?</span></span></span>
       <h1 id="monthTitle" style="line-height:1;text-transform:uppercase;letter-spacing:.01em;">Mês</h1>
     </div>
+    <div id="topoDir" style="display:flex;align-items:center;gap:var(--space-2);">
     <div id="monthNav" style="display:flex;align-items:center;gap:var(--space-2);">
       <button class="btn btn-secondary btn-icon" id="prev" aria-label="Mês anterior"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
       <button class="btn btn-secondary" id="today">Hoje</button>
       <button class="btn btn-secondary btn-icon" id="next" aria-label="Próximo mês"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
-      <button class="btn btn-ghost" id="export" style="margin-left:var(--space-2);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg><span class="txt-pc">Baixar planilha Excel</span></button>
+      <button class="btn btn-ghost" id="export"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg><span class="txt-pc">Baixar planilha Excel</span></button>
+    </div>
     </div>
   </header>
 
@@ -708,6 +727,7 @@
       <button class="btn btn-secondary btn-sm" id="ctrlNew" type="button">+ Novo controle</button>
       <button class="btn btn-ghost btn-sm" id="ctrlJoin" type="button">Entrar com código</button>
     </span>
+    <button class="olho-btn olho-mini" type="button" aria-pressed="false" title="Esconder ou mostrar valores"><svg class="ic-olho" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="ic-olho-fechado" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.6 3.6"/><path d="M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="m3 3 18 18"/></svg><span class="olho-txt sr-only">Esconder valores</span></button>
   </section>
 
   <div class="blueprint alert" id="billAlert" role="status" hidden>
@@ -1010,6 +1030,7 @@
 </div>
 
 <!-- ============ MENU ☰ ============ -->
+<template id="tplOlho"><div class="olho-linha"><button class="olho-btn" type="button" aria-pressed="false"><svg class="ic-olho" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="ic-olho-fechado" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.6 3.6"/><path d="M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="m3 3 18 18"/></svg><span class="olho-txt">Esconder valores</span></button></div></template>
 <div class="drawer-back" id="drawer" hidden>
   <aside class="drawer" role="dialog" aria-modal="true" aria-label="Menu">
     <div style="display:flex;align-items:center;gap:12px;">
@@ -1029,6 +1050,7 @@
         </div>
       </div>
       <button class="drawer-item" id="drCodigo" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h2M11 10h2M15 10h2M7 14h10"/></svg>Entrar com código</button>
+      <button class="drawer-item" id="drExcel" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>Baixar planilha Excel</button>
       <button class="drawer-item" id="drPerfil" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Meu perfil</button>
       <button class="drawer-item" data-changepass type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/></svg>Trocar senha</button>
       <button class="drawer-item sair" data-logout type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>Sair</button>
@@ -1052,6 +1074,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="app.js?v=51"></script>
+<script src="app.js?v=55"></script>
 </body>
 </html>

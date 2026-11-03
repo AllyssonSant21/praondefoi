@@ -2317,6 +2317,7 @@ $('menuBtn').onclick = openMenu;
 $('drClose').onclick = closeMenu;
 $('drawer').addEventListener('click', e => { if (e.target.id === 'drawer' || e.target.closest('.drawer-item')) closeMenu(); });
 $('drPerfil').addEventListener('click', () => openPerfil());
+$('drExcel').addEventListener('click', () => $('export').click());
 $('drCodigo').addEventListener('click', () => $('ctrlJoin').click());
 // aparência: claro (padrão), escuro ou igual ao celular — guardado neste aparelho
 function marcarTema(){ const t = window.temaEscolhido ? window.temaEscolhido() : 'claro'; document.querySelectorAll('#temaSeg [data-tema]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tema === t))); }
@@ -2620,6 +2621,53 @@ $('dlgBody').addEventListener('click', async e => {
 });
 
 /* ======================= PLANILHA EXCEL ======================= */
+/* ======================= ESCONDER VALORES ======================= */
+// Botão "Esconder valores": troca os valores dos resumos e das listas por "R$ ••••". Fica guardado neste aparelho.
+const MASCARA = 'R$ ••••', RX_DINHEIRO = /-?R\$\s?-?[\d.]+,\d{2}/g;
+const valoresOriginais = new Map();
+let valoresOcultos = false;
+try { valoresOcultos = localStorage.getItem('pof-ocultar') === '1'; } catch(e){}
+// resumos e listas (lançamentos, categorias, contas, metas, investimentos); os campos de digitar ficam de fora
+const areasValores = () => document.querySelectorAll('#viewApp .stats, #viewApp #budget, #rows, #cats, #billList, #metasGrid, #invList, #invDist');
+function mascararValores(){
+  areasValores().forEach(raiz => {
+    const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT); let n;
+    while ((n = w.nextNode())){
+      const t = n.nodeValue, novo = t.replace(RX_DINHEIRO, MASCARA);
+      if (novo !== t){ valoresOriginais.set(n, t); n.nodeValue = novo; }
+    }
+  });
+}
+function mostrarValores(){
+  for (const [n, t] of valoresOriginais) if (n.isConnected && n.nodeValue.includes(MASCARA)) n.nodeValue = t;
+  valoresOriginais.clear();
+}
+const vigiaValores = new MutationObserver(() => {
+  if (!valoresOcultos) return;
+  vigiaValores.disconnect(); mascararValores(); vigiar();
+});
+function vigiar(){ areasValores().forEach(el => vigiaValores.observe(el, { childList: true, subtree: true, characterData: true })); }
+// um botão "Esconder valores" logo acima dos cartões de resumo de cada aba
+document.querySelectorAll('#viewApp .stats').forEach(sec => {
+  sec.before($('tplOlho').content.firstElementChild.cloneNode(true));
+});
+function aplicarOlho(){
+  document.querySelectorAll('.olho-btn').forEach(b => {
+    b.setAttribute('aria-pressed', String(valoresOcultos));
+    b.querySelector('.olho-txt').textContent = valoresOcultos ? 'Mostrar valores' : 'Esconder valores';
+  });
+  document.documentElement.classList.toggle('valores-ocultos', valoresOcultos);
+  vigiaValores.disconnect();
+  if (valoresOcultos) mascararValores(); else mostrarValores();
+  vigiar();
+}
+document.querySelectorAll('.olho-btn').forEach(b => b.addEventListener('click', () => {
+  valoresOcultos = !valoresOcultos;
+  try { localStorage.setItem('pof-ocultar', valoresOcultos ? '1' : '0'); } catch(e){}
+  aplicarOlho();
+}));
+aplicarOlho();
+
 $('export').onclick = async () => {
   if (!window.XLSX){ toast('Não foi possível gerar a planilha. Verifique a conexão e tente de novo.'); return; }
   const c = current(); if (!c) return;
