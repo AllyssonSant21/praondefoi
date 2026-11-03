@@ -437,13 +437,16 @@
   .pos{color:var(--green)}
   .btn-ghost{color:var(--text)}
   .btn-ghost:hover{background:rgba(var(--fg-rgb),.07)}
-  #ctrlJoin,#export,#olho{color:var(--muted)}
-  #ctrlJoin:hover,#export:hover,#olho:hover{color:var(--text)}
+  #ctrlJoin,#export{color:var(--muted)}
+  #ctrlJoin:hover,#export:hover{color:var(--text)}
   /* esconder valores: olho no topo; os números grandes viram R$ •••• */
-  #olho .ic-olho-fechado{display:none}
-  #olho[aria-pressed="true"] .ic-olho{display:none}
-  #olho[aria-pressed="true"] .ic-olho-fechado{display:block}
-  #olho[aria-pressed="true"]{color:var(--accent-text)}
+  .olho-linha{display:flex;justify-content:flex-end;margin:0 0 calc(-1 * var(--space-2))}
+  .olho-btn{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:6px 12px;border:1px solid var(--divider);border-radius:var(--r-btn);background:var(--surface);color:var(--muted);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+  .olho-btn:hover{color:var(--text)}
+  .olho-btn .ic-olho-fechado{display:none}
+  .olho-btn[aria-pressed="true"]{color:var(--accent-text);border-color:rgba(var(--accent-rgb),.6);background:rgba(var(--accent-rgb),.12)}
+  .olho-btn[aria-pressed="true"] .ic-olho{display:none}
+  .olho-btn[aria-pressed="true"] .ic-olho-fechado{display:block}
   html.valores-ocultos #viewApp .stats .big{color:var(--muted) !important}
   .side-item.on{background:rgba(var(--fg-rgb),.08);color:var(--text)}
   .side-item.on svg{color:var(--accent-text)}
@@ -483,8 +486,7 @@
     #monthTitle{font-size:clamp(22px,6.6vw,28px) !important;white-space:nowrap}
     #monthNav{flex:none;gap:6px !important}
     #monthNav .btn-secondary{padding-inline:12px}
-    #olho{width:40px;height:44px;padding:0}
-    #export{display:none !important}   /* no celular a planilha fica no Menu */
+    #export{margin-left:0 !important;width:44px;height:44px;padding:0}
     #export .txt-pc{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
     #viewApp section h2{font-size:18px !important}
     /* controle: escolha + botões numa linha só, que rola de lado */
@@ -706,7 +708,6 @@
       <button class="btn btn-secondary btn-icon" id="next" aria-label="Próximo mês"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
       <button class="btn btn-ghost" id="export"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg><span class="txt-pc">Baixar planilha Excel</span></button>
     </div>
-      <button class="btn btn-ghost btn-icon" id="olho" type="button" aria-pressed="false" aria-label="Esconder valores" title="Esconder valores"><svg class="ic-olho" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="ic-olho-fechado" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.6 3.6"/><path d="M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="m3 3 18 18"/></svg></button>
     </div>
   </header>
 
@@ -1021,6 +1022,7 @@
 </div>
 
 <!-- ============ MENU ☰ ============ -->
+<template id="tplOlho"><div class="olho-linha"><button class="olho-btn" type="button" aria-pressed="false"><svg class="ic-olho" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="ic-olho-fechado" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.6 3.6"/><path d="M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="m3 3 18 18"/></svg><span class="olho-txt">Esconder valores</span></button></div></template>
 <div class="drawer-back" id="drawer" hidden>
   <aside class="drawer" role="dialog" aria-modal="true" aria-label="Menu">
     <div style="display:flex;align-items:center;gap:12px;">
@@ -1065,6 +1067,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=52"></script>
+<script src="app.js?v=53"></script>
 </body>
 </html>

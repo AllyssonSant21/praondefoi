@@ -2647,21 +2647,25 @@ const vigiaValores = new MutationObserver(() => {
   vigiaValores.disconnect(); mascararValores(); vigiar();
 });
 function vigiar(){ areasValores().forEach(el => vigiaValores.observe(el, { childList: true, subtree: true, characterData: true })); }
+// um botão "Esconder valores" logo acima dos cartões de resumo de cada aba
+document.querySelectorAll('#viewApp .stats').forEach(sec => {
+  sec.before($('tplOlho').content.firstElementChild.cloneNode(true));
+});
 function aplicarOlho(){
-  const b = $('olho');
-  b.setAttribute('aria-pressed', String(valoresOcultos));
-  b.setAttribute('aria-label', valoresOcultos ? 'Mostrar valores' : 'Esconder valores');
-  b.title = valoresOcultos ? 'Mostrar valores' : 'Esconder valores';
+  document.querySelectorAll('.olho-btn').forEach(b => {
+    b.setAttribute('aria-pressed', String(valoresOcultos));
+    b.querySelector('.olho-txt').textContent = valoresOcultos ? 'Mostrar valores' : 'Esconder valores';
+  });
   document.documentElement.classList.toggle('valores-ocultos', valoresOcultos);
   vigiaValores.disconnect();
   if (valoresOcultos) mascararValores(); else mostrarValores();
   vigiar();
 }
-$('olho').onclick = () => {
+document.querySelectorAll('.olho-btn').forEach(b => b.addEventListener('click', () => {
   valoresOcultos = !valoresOcultos;
   try { localStorage.setItem('pof-ocultar', valoresOcultos ? '1' : '0'); } catch(e){}
   aplicarOlho();
-};
+}));
 aplicarOlho();
 
 $('export').onclick = async () => {
