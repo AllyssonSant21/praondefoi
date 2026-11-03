@@ -58,6 +58,8 @@ function toast(msg, ok){
 }
 
 const configured = !SUPABASE_URL.startsWith('COLE') && !SUPABASE_ANON_KEY.startsWith('COLE');
+// veio do link "Esqueci a senha"? Guardado antes do Supabase ler e apagar o endereço
+const VEIO_DO_RESET = /(^|[#&?])type=recovery(&|$)/.test(location.hash) || /[?&]type=recovery(&|$)/.test(location.search);
 const sb = configured && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 const now = new Date();
@@ -71,7 +73,7 @@ const state = {
 let currentUser = null, profile = null;
 
 /* ======================= LOGIN ======================= */
-let authMode = 'entrar', recovering = false;
+let authMode = 'entrar', recovering = VEIO_DO_RESET;
 function authMsg(text, kind){ $('authMsg').textContent = text || ''; $('authMsg').className = 'msg ' + (kind || ''); }
 function setAuthMode(m){
   authMode = m;
@@ -94,7 +96,11 @@ function setAuthMode(m){
 }
 document.querySelectorAll('#authSeg button').forEach(b => b.addEventListener('click', () => setAuthMode(b.dataset.mode)));
 $('forgot').onclick = () => setAuthMode('esqueci');
-$('backLogin').onclick = () => setAuthMode('entrar');
+$('backLogin').onclick = async () => {
+  // desistiu de trocar a senha pelo link: sai da sessão aberta pelo link e volta para o login
+  if (recovering){ recovering = false; try { await sb.auth.signOut({ scope: 'local' }); } catch(e){} }
+  setAuthMode('entrar');
+};
 
 function translateError(err){
   const msg = (err && (err.message || err.error_description)) || String(err);
@@ -112,6 +118,7 @@ function translateError(err){
   if (/provider is not enabled|unsupported provider/i.test(msg)) return 'O login com Google ainda não está disponível.';
   if (/access_denied|cancel/i.test(msg)) return 'O login com Google foi cancelado.';
   if (/failed to fetch|network/i.test(msg)) return 'Sem conexão com o servidor. Verifique a internet.';
+  if (/expired|invalid.*link|otp|link is invalid/i.test(msg)) return 'Esse link de troca de senha expirou ou já foi usado. Peça um novo em "Esqueci a senha".';
   return 'Algo deu errado. Tente de novo.';
 }
 
@@ -211,6 +218,8 @@ let authErroVolta = null;
 })();
 
 async function handleSession(session, force){
+  // link de troca de senha: abre a tela de senha nova, nunca o app direto
+  if (session && recovering){ show('viewAuth'); setAuthMode('nova'); return; }
   if (!session){
     stopRealtime();
     currentUser = null; profile = null; state.entries = []; state.controles = []; state.cid = null; state.members = []; state.invites = [];
@@ -2911,7 +2920,8 @@ if (!sb){
   checarProvedores();
   sb.auth.onAuthStateChange((event, session) => {
     if (event === 'PASSWORD_RECOVERY'){ recovering = true; show('viewAuth'); setAuthMode('nova'); return; }
-    if (recovering || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') return;
+    if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') return;
+    if (recovering){ if (session){ show('viewAuth'); setAuthMode('nova'); } return; }
     // setTimeout evita travar o Supabase ao fazer consultas dentro deste aviso
     setTimeout(() => handleSession(session, event === 'SIGNED_OUT'), 0);
   });
