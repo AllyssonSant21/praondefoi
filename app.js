@@ -57,6 +57,8 @@ function toast(msg, ok){
 }
 
 const configured = !SUPABASE_URL.startsWith('COLE') && !SUPABASE_ANON_KEY.startsWith('COLE');
+// veio do link "Esqueci a senha"? Guardado antes do Supabase ler e apagar o endereço
+const VEIO_DO_RESET = /(^|[#&?])type=recovery(&|$)/.test(location.hash) || /[?&]type=recovery(&|$)/.test(location.search);
 const sb = configured && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 const now = new Date();
@@ -70,7 +72,7 @@ const state = {
 let currentUser = null, profile = null;
 
 /* ======================= LOGIN ======================= */
-let authMode = 'entrar', recovering = false;
+let authMode = 'entrar', recovering = VEIO_DO_RESET;
 function authMsg(text, kind){ $('authMsg').textContent = text || ''; $('authMsg').className = 'msg ' + (kind || ''); }
 function setAuthMode(m){
   authMode = m;
@@ -93,7 +95,11 @@ function setAuthMode(m){
 }
 document.querySelectorAll('#authSeg button').forEach(b => b.addEventListener('click', () => setAuthMode(b.dataset.mode)));
 $('forgot').onclick = () => setAuthMode('esqueci');
-$('backLogin').onclick = () => setAuthMode('entrar');
+$('backLogin').onclick = async () => {
+  // desistiu de trocar a senha pelo link: sai da sessão aberta pelo link e volta para o login
+  if (recovering){ recovering = false; try { await sb.auth.signOut({ scope: 'local' }); } catch(e){} }
+  setAuthMode('entrar');
+};
 
 function translateError(err){
   const msg = (err && (err.message || err.error_description)) || String(err);
@@ -111,6 +117,7 @@ function translateError(err){
   if (/provider is not enabled|unsupported provider/i.test(msg)) return 'O login com Google ainda não está disponível.';
   if (/access_denied|cancel/i.test(msg)) return 'O login com Google foi cancelado.';
   if (/failed to fetch|network/i.test(msg)) return 'Sem conexão com o servidor. Verifique a internet.';
+  if (/expired|invalid.*link|otp|link is invalid/i.test(msg)) return 'Esse link de troca de senha expirou ou já foi usado. Peça um novo em "Esqueci a senha".';
   return 'Algo deu errado. Tente de novo.';
 }
 
@@ -210,6 +217,8 @@ let authErroVolta = null;
 })();
 
 async function handleSession(session, force){
+  // link de troca de senha: abre a tela de senha nova, nunca o app direto
+  if (session && recovering){ show('viewAuth'); setAuthMode('nova'); return; }
   if (!session){
     stopRealtime();
     currentUser = null; profile = null; state.entries = []; state.controles = []; state.cid = null; state.members = []; state.invites = [];
@@ -2621,6 +2630,100 @@ $('dlgBody').addEventListener('click', async e => {
 });
 
 /* ======================= PLANILHA EXCEL ======================= */
+/* ======================= COMPARATIVO DE MESES ======================= */
+// Botão abaixo dos resumos: escolhe dois meses e compara gastos e saldo, com uma frase que resume.
+// Mês em andamento: compara até o mesmo dia nos dois meses. Tem o próprio olho, só para esta janela.
+const mes7 = (y, m) => mkey(y, m).slice(0, 7);   // "2026-11"
+const variacao = (a, b) => b ? Math.round((a - b) / b * 100) : null;
+const nomeMes = k => MONTHS[Number(k.slice(5, 7)) - 1];
+const rotMes = k => { const c = MES_CURTO[Number(k.slice(5, 7)) - 1]; return `${c[0]}${c.slice(1).toLowerCase()} ${k.slice(0, 4)}`; };   // "Out 2026"
+const cmp = { a: '', b: '', oculto: false, cache: {} };
+async function somaMes(k){
+  if (cmp.cache[k]) return cmp.cache[k];
+  const rows = [];
+  for (let from = 0; ; from += 1000){
+    const { data, error } = await sb.from('lancamentos').select('tipo,categoria,valor,data')
+      .eq('controle_id', state.cid).gte('data', `${k}-01`).lt('data', mkey(Number(k.slice(0, 4)), Number(k.slice(5, 7)))).range(from, from + 999);
+    if (error) return null;
+    rows.push(...data); if (data.length < 1000) break;
+  }
+  return (cmp.cache[k] = rows);
+}
+function totais(rows, ate){
+  const t = { inc: 0, exp: 0, cats: {} };
+  rows.forEach(r => {
+    if (Number(r.data.slice(8, 10)) > ate) return;
+    const v = Number(r.valor); t[r.tipo] += v;
+    if (r.tipo === 'exp') t.cats[r.categoria] = (t.cats[r.categoria] || 0) + v;
+  });
+  t.saldo = t.inc - t.exp;
+  return t;
+}
+async function openComparativo(){
+  if (!state.cid) return;
+  cmp.a = mes7(state.y, state.m); cmp.b = mes7(state.y, state.m - 1); cmp.cache = {}; cmp.oculto = valoresOcultos;
+  openDlg2('Comparativo', 'Comparar meses', '<p class="hint">Carregando…</p>', { tipo: 'comparativo' });
+  await desenharComparativo();
+}
+async function desenharComparativo(){
+  const [ra, rb] = await Promise.all([somaMes(cmp.a), somaMes(cmp.b)]);
+  if (dlg2.tipo !== 'comparativo') return;
+  if (!ra || !rb){ $('dlg2Body').innerHTML = '<p class="hint">Não foi possível carregar agora. Tente de novo.</p>'; return; }
+  const hoje = new Date(), kHoje = mes7(hoje.getFullYear(), hoje.getMonth());
+  const parcial = cmp.a === kHoje || cmp.b === kHoje;
+  const ate = parcial ? hoje.getDate() : 31;
+  const A = totais(ra, ate), B = totais(rb, ate), nA = nomeMes(cmp.a), nB = nomeMes(cmp.b);
+  const R = v => cmp.oculto ? 'R$ ••••' : brl(r2(v));
+  // frase do resumo
+  const pg = variacao(A.exp, B.exp), dg = r2(A.exp - B.exp);
+  let fGasto;
+  if (!A.exp && !B.exp) fGasto = `Nenhum gasto em ${nA} nem em ${nB}.`;
+  else if (Math.abs(dg) < 0.005) fGasto = `Você gastou o mesmo que em ${nB}.`;
+  else if (pg === null) fGasto = `Você gastou ${R(A.exp)} em ${nA}; em ${nB} não teve gasto.`;
+  else fGasto = dg > 0 ? `Você gastou <b class="ruim">${Math.abs(pg)}% a mais</b> que em ${nB}.` : `Você gastou <b class="bom">${Math.abs(pg)}% a menos</b> que em ${nB}.`;
+  const taxa = t => t.inc > 0 ? Math.round(t.saldo / t.inc * 100) : null;
+  const tA = taxa(A), tB = taxa(B);
+  let fSaldo = '';
+  if (A.saldo < -0.004) fSaldo = `Faltou <b class="ruim">${R(-A.saldo)}</b>: saiu mais do que entrou.`;
+  else if (tA !== null && tB !== null) fSaldo = `Sobrou <b class="${tA >= tB ? 'bom' : 'ruim'}">${tA}% do que entrou</b>, contra ${tB}% em ${nB}.`;
+  else if (tA !== null) fSaldo = `Sobrou <b class="bom">${tA}% do que entrou</b>.`;
+  const card = (nome, a, b, maisEhBom) => {
+    const d = r2(a - b), p = nome === 'Gastos' ? variacao(a, b) : null;
+    const dif = Math.abs(d) < 0.005 ? '<span class="cmp-dif igual">igual</span>'
+      : `<span class="cmp-dif ${(d > 0) === maisEhBom ? 'bom' : 'ruim'}">${d > 0 ? '↑' : '↓'} ${cmp.oculto ? (p !== null ? Math.abs(p) + '%' : '') : brl(Math.abs(d))}</span>`;
+    return `<div class="cmp-card"><span class="lb">${nome}</span><span class="vl">${R(a)}</span>${dif}<span class="ant">${nB}: <span style="white-space:nowrap">${R(b)}</span></span></div>`;
+  };
+  const cats = [...new Set([...Object.keys(A.cats), ...Object.keys(B.cats)])]
+    .map(c => ({ c, a: A.cats[c] || 0, b: B.cats[c] || 0 })).filter(x => Math.abs(x.a - x.b) >= 0.005)
+    .sort((x, z) => Math.abs(z.a - z.b) - Math.abs(x.a - x.b)).slice(0, 3);
+  const opcoes = sel => { const l = []; for (let k = 0; k < 18; k++){ const kk = mes7(hoje.getFullYear(), hoje.getMonth() - k); l.push(`<option value="${kk}"${kk === sel ? ' selected' : ''}>${rotMes(kk)}</option>`); }
+    if (!l.some(o => o.includes(`"${sel}"`))) l.push(`<option value="${sel}" selected>${rotMes(sel)}</option>`); return l.join(''); };
+  $('dlg2Body').innerHTML = `<div class="cmp-box">
+    <div class="cmp-sel">
+      <select class="input" id="cmpA" aria-label="Mês">${opcoes(cmp.a)}</select>
+      <span>×</span>
+      <select class="input" id="cmpB" aria-label="Comparar com">${opcoes(cmp.b)}</select>
+      <button class="cmp-olho" type="button" data-cmp="olho" aria-pressed="${cmp.oculto}" title="${cmp.oculto ? 'Mostrar valores' : 'Esconder valores'}" aria-label="${cmp.oculto ? 'Mostrar valores' : 'Esconder valores'}">${cmp.oculto
+        ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.6 3.6"/><path d="M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="m3 3 18 18"/></svg>'
+        : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'}</button>
+    </div>
+    ${cmp.a === cmp.b ? '<p class="hint" style="margin:0;">Escolha dois meses diferentes.</p>' : `
+    <p class="cmp-frase">${fGasto}${fSaldo ? ' ' + fSaldo : ''}</p>
+    ${parcial ? `<p class="hint" style="margin:0;">O mês ainda não acabou: comparando do dia 1 ao dia ${ate} nos dois meses.</p>` : ''}
+    <div class="cmp-cards">${card('Gastos', A.exp, B.exp, false)}${card('Saldo', A.saldo, B.saldo, true)}</div>
+    ${cats.length ? `<div class="dlg-sec"><h3>Onde os gastos mudaram</h3>${cats.map(x => `<div class="cmp-cat"><span class="nm">${esc(x.c)}</span><span class="cmp-dif ${x.a > x.b ? 'ruim' : 'bom'}">${x.a > x.b ? '↑' : '↓'} ${cmp.oculto ? '' : brl(r2(Math.abs(x.a - x.b)))}</span><span class="de">${R(x.b)} → ${R(x.a)}</span></div>`).join('')}</div>` : ''}`}
+  </div>`;
+}
+$('btnComparar').onclick = openComparativo;
+$('dlg2Body').addEventListener('change', e => {
+  if (e.target.id !== 'cmpA' && e.target.id !== 'cmpB') return;
+  cmp[e.target.id === 'cmpA' ? 'a' : 'b'] = e.target.value; desenharComparativo();
+});
+$('dlg2Body').addEventListener('click', e => {
+  if (!e.target.closest('[data-cmp="olho"]')) return;
+  cmp.oculto = !cmp.oculto; desenharComparativo();     // só esta janela; não muda o olho do app
+});
+
 /* ======================= ESCONDER VALORES ======================= */
 // Botão "Esconder valores": troca os valores dos resumos e das listas por "R$ ••••". Fica guardado neste aparelho.
 const MASCARA = 'R$ ••••', RX_DINHEIRO = /-?R\$\s?-?[\d.]+,\d{2}/g;
@@ -2816,7 +2919,8 @@ if (!sb){
   checarProvedores();
   sb.auth.onAuthStateChange((event, session) => {
     if (event === 'PASSWORD_RECOVERY'){ recovering = true; show('viewAuth'); setAuthMode('nova'); return; }
-    if (recovering || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') return;
+    if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') return;
+    if (recovering){ if (session){ show('viewAuth'); setAuthMode('nova'); } return; }
     // setTimeout evita travar o Supabase ao fazer consultas dentro deste aviso
     setTimeout(() => handleSession(session, event === 'SIGNED_OUT'), 0);
   });

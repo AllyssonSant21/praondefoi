@@ -439,6 +439,26 @@
   #ctrlJoin,#export{color:var(--muted)}
   #ctrlJoin:hover,#export:hover{color:var(--text)}
   /* esconder valores: olho no topo; os números grandes viram R$ •••• */
+  #btnComparar{align-self:flex-start;color:var(--text)}
+  #btnComparar svg{color:var(--accent-text)}
+  .cmp-box{display:flex;flex-direction:column;gap:var(--space-4)}
+  .cmp-sel{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto;gap:8px;align-items:center}
+  .cmp-sel>span{color:var(--muted);font-weight:700}
+  .cmp-olho{width:44px;height:44px;display:grid;place-items:center;border:1px solid var(--divider);border-radius:var(--r-btn);background:var(--surface);color:var(--muted);cursor:pointer}
+  .cmp-olho[aria-pressed="true"]{color:var(--accent-text);border-color:rgba(var(--accent-rgb),.6);background:rgba(var(--accent-rgb),.12)}
+  .cmp-frase{margin:0;font-size:17px;line-height:1.4;font-weight:500}
+  .cmp-frase b,.cmp-dif{font-weight:700}
+  .cmp-frase .bom,.cmp-dif.bom{color:var(--green)} .cmp-frase .ruim,.cmp-dif.ruim{color:var(--alerta)} .cmp-dif.igual{color:var(--muted)}
+  .cmp-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .cmp-card{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid var(--divider);border-radius:var(--r-cartao);font-variant-numeric:tabular-nums}
+  .cmp-card .lb{font-size:13px;font-weight:600;color:var(--muted)}
+  .cmp-card .vl{font-family:var(--font-heading);font-weight:800;font-size:20px;line-height:1.15}
+  .cmp-card .cmp-dif{font-size:13px}
+  .cmp-card .ant{font-size:12px;color:var(--muted)}
+  .cmp-cat{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-top:1px solid var(--divider);font-variant-numeric:tabular-nums}
+  .cmp-cat .nm{font-weight:600}
+  .cmp-cat .de{grid-column:1;font-size:12.5px;color:var(--muted)}
+  .cmp-cat .cmp-dif{grid-row:1 / span 2;grid-column:2;align-self:center;font-size:13px}
   .olho-linha{display:flex;justify-content:flex-end;margin:0 0 calc(-1 * var(--space-2))}
   .olho-btn{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:6px 12px;border:1px solid var(--divider);border-radius:var(--r-btn);background:var(--surface);color:var(--muted);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
   .olho-btn:hover{color:var(--text)}
@@ -572,6 +592,7 @@
     .blueprint,.stats{background:rgba(var(--surface-rgb),.86)}
     .meta{background:rgba(var(--surface-rgb),.6)}
     .bottomnav{background:rgba(var(--surface-rgb),.9)}
+    .blueprint.dlg{background:var(--surface)}   /* janelas sempre opacas: o app de trás não aparece através */
   }
   @media (max-width:959px){
     .auth-page::before{position:fixed;width:min(96vw,460px);left:50%;top:50%;transform:translate(-50%,-50%)}
@@ -754,6 +775,8 @@
       <span class="note" id="balNote"></span>
     </div>
   </section>
+
+  <button class="btn btn-secondary" id="btnComparar" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Comparativo de meses</button>
 
   <section id="budget" hidden style="display:flex;flex-direction:column;gap:var(--space-2);">
     <div style="display:flex;justify-content:space-between;gap:var(--space-4);font-size:13px;">
@@ -1074,6 +1097,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="app.js?v=55"></script>
+<script src="app.js?v=57"></script>
 </body>
 </html>
