@@ -442,22 +442,24 @@
   /* esconder valores: olho no topo; os números grandes viram R$ •••• */
   #btnComparar{align-self:flex-start;color:var(--text)}
   #btnComparar svg{color:var(--accent-text)}
-  .cmp-tot{display:flex;flex-direction:column;font-variant-numeric:tabular-nums}
-  .cmp-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center;padding:10px 0;border-top:1px solid var(--divider)}
-  .cmp-item:first-child{border-top:0;padding-top:0}
-  .cmp-item .lb{font-size:13px;font-weight:600;color:var(--muted)}
-  .cmp-item .vl{grid-column:1;font-family:var(--font-heading);font-weight:800;font-size:22px;line-height:1.1}
-  .cmp-item .cmp-dif{grid-column:2;grid-row:1 / span 2}
-  .cmp-item .ant{grid-column:1 / -1;font-size:12.5px;color:var(--muted)}
-  .cmp-dif{text-align:right;font-size:13px;font-weight:700;white-space:nowrap}
-  .cmp-dif.bom{color:var(--green)} .cmp-dif.ruim{color:var(--alerta)} .cmp-dif.igual{color:var(--muted)}
+  .cmp-box{display:flex;flex-direction:column;gap:var(--space-4)}
+  .cmp-sel{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto;gap:8px;align-items:center}
+  .cmp-sel>span{color:var(--muted);font-weight:700}
+  .cmp-olho{width:44px;height:44px;display:grid;place-items:center;border:1px solid var(--divider);border-radius:var(--r-btn);background:var(--surface);color:var(--muted);cursor:pointer}
+  .cmp-olho[aria-pressed="true"]{color:var(--accent-text);border-color:rgba(var(--accent-rgb),.6);background:rgba(var(--accent-rgb),.12)}
+  .cmp-frase{margin:0;font-size:17px;line-height:1.4;font-weight:500}
+  .cmp-frase b,.cmp-dif{font-weight:700}
+  .cmp-frase .bom,.cmp-dif.bom{color:var(--green)} .cmp-frase .ruim,.cmp-dif.ruim{color:var(--alerta)} .cmp-dif.igual{color:var(--muted)}
+  .cmp-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .cmp-card{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid var(--divider);border-radius:var(--r-cartao);font-variant-numeric:tabular-nums}
+  .cmp-card .lb{font-size:13px;font-weight:600;color:var(--muted)}
+  .cmp-card .vl{font-family:var(--font-heading);font-weight:800;font-size:20px;line-height:1.15}
+  .cmp-card .cmp-dif{font-size:13px}
+  .cmp-card .ant{font-size:12px;color:var(--muted)}
   .cmp-cat{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-top:1px solid var(--divider);font-variant-numeric:tabular-nums}
   .cmp-cat .nm{font-weight:600}
   .cmp-cat .de{grid-column:1;font-size:12.5px;color:var(--muted)}
-  .cmp-cat .cmp-dif{grid-row:1 / span 2;grid-column:2;align-self:center}
-  .cmp-graf{width:100%;height:auto;display:block}
-  .cmp-leg{display:flex;gap:14px;font-size:12.5px;color:var(--muted)}
-  .cmp-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+  .cmp-cat .cmp-dif{grid-row:1 / span 2;grid-column:2;align-self:center;font-size:13px}
   .olho-linha{display:flex;justify-content:flex-end;margin:0 0 calc(-1 * var(--space-2))}
   .olho-btn{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:6px 12px;border:1px solid var(--divider);border-radius:var(--r-btn);background:var(--surface);color:var(--muted);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
   .olho-btn:hover{color:var(--text)}
@@ -1097,6 +1099,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=56"></script>
+<script src="app.js?v=57"></script>
 </body>
 </html>
