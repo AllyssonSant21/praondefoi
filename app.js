@@ -2481,6 +2481,18 @@ function parcelasNaFatura(kid, mk){
   });
   return out.sort((a, b) => b.c.data.localeCompare(a.c.data) || a.c.descricao.localeCompare(b.c.descricao));
 }
+// parcelas pelo mês em que a compra foi feita: 1ª parcela no mês da compra, as outras nos meses seguintes
+function parcelasDoMes(kid, mk){
+  const out = [];
+  (state.compras || []).forEach(c => {
+    if (kid && c.cartao_id !== kid) return;
+    const i = mdiff(c.data.slice(0, 7) + '-01', mk);
+    if (i < 0 || i >= c.parcelas) return;
+    const tot = cents(Number(c.valor)), base = Math.floor(tot / c.parcelas);
+    out.push({ c, n: i + 1, valor: (i === 0 ? tot - base * (c.parcelas - 1) : base) / 100 });
+  });
+  return out.sort((a, b) => (a.n > 1) - (b.n > 1) || b.c.data.localeCompare(a.c.data) || a.c.descricao.localeCompare(b.c.descricao));
+}
 function infoFatura(k, mk){
   const parcelas = parcelasNaFatura(k.id, mk);
   const total = r2(parcelas.reduce((s, p) => s + p.valor, 0));
@@ -2549,47 +2561,57 @@ function renderCartoes(){
     (state.cartoes || []).filter(k => !k.oculto || k.id === state.kcSel).map(k =>
       `<button type="button" class="chip" data-kc-sel="${esc(k.id)}" aria-pressed="${state.kcSel === k.id}"><span class="kc-chip-ic">${esc(iconeCartao(k))}</span>${esc(k.nome)}</button>`).join('');
 
+  const nomeMes = MONTHS[state.m].toLowerCase();
   const infos = lista.map(k => infoFatura(k, mk));
   const visiveis = infos.filter(i => i.st !== 'vazia' || state.kcSel);   // em "Todos" só as faturas com compra
+  const parcelas = parcelasDoMes(state.kcSel, mk);
+  // 1) quanto foi no cartão neste mês (compras do mês + parcelas de compras antigas)
+  const gasto = r2(parcelas.reduce((s, p) => s + p.valor, 0));
+  const novas = parcelas.filter(p => p.n === 1).length, antigas = parcelas.length - novas;
+  $('kcGastoK').textContent = `Gasto no cartão em ${nomeMes}`;
+  $('kcFat').textContent = brl(gasto); $('kcFat').classList.toggle('zero', !gasto);
+  $('kcFatNote').textContent = !(state.cartoes || []).length ? 'Nenhum cartão cadastrado'
+    : !parcelas.length ? 'Nenhuma compra neste mês'
+    : [novas ? plural(novas, 'compra') : '', antigas ? `${antigas} ${antigas === 1 ? 'parcela' : 'parcelas'} de antes` : ''].filter(Boolean).join(' + ');
+  // 2) fatura que vence neste mês (é o que se paga)
   const total = r2(infos.reduce((s, i) => s + i.total, 0));
   const falta = r2(infos.reduce((s, i) => s + i.falta, 0));
-  const prox = r2(lista.reduce((s, k) => s + infoFatura(k, mkProx).total, 0));
-  $('kcFat').textContent = brl(total); $('kcFat').classList.toggle('zero', !total);
   const um = state.kcSel ? infos[0] : null;
-  $('kcFatNote').textContent = !(state.cartoes || []).length ? 'Nenhum cartão cadastrado'
-    : um ? ({ vazia: 'Nada nesta fatura', paga: 'Paga ✓', aberta: `Aberta · fecha ${ddmm(um.fecha)}`,
+  $('kcPagarK').textContent = `Fatura que vence em ${nomeMes}`;
+  $('kcProx').textContent = brl(total); $('kcProx').classList.toggle('zero', !total);
+  $('kcProxNote').textContent = um ? ({ vazia: 'Nada nesta fatura', paga: 'Paga ✓', aberta: `Aberta · fecha ${ddmm(um.fecha)}`,
               fechada: `Fechada · vence ${ddmm(um.vence)}`, vencida: `Vencida em ${ddmm(um.vence)}` })[um.st]
-    : !total ? 'Nada nas faturas deste mês' : falta <= 0 ? 'Tudo pago ✓' : `Falta pagar ${brl(falta)}`;
+    : !total ? 'Nenhuma fatura vence neste mês' : falta <= 0 ? 'Tudo pago ✓' : `Falta pagar ${brl(falta)}`;
+  // 3) limite
   const comLimite = lista.filter(k => Number(k.limite) > 0);
   const limite = r2(comLimite.reduce((s, k) => s + Number(k.limite), 0));
   const usado = r2(comLimite.reduce((s, k) => s + usadoCartao(k), 0));
   $('kcLim').textContent = comLimite.length ? brl(r2(limite - usado)) : '—';
   $('kcLim').classList.toggle('zero', !comLimite.length);
   $('kcLimNote').textContent = comLimite.length ? `Usado ${brl(usado)} de ${brl(limite)}` : 'Cadastre o limite em Meus cartões';
-  $('kcProx').textContent = brl(prox); $('kcProx').classList.toggle('zero', !prox);
-  $('kcProxNote').textContent = `${MONTHS[Number(mkProx.slice(5, 7)) - 1]}, lançado até agora`;
+  $('kcFatTit').textContent = `Faturas de ${nomeMes}`;
+  $('kcComTit').textContent = `Compras de ${nomeMes}`;
 
   $('kcVazio').hidden = visiveis.length > 0;
   $('kcVazio').textContent = !(state.cartoes || []).length
     ? 'Cadastre seu cartão em "Meus cartões": só o apelido (ex.: Nubank), o dia que a fatura fecha e o dia que vence. Nada de número ou senha.'
-    : 'Nenhuma compra nas faturas deste mês.';
+    : `Nenhuma fatura vence em ${nomeMes}.`;
   $('kcFaturas').innerHTML = visiveis.map(fatHtml).join('');
 
-  // compras da fatura
-  const parcelas = state.kcSel ? (infos[0] ? infos[0].parcelas : []) : parcelasNaFatura('', mk);
   $('kcDetalhe').hidden = !(state.cartoes || []).length;
   const shared = isShared();
   $('kcCompras').innerHTML = parcelas.length ? parcelas.map(p => {
     const c = p.c, k = findCartao(c.cartao_id), pode = podeCompra(c);
     const meta = [`${c.data.slice(8, 10)}/${c.data.slice(5, 7)}`, esc(rotuloCat(c.categoria)),
-      c.parcelas > 1 ? `${p.n}/${c.parcelas}` : '', !state.kcSel && k ? esc(k.nome) : '', shared ? esc(quem(c.user_id)) : ''].filter(Boolean).join(' · ');
+      c.parcelas > 1 ? `${p.n}/${c.parcelas}` : '', !state.kcSel && k ? esc(k.nome) : '', shared ? esc(quem(c.user_id)) : '',
+      `fatura ${mesCurtoAno(mkey(Number(c.fatura.slice(0, 4)), Number(c.fatura.slice(5, 7)) - 1 + p.n - 1))}`].filter(Boolean).join(' · ');
     return `<div class="kc-compra${pode ? ' pode' : ''}"${pode ? ` data-kc-compra="${esc(c.id)}" role="button" tabindex="0"` : ''}>
       <span class="kc-ic">${esc(iconeCat(c.categoria) || '🏷️')}</span>
       <span style="min-width:0;"><span class="kc-d" style="display:block;">${esc(c.descricao)}</span><span class="by" style="margin:0;">${meta}</span></span>
       <span class="kc-v">− ${brl(p.valor)}</span>
       <span class="kc-acao">${pode ? `<button class="btn btn-ghost btn-icon" type="button" data-kc-edit="${esc(c.id)}" style="color:var(--muted);" aria-label="Editar ${esc(c.descricao)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="btn btn-ghost btn-icon" type="button" data-kc-del="${esc(c.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(c.descricao)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</span>
     </div>`;
-  }).join('') : '<p style="font-size:14px;color:var(--muted);margin:0;">Nenhuma compra nesta fatura.</p>';
+  }).join('') : '<p style="font-size:14px;color:var(--muted);margin:0;">Nenhuma compra no cartão neste mês.</p>';
 
   const byCat = {};
   parcelas.forEach(p => { byCat[p.c.categoria] = r2((byCat[p.c.categoria] || 0) + p.valor); });
@@ -2602,7 +2624,7 @@ function renderCartoes(){
         <span style="font-variant-numeric:tabular-nums;color:var(--muted);">${brl(v)} · ${Math.round(soma ? v / soma * 100 : 0)}%</span>
       </div>
       <div style="height:6px;background:var(--track);border-radius:999px;overflow:hidden;"><div style="height:100%;width:${max ? v / max * 100 : 0}%;background:var(--accent);border-radius:999px;"></div></div>
-    </div>`).join('') : '<span style="font-size:14px;color:var(--muted);">Sem compras nesta fatura.</span>';
+    </div>`).join('') : '<span style="font-size:14px;color:var(--muted);">Sem compras neste mês.</span>';
 }
 // uma fatura em forma de linha (usada em Cartões e em Contas a pagar)
 function fatHtml(i){
