@@ -216,6 +216,10 @@ let authErroVolta = null;
   if (d){ authErroVolta = translateError({ message: d.replace(/\+/g, ' ') }); history.replaceState(null, '', REDIRECT); }
 })();
 
+// painel de uso do admin: registra quando a conta abriu o app (o banco guarda no máximo a cada 15 min)
+function marcarAcesso(){ if (sb && currentUser) sb.rpc('registrar_acesso').then(() => {}, () => {}); }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && profile && profile.status === 'aprovado') marcarAcesso(); });
+
 async function handleSession(session, force){
   // link de troca de senha: abre a tela de senha nova, nunca o app direto
   if (session && recovering){ show('viewAuth'); setAuthMode('nova'); return; }
@@ -252,12 +256,13 @@ async function handleSession(session, force){
     return waitScreen('Acesso<br>bloqueado', 'Seu acesso foi suspenso pelo administrador.');
 
   renderMe();
+  marcarAcesso();
   $('adminEmail').textContent = displayName(profile.email);
   if (profile.is_admin){
     // conta master: só administração, sem controle financeiro
     show('viewAdmin');
     renderAdmin();
-    loadUsers();
+    loadUsers().then(loadUso);
     return;
   }
   if (!(await loadControles())) return;
@@ -2836,6 +2841,7 @@ async function loadUsers(){
 }
 
 function renderAdmin(){
+  setTimeout(renderUso, 0);
   const count = s => users.filter(u => u.status === s).length;
   $('cntPend').textContent = count('pendente');
   $('cntOk').textContent = count('aprovado');
@@ -2872,7 +2878,67 @@ function renderAdmin(){
   }).join('');
 }
 
-$('adminRefresh').onclick = () => loadUsers();
+/* ---------- painel de uso (só datas e quantidades) ---------- */
+let usoDados = null, usoFiltro = 'todos';
+const DIA = 86400000;
+function situacaoUso(u){
+  if (!u.lanc_total) return 'nunca';
+  const ult = Math.max(...[u.ultimo_acesso, u.ultimo_login, u.ultimo_lanc].filter(Boolean).map(d => new Date(d).getTime()));
+  const dias = (Date.now() - ult) / DIA;
+  return dias <= 7 ? 'ativo' : dias <= 30 ? 'esfriando' : 'parado';
+}
+function haQuanto(d){
+  if (!d) return 'nunca';
+  const t = new Date(d).getTime(), dias = Math.floor((Date.now() - t) / DIA);
+  if (dias <= 0){ const h = Math.floor((Date.now() - t) / 3600000); return h <= 0 ? 'agora há pouco' : `há ${h} h`; }
+  return dias === 1 ? 'ontem' : dias < 60 ? `há ${dias} dias` : new Date(d).toLocaleDateString('pt-BR');
+}
+const USO_ROT = { ativo: 'Ativo', esfriando: 'Esfriando', parado: 'Parado', nunca: 'Nunca usou', pendente: 'Aguardando', bloqueado: 'Bloqueado' };
+async function loadUso(){
+  const { data, error } = await sb.rpc('admin_uso');
+  if (error){
+    usoDados = null;
+    $('usoAviso').hidden = false;
+    $('usoAviso').textContent = 'O painel de uso ainda não está ligado neste banco. Rode o arquivo supabase-uso.sql no Supabase.';
+    $('usoResumo').innerHTML = ''; $('usoLista').innerHTML = '';
+    return;
+  }
+  $('usoAviso').hidden = true;
+  usoDados = data;
+  renderUso();
+}
+function renderUso(){
+  if (!usoDados) return;
+  const porId = Object.fromEntries(users.map(u => [u.id, u]));
+  // admin não usa o controle financeiro; quem está aguardando ou bloqueado aparece à parte
+  const lista = usoDados.map(d => ({ ...d, perfil: porId[d.id] })).filter(d => d.perfil && !d.perfil.is_admin)
+    .map(d => ({ ...d, sit: d.perfil.status === 'aprovado' ? situacaoUso(d) : d.perfil.status }));
+  const conta = s => lista.filter(d => d.sit === s).length;
+  const CARDS = [['ativo', 'Ativos', 'usaram nos últimos 7 dias'], ['esfriando', 'Esfriando', 'sem usar há 8 a 30 dias'],
+                 ['parado', 'Parados', 'sem usar há mais de 30 dias'], ['nunca', 'Nunca usaram', 'criaram a conta e não lançaram nada']];
+  $('usoResumo').innerHTML = CARDS.map(([k, t, n]) => `<button class="uso-num" type="button" data-uso="${k}" aria-pressed="${usoFiltro === k}"><b>${conta(k)}</b><span><strong>${t}</strong> · ${n}</span></button>`).join('');
+  document.querySelectorAll('#usoSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.uso === usoFiltro)));
+  const q = semAcento(adminBusca.trim());
+  const ultimo = d => Math.max(0, ...[d.ultimo_acesso, d.ultimo_login, d.ultimo_lanc].filter(Boolean).map(x => new Date(x).getTime()));
+  const vis = lista
+    .filter(d => usoFiltro === 'todos' || d.sit === usoFiltro)
+    .filter(d => !q || semAcento(`${d.perfil.email} ${displayName(d.perfil.email)} ${d.perfil.nome || ''}`).includes(q))
+    .sort((a, b) => ultimo(b) - ultimo(a));
+  $('usoLista').innerHTML = vis.length ? vis.map(d => {
+    const acesso = [d.ultimo_acesso, d.ultimo_login].filter(Boolean).sort().pop();
+    const voltou = acesso && (new Date(acesso) - new Date(d.criado_em)) > 3600000;
+    return `<div class="uso-item">
+      <span class="quem">${esc(displayName(d.perfil.email))}${d.perfil.nome ? `<small>${esc(d.perfil.nome)}</small>` : ''}</span>
+      <span class="tag tag-uso-${d.sit}">${USO_ROT[d.sit]}</span>
+      <span class="dado">Último acesso: <b>${voltou || d.lanc_total ? haQuanto(acesso || d.ultimo_lanc) : 'só no cadastro'}</b><br>Conta criada ${haQuanto(d.criado_em)}</span>
+      <span class="dado">Lançamentos: <b>${d.lanc_total}</b>${d.lanc_total ? ` · ${d.lanc_30d} em 30 dias` : ''}<br>${d.controles_comp ? `Divide ${d.controles_comp} controle${d.controles_comp > 1 ? 's' : ''}` : 'Só o controle pessoal'}</span>
+    </div>`;
+  }).join('') : '<p class="hint" style="margin:8px 0 0;">Ninguém nesta situação.</p>';
+}
+document.querySelectorAll('#usoSeg button').forEach(b => b.addEventListener('click', () => { usoFiltro = b.dataset.uso; renderUso(); }));
+$('usoResumo').addEventListener('click', e => { const b = e.target.closest('[data-uso]'); if (!b) return; usoFiltro = usoFiltro === b.dataset.uso ? 'todos' : b.dataset.uso; renderUso(); });
+
+$('adminRefresh').onclick = () => { loadUsers(); loadUso(); };
 document.querySelectorAll('#adminSeg button').forEach(b => b.addEventListener('click', () => { adminFilter = b.dataset.filter; renderAdmin(); }));
 $('adminBusca').addEventListener('input', e => { adminBusca = e.target.value; renderAdmin(); });
 $('adminBusca').addEventListener('keydown', e => { if (e.key === 'Escape'){ e.target.value = ''; adminBusca = ''; renderAdmin(); } });
