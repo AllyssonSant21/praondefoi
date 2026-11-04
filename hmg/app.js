@@ -2991,6 +2991,35 @@ $('drClose').onclick = closeMenu;
 $('drawer').addEventListener('click', e => { if (e.target.id === 'drawer' || e.target.closest('.drawer-item')) closeMenu(); });
 $('drPerfil').addEventListener('click', () => openPerfil());
 $('drCategorias').addEventListener('click', () => openCategorias());
+$('drDados').addEventListener('click', () => openDlg2('Privacidade', 'Seus dados', `
+  <div class="dlg-sec">
+    <p style="margin:0;font-size:15px;"><b>🔒 O Pra Onde Foi? não se conecta ao seu banco.</b></p>
+    <p class="hint" style="margin:0;">Nunca pedimos CPF, número de cartão, CVV, senha do banco, agência ou conta. Tudo o que aparece aqui foi você (ou quem divide um controle com você) que lançou.</p>
+  </div>
+  <div class="dlg-sec">
+    <h3>O que fica guardado</h3>
+    <ul class="dados-lista">
+      <li>Seu login (usuário ou e-mail) e a senha, criptografada: nem nós conseguimos ler.</li>
+      <li>O que você escolher pôr no perfil: nome, foto, e-mail para avisos e WhatsApp. Tudo opcional.</li>
+      <li>Os lançamentos, contas, metas, investimentos e cartões que você cadastrar. Dos cartões, só apelido, dias de fechamento e vencimento e limite.</li>
+    </ul>
+  </div>
+  <div class="dlg-sec">
+    <h3>O que não fazemos</h3>
+    <ul class="dados-lista">
+      <li>Não vendemos nem passamos seus dados para ninguém.</li>
+      <li>Não mostramos propaganda.</li>
+      <li>O administrador do app não vê seus valores, descrições nem categorias.</li>
+    </ul>
+  </div>
+  <div class="dlg-sec">
+    <h3>Você manda nos seus dados</h3>
+    <div class="row" style="flex-wrap:wrap;">
+      <button class="btn btn-secondary btn-sm" type="button" data-act="pfBaixar">Baixar tudo em Excel</button>
+      <a class="btn btn-ghost btn-sm" href="privacidade.html" target="_blank" rel="noopener">Política de privacidade</a>
+      <button class="btn btn-ghost btn-sm" type="button" data-act="pfExcluir" style="color:var(--alerta);">Excluir minha conta</button>
+    </div>
+  </div>`, { tipo: 'dados' }));
 $('drExcel').addEventListener('click', () => $('export').click());
 $('drCodigo').addEventListener('click', () => $('ctrlJoin').click());
 // aparência: claro (padrão), escuro ou igual ao celular — guardado neste aparelho

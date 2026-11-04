@@ -793,6 +793,11 @@
   .bottomnav button{padding-left:0;padding-right:0}
   .bottomnav .lbl{font-size:10px;letter-spacing:-.02em}
   @media (max-width:360px){ .bottomnav .lbl{font-size:9px} }
+
+  /* aviso de privacidade na tela de entrar */
+  .auth-seguro{display:flex;gap:10px;align-items:flex-start;margin:4px 0 0;padding:12px 14px;border:1px solid var(--divider);border-radius:var(--r-cartao);background:rgba(var(--fg-rgb),.03);font-size:13px;line-height:1.45;color:var(--muted)}
+  .auth-seguro b{color:var(--text)}
+  .dados-lista{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px}
 </style>
 </head>
 <body>
@@ -857,6 +862,7 @@
         <button class="btn btn-ghost btn-sm" id="forgot" type="button">Esqueci minha senha</button>
         <button class="btn btn-ghost btn-sm" id="backLogin" type="button" hidden>Voltar para entrar</button>
       </div>
+      <p class="auth-seguro"><span aria-hidden="true">🔒</span><span><b>Não se conecta ao seu banco.</b> Nunca pedimos CPF, número de cartão, senha do banco, agência ou conta. Tudo o que aparece no app é você que lança.</span></p>
     </div>
     <p class="auth-foot" style="margin:14px 0 0;"><a href="privacidade.html">Política de privacidade</a> · <a href="termos.html">Termos de uso</a></p>
     </div>
@@ -1331,6 +1337,7 @@
       <button class="drawer-item" id="drExcel" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>Baixar planilha Excel</button>
       <button class="drawer-item" id="drCategorias" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Minhas categorias</button>
       <button class="drawer-item" id="drPerfil" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Meu perfil</button>
+      <button class="drawer-item" id="drDados" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>Seus dados e privacidade</button>
       <button class="drawer-item" data-changepass type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/></svg>Trocar senha</button>
       <button class="drawer-item sair" data-logout type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>Sair</button>
     </nav>
@@ -1354,6 +1361,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=66"></script>
+<script src="app.js?v=67"></script>
 </body>
 </html>
