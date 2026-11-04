@@ -537,8 +537,12 @@ async function loadCategorias(){
   categorias = error ? [] : data;      // sem o SQL rodado: só as categorias do app
   return true;
 }
+// emoji de cada categoria do app (as personalizadas usam o emoji que a pessoa escolheu)
+const ICONE_APP = { 'Mercado':'🛒', 'Moradia':'🏠', 'Contas':'🧾', 'Transporte':'🚗', 'Saúde':'💊', 'Lazer':'🎉', 'Educação':'📚',
+  'Outros':'📦', 'Salário':'💰', 'Renda extra':'💸', 'Metas':'🎯' };
+const iconeCat = nome => { const c = categorias.find(x => x.nome === nome); return (c && c.icone) || ICONE_APP[nome] || ''; };
 // rótulo com o emoji, valor só com o nome (é o que fica gravado no lançamento)
-const rotuloCat = nome => { const c = categorias.find(x => x.nome === nome); return c && c.icone ? `${c.icone} ${nome}` : nome; };
+const rotuloCat = nome => { const i = iconeCat(nome); return i ? `${i} ${nome}` : nome; };
 function listaCats(tipo, atual){
   const base = CATS[tipo].filter(c => c !== 'Outros');
   const minhas = categorias.filter(c => !c.oculta && (c.tipo === tipo || c.tipo === 'ambos')).map(c => c.nome);
@@ -923,8 +927,8 @@ function render(){
     return `
     <tr>
       <td style="color:var(--muted);">${e.date.slice(8,10)}/${e.date.slice(5,7)}</td>
-      <td>${esc(e.desc)}${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<span class="tag cat-inline ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(e.cat)}</span></td>
-      <td><span class="tag ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(e.cat)}</span></td>
+      <td>${esc(e.desc)}${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<span class="tag cat-inline ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
+      <td><span class="tag ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
       <td style="text-align:right;white-space:nowrap;font-weight:500;color:${e.type === 'inc' ? 'var(--green)' : 'var(--out)'};">${e.type === 'inc' ? '+ ' : '− '}${brl(e.amount)}</td>
       <td style="text-align:right;white-space:nowrap;">${mine ? `<button class="btn btn-ghost btn-icon" data-edit="${esc(e.id)}" style="color:var(--muted);" aria-label="Editar ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</td>
     </tr>`;
@@ -947,7 +951,7 @@ function render(){
   $('cats').innerHTML = list.length ? list.map(([name,v]) => `
     <div style="display:flex;flex-direction:column;gap:5px;">
       <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
-        <span>${esc(name)}</span>
+        <span>${esc(rotuloCat(name))}</span>
         <span style="font-variant-numeric:tabular-nums;color:var(--muted);">${brl(v)} · ${Math.round(totalGastos ? v/totalGastos*100 : 0)}%</span>
       </div>
       <div style="height:6px;background:var(--track);border-radius:999px;overflow:hidden;"><div style="height:100%;width:${max ? v/max*100 : 0}%;background:var(--accent);border-radius:999px;"></div></div>
@@ -1171,7 +1175,7 @@ function renderContas(){
       : i.days === 0 ? '<span class="tag tag-accent">Vence hoje</span>'
       : i.st === 'soon' ? `<span class="tag tag-accent">Vence em ${plural(i.days, 'dia')}</span>`
       : i.pago > 0 ? '<span class="tag tag-neutral">Parcial</span>' : '';
-    const linha2 = [esc(c.categoria), `vence ${ddmm(i.due)}`, (!i.paid && i.pago > 0) ? `pago ${brl(i.pago)} de ${brl(i.total)}` : ''].filter(Boolean).join(' · ');
+    const linha2 = [esc(rotuloCat(c.categoria)), `vence ${ddmm(i.due)}`, (!i.paid && i.pago > 0) ? `pago ${brl(i.pago)} de ${brl(i.total)}` : ''].filter(Boolean).join(' · ');
     return `
     <div class="bill ${i.st}" data-bill="${esc(c.id)}">
       <div class="bill-day"><b>${i.due.getDate()}</b><small>${MES_CURTO[i.due.getMonth()]}</small></div>
@@ -2841,7 +2845,7 @@ async function desenharComparativo(){
     <p class="cmp-frase">${fGasto}${fSaldo ? ' ' + fSaldo : ''}</p>
     ${parcial ? `<p class="hint" style="margin:0;">O mês ainda não acabou: comparando do dia 1 ao dia ${ate} nos dois meses.</p>` : ''}
     <div class="cmp-cards">${card('Gastos', A.exp, B.exp, false)}${card('Saldo', A.saldo, B.saldo, true)}</div>
-    ${cats.length ? `<div class="dlg-sec"><h3>Onde os gastos mudaram</h3>${cats.map(x => `<div class="cmp-cat"><span class="nm">${esc(x.c)}</span><span class="cmp-dif ${x.a > x.b ? 'ruim' : 'bom'}">${x.a > x.b ? '↑' : '↓'} ${cmp.oculto ? '' : brl(r2(Math.abs(x.a - x.b)))}</span><span class="de">${R(x.b)} → ${R(x.a)}</span></div>`).join('')}</div>` : ''}`}
+    ${cats.length ? `<div class="dlg-sec"><h3>Onde os gastos mudaram</h3>${cats.map(x => `<div class="cmp-cat"><span class="nm">${esc(rotuloCat(x.c))}</span><span class="cmp-dif ${x.a > x.b ? 'ruim' : 'bom'}">${x.a > x.b ? '↑' : '↓'} ${cmp.oculto ? '' : brl(r2(Math.abs(x.a - x.b)))}</span><span class="de">${R(x.b)} → ${R(x.a)}</span></div>`).join('')}</div>` : ''}`}
   </div>`;
 }
 $('btnComparar').onclick = openComparativo;
