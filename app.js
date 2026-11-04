@@ -266,7 +266,8 @@ async function handleSession(session, force){
     return;
   }
   if (!(await loadControles())) return;
-  await Promise.all([loadMembers(), loadEntries(), loadInvites(), loadContas(), loadMetas(), loadInvest()]);
+  await Promise.all([loadMembers(), loadEntries(), loadInvites(), loadContas(), loadMetas(), loadInvest(), loadCategorias()]);
+  fillCats();
   show('viewApp');
   render();
   startRealtime();
@@ -363,7 +364,7 @@ async function fetchAllEntries(){
   }
   return all.map(fromRow);
 }
-async function refresh(){ const [ok] = await Promise.all([loadEntries(), loadContas(), loadMetas(), loadInvest()]); if (ok) render(); }
+async function refresh(){ const [ok] = await Promise.all([loadEntries(), loadContas(), loadMetas(), loadInvest(), loadCategorias()]); if (ok){ fillCats(); render(); } }
 
 // dados antigos guardados só neste navegador (versão offline)
 function localPending(){
@@ -448,14 +449,129 @@ function confirmar(msg, okTxt){
   });
 }
 
+/* ---------- janela: nova categoria / editar categoria ---------- */
+const EMOJIS_CAT = ['🐶','🏋️','💄','🎮','🍔','☕','👶','🎁','✈️','🚗','💊','📚','🧾','🏠','💼','🎵'];
+function janelaCategoria(cat, tipoPadrao){
+  return new Promise(res => {
+    const t = cat ? cat.tipo : (tipoPadrao || 'exp');
+    openDlg2('Categorias', cat ? 'Editar categoria' : 'Nova categoria', `
+      <div class="field"><label for="ctNome">Nome</label><input class="input" id="ctNome" maxlength="30" placeholder="Ex.: Pet, Academia, Farmácia" value="${cat ? esc(cat.nome) : ''}" autocomplete="off"></div>
+      <div class="field"><label>Ícone (opcional)</label>
+        <div class="ct-emojis" role="group" aria-label="Ícone">${['', ...EMOJIS_CAT].map(e => `<button type="button" class="ct-emoji" data-ct-emoji="${e}" aria-pressed="${(cat ? (cat.icone || '') : '') === e}">${e || 'Sem'}</button>`).join('')}</div>
+      </div>
+      <div class="field"><label>Aparece em qual lista?</label>
+        <div class="seg" id="ctTipo">${[['exp','Saídas'],['inc','Entradas'],['ambos','Nas duas']].map(([v, l]) => `<button type="button" data-ct-tipo="${v}" aria-pressed="${t === v}">${l}</button>`).join('')}</div>
+        <span class="hint" style="margin:0;">Ex.: "Pet" só faz sentido em saídas. "Presente" pode ser as duas: quando você dá e quando você ganha.</span>
+      </div>
+      ${cat ? '<p class="hint" style="margin:0;">Ao renomear, os lançamentos e as contas com essa categoria passam a usar o nome novo.</p>' : ''}
+      <span class="hint" id="ctErro" style="color:var(--alerta);" hidden></span>
+      <button class="btn btn-primary" type="button" data-ct-salvar style="min-height:44px;">${cat ? 'Salvar' : 'Criar categoria'}</button>`,
+      { tipo: 'categoria', cat, res });
+    setTimeout(() => $('ctNome').focus(), 0);
+  });
+}
+async function novaCategoria(tipo){ return janelaCategoria(null, tipo); }
+$('dlg2Body').addEventListener('click', async e => {
+  if (dlg2.tipo !== 'categoria') return;
+  const em = e.target.closest('[data-ct-emoji]');
+  if (em){ document.querySelectorAll('[data-ct-emoji]').forEach(b => b.setAttribute('aria-pressed', String(b === em))); return; }
+  const tp = e.target.closest('[data-ct-tipo]');
+  if (tp){ document.querySelectorAll('[data-ct-tipo]').forEach(b => b.setAttribute('aria-pressed', String(b === tp))); return; }
+  if (!e.target.closest('[data-ct-salvar]')) return;
+  const nome = $('ctNome').value.trim();
+  const icone = (document.querySelector('[data-ct-emoji][aria-pressed="true"]') || {}).dataset?.ctEmoji || '';
+  const tipo = (document.querySelector('[data-ct-tipo][aria-pressed="true"]') || {}).dataset?.ctTipo || 'exp';
+  const erro = m => { $('ctErro').textContent = m; $('ctErro').hidden = false; };
+  if (!nome) return erro('Dê um nome para a categoria.');
+  const b = e.target.closest('[data-ct-salvar]'); b.disabled = true;
+  const { cat, res } = dlg2;
+  const { error } = await sb.rpc('salvar_categoria', { p_id: cat ? cat.id : null, cid: state.cid, p_nome: nome, p_icone: icone, p_tipo: tipo });
+  b.disabled = false;
+  if (error) return erro(rpcMsg(error));
+  await loadCategorias();
+  if (cat && cat.nome !== nome) await loadEntries();
+  closeDlg2(); fillCats(); render();
+  toast(cat ? 'Categoria atualizada.' : `Categoria "${nome}" criada.`, true);
+  if (res) res(nome);
+});
+$('dlg2Body').addEventListener('keydown', e => { if (dlg2.tipo === 'categoria' && e.key === 'Enter' && e.target.id === 'ctNome'){ e.preventDefault(); document.querySelector('[data-ct-salvar]').click(); } });
+
+/* ---------- Menu → Minhas categorias ---------- */
+function openCategorias(){
+  const minhas = categorias.slice().sort((a, b) => (a.oculta - b.oculta) || a.nome.localeCompare(b.nome));
+  const TIPO = { exp: 'Saídas', inc: 'Entradas', ambos: 'Saídas e entradas' };
+  const pode = c => (currentUser && c.criado_por === currentUser.id) || !!(current() || {}).sou_dono;
+  openDlg2('Categorias', 'Minhas categorias', `
+    <p class="hint" style="margin:0;">As categorias do app (Mercado, Moradia…) estão sempre disponíveis. Aqui ficam as que você criou${isShared() ? ' neste controle, que todos dele usam' : ''}.</p>
+    <div class="ct-lista">${minhas.length ? minhas.map(c => `
+      <div class="ct-item${c.oculta ? ' oculta' : ''}">
+        <span class="ct-ic">${c.icone ? esc(c.icone) : '🏷️'}</span>
+        <span class="ct-nm"><b>${esc(c.nome)}</b><small>${TIPO[c.tipo]}${c.oculta ? ' · escondida' : ''}</small></span>
+        ${pode(c) ? `<button class="btn btn-ghost btn-sm" type="button" data-ct-editar="${esc(c.id)}">Editar</button>
+        <button class="btn btn-ghost btn-sm" type="button" data-ct-ocultar="${esc(c.id)}">${c.oculta ? 'Mostrar' : 'Esconder'}</button>` : ''}
+      </div>`).join('') : '<p class="hint" style="margin:6px 0;">Você ainda não criou nenhuma categoria.</p>'}</div>
+    <button class="btn btn-primary" type="button" data-ct-nova style="min-height:44px;">+ Nova categoria</button>`, { tipo: 'categorias' });
+}
+$('dlg2Body').addEventListener('click', async e => {
+  if (dlg2.tipo !== 'categorias') return;
+  if (e.target.closest('[data-ct-nova]')){ await novaCategoria(state.type); openCategorias(); return; }
+  const ed = e.target.closest('[data-ct-editar]');
+  if (ed){ const c = categorias.find(x => x.id === ed.dataset.ctEditar); if (c){ await janelaCategoria(c); openCategorias(); } return; }
+  const oc = e.target.closest('[data-ct-ocultar]');
+  if (oc){
+    const c = categorias.find(x => x.id === oc.dataset.ctOcultar); if (!c) return;
+    oc.disabled = true;
+    const { error } = await sb.rpc('ocultar_categoria', { p_id: c.id, p_oculta: !c.oculta });
+    if (error){ oc.disabled = false; return toast(rpcMsg(error)); }
+    await loadCategorias(); fillCats(); openCategorias();
+    toast(c.oculta ? `"${c.nome}" voltou para a lista.` : `"${c.nome}" saiu da lista. Os lançamentos antigos continuam com ela.`, true);
+  }
+});
+
 /* ======================= FORMULÁRIO ======================= */
+/* ---------- categorias personalizadas (por controle) ---------- */
+let categorias = [];
+async function loadCategorias(){
+  if (!state.cid){ categorias = []; return true; }
+  const { data, error } = await sb.from('categorias').select('id,tipo,nome,icone,oculta,criado_por').eq('controle_id', state.cid).order('nome');
+  categorias = error ? [] : data;      // sem o SQL rodado: só as categorias do app
+  return true;
+}
+// emoji de cada categoria do app (as personalizadas usam o emoji que a pessoa escolheu)
+const ICONE_APP = { 'Mercado':'🛒', 'Moradia':'🏠', 'Contas':'🧾', 'Transporte':'🚗', 'Saúde':'💊', 'Lazer':'🎉', 'Educação':'📚',
+  'Outros':'📦', 'Salário':'💰', 'Renda extra':'💸', 'Metas':'🎯' };
+const iconeCat = nome => { const c = categorias.find(x => x.nome === nome); return (c && c.icone) || ICONE_APP[nome] || ''; };
+// rótulo com o emoji, valor só com o nome (é o que fica gravado no lançamento)
+const rotuloCat = nome => { const i = iconeCat(nome); return i ? `${i} ${nome}` : nome; };
+function listaCats(tipo, atual){
+  const base = CATS[tipo].filter(c => c !== 'Outros');
+  const minhas = categorias.filter(c => !c.oculta && (c.tipo === tipo || c.tipo === 'ambos')).map(c => c.nome);
+  const l = [...base, ...minhas, 'Outros'];
+  if (atual && !l.includes(atual)) l.unshift(atual);
+  return l;
+}
+const opcoesCat = (tipo, atual, comNova = true) => listaCats(tipo, atual)
+  .map(c => `<option value="${esc(c)}"${c === atual ? ' selected' : ''}>${esc(rotuloCat(c))}</option>`).join('')
+  + (comNova ? '<option value="__nova">+ Nova categoria…</option>' : '');
+
 function fillCats(){
   // exemplo do campo Descrição combina com o tipo (saída ou entrada)
   if (!$('desc').readOnly) $('desc').placeholder = state.type === 'inc' ? 'Ex.: Salário, freela, Pix recebido' : 'Ex.: Mercado da semana';
-  $('cat').innerHTML = CATS[state.type].map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if ($('cat').disabled) return;     // travada pelo "Usar para"
+  const antes = $('cat').value;
+  $('cat').innerHTML = opcoesCat(state.type, null);
+  if (antes && antes !== '__nova' && [...$('cat').options].some(o => o.value === antes)) $('cat').value = antes;
+  $('cat').dataset.ultima = $('cat').value;
   document.querySelectorAll('#typeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.type === state.type)));
 }
 document.querySelectorAll('#typeSeg button').forEach(b => b.addEventListener('click', () => { state.type = b.dataset.type; fillCats(); vincOpcoes(); }));
+$('cat').addEventListener('change', async () => {
+  const sel = $('cat');
+  if (sel.value !== '__nova'){ sel.dataset.ultima = sel.value; return; }
+  sel.value = sel.dataset.ultima || CATS[state.type][0];
+  const nova = await novaCategoria(state.type);
+  if (nova){ fillCats(); sel.value = nova; sel.dataset.ultima = nova; }
+});
 
 /* ---------- "Usar para": lançar já guardando numa meta ou pagando uma conta ---------- */
 function contasAbertasDoMes(){
@@ -611,9 +727,8 @@ async function openLancEdit(id){
   leCats();
 }
 function leCats(){
-  const lista = CATS[dlg2.letipo].slice();
-  if (dlg2.cat && !lista.includes(dlg2.cat) && dlg2.letipo === (state.entries.find(x => x.id === dlg2.id) || {}).type) lista.unshift(dlg2.cat);
-  $('leCat').innerHTML = lista.map(c => `<option${c === dlg2.cat ? ' selected' : ''}>${esc(c)}</option>`).join('');
+  const mesmoTipo = dlg2.letipo === (state.entries.find(x => x.id === dlg2.id) || {}).type;
+  $('leCat').innerHTML = opcoesCat(dlg2.letipo, mesmoTipo ? dlg2.cat : null, false);
 }
 $('dlg2Body').addEventListener('click', async e => {
   if (dlg2.tipo !== 'lancEdit') return;
@@ -770,9 +885,9 @@ function render(){
   const shared = isShared();
 
   renderCtrlBar();
-  $('monthTitle').textContent = `${MONTHS[m]} ${y}`;
-  { const d = new Date(); $('today').hidden = (y === d.getFullYear() && m === d.getMonth()); }
-  document.title = `${MONTHS[m]} ${y} · Pra Onde Foi?`;
+  $('mesLongo').textContent = `${MONTHS[m]} ${y}`;
+  $('mesCurto').textContent = `${MONTHS[m].slice(0, 3)} ${y}`;
+  { const d = new Date(); $('today').classList.toggle('mes-atual', y === d.getFullYear() && m === d.getMonth()); }
   $('incVal').textContent = brl(inc); $('incVal').classList.toggle('zero', !inc); $('incNote').textContent = plural(month.length - expList.length,'lançamento');
   $('expVal').textContent = brl(exp); $('expVal').classList.toggle('zero', !exp); $('expNote').textContent = plural(expList.length,'lançamento');
   $('balVal').textContent = brl(bal); $('balVal').classList.toggle('zero', !bal);
@@ -812,8 +927,8 @@ function render(){
     return `
     <tr>
       <td style="color:var(--muted);">${e.date.slice(8,10)}/${e.date.slice(5,7)}</td>
-      <td>${esc(e.desc)}${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<span class="tag cat-inline ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(e.cat)}</span></td>
-      <td><span class="tag ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(e.cat)}</span></td>
+      <td><span class="ldesc">${esc(e.desc)}</span>${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<div class="lmeta">${e.date.slice(8,10)}/${e.date.slice(5,7)} · ${esc(rotuloCat(e.cat))}${shared ? ` · ${mine ? 'você' : esc(nameOf(e.uid))}` : ''}</div><span class="tag cat-inline ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
+      <td><span class="tag ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
       <td style="text-align:right;white-space:nowrap;font-weight:500;color:${e.type === 'inc' ? 'var(--green)' : 'var(--out)'};">${e.type === 'inc' ? '+ ' : '− '}${brl(e.amount)}</td>
       <td style="text-align:right;white-space:nowrap;">${mine ? `<button class="btn btn-ghost btn-icon" data-edit="${esc(e.id)}" style="color:var(--muted);" aria-label="Editar ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</td>
     </tr>`;
@@ -836,7 +951,7 @@ function render(){
   $('cats').innerHTML = list.length ? list.map(([name,v]) => `
     <div style="display:flex;flex-direction:column;gap:5px;">
       <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
-        <span>${esc(name)}</span>
+        <span>${esc(rotuloCat(name))}</span>
         <span style="font-variant-numeric:tabular-nums;color:var(--muted);">${brl(v)} · ${Math.round(totalGastos ? v/totalGastos*100 : 0)}%</span>
       </div>
       <div style="height:6px;background:var(--track);border-radius:999px;overflow:hidden;"><div style="height:100%;width:${max ? v/max*100 : 0}%;background:var(--accent);border-radius:999px;"></div></div>
@@ -953,7 +1068,7 @@ function alertas(){
   return { late, hoje, primeiro };
 }
 
-const TITULOS = { metas: 'Metas', invest: 'Investimentos' };
+const TITULOS = { lanc: 'Lançamentos', contas: 'Contas a pagar', metas: 'Metas', invest: 'Investimentos' };
 // o aviso de contas vencidas só aparece em Contas a pagar (nas outras abas fica só o número no menu)
 function syncAlerta(){
   $('billAlert').hidden = !state.alertaN || !modOn('contas') || state.tab !== 'contas';
@@ -981,7 +1096,7 @@ function renderTabs(){
   const porMes = state.tab === 'lanc' || state.tab === 'contas';
   $('monthNav').style.display = porMes ? 'flex' : 'none';
   if (!porMes){ $('monthTitle').textContent = TITULOS[state.tab]; document.title = `${TITULOS[state.tab]} · Pra Onde Foi?`; }
-  else { $('monthTitle').textContent = `${MONTHS[state.m]} ${state.y}`; document.title = `${MONTHS[state.m]} ${state.y} · Pra Onde Foi?`; }
+  else { $('monthTitle').textContent = TITULOS[state.tab]; document.title = `${TITULOS[state.tab]} · ${MONTHS[state.m]} ${state.y} · Pra Onde Foi?`; }
 }
 function setTab(t){
   state.tab = t;
@@ -991,7 +1106,7 @@ function setTab(t){
   window.scrollTo(0, 0);
 }
 document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
-$('navMenu').addEventListener('click', () => openMenu());
+$('navMenu').addEventListener('click', () => openMenu($('navMenu')));
 $('tabOffBtn').addEventListener('click', async () => {
   const p = state.controles.find(c => c.pessoal); if (!p) return;
   selectControle(p.id); state.entries = []; state.members = []; render();
@@ -1060,7 +1175,7 @@ function renderContas(){
       : i.days === 0 ? '<span class="tag tag-accent">Vence hoje</span>'
       : i.st === 'soon' ? `<span class="tag tag-accent">Vence em ${plural(i.days, 'dia')}</span>`
       : i.pago > 0 ? '<span class="tag tag-neutral">Parcial</span>' : '';
-    const linha2 = [esc(c.categoria), `vence ${ddmm(i.due)}`, (!i.paid && i.pago > 0) ? `pago ${brl(i.pago)} de ${brl(i.total)}` : ''].filter(Boolean).join(' · ');
+    const linha2 = [esc(rotuloCat(c.categoria)), `vence ${ddmm(i.due)}`, (!i.paid && i.pago > 0) ? `pago ${brl(i.pago)} de ${brl(i.total)}` : ''].filter(Boolean).join(' · ');
     return `
     <div class="bill ${i.st}" data-bill="${esc(c.id)}">
       <div class="bill-day"><b>${i.due.getDate()}</b><small>${MES_CURTO[i.due.getMonth()]}</small></div>
@@ -1209,7 +1324,7 @@ function openBillForm(c){
   const partes = c ? (state.partes[c.id] || []) : [];
   const iguais = partes.every(p => Number(p.peso) === Number((partes[0] || {}).peso));
   bf = { c, tipo: c ? c.tipo : 'fixa', dividir: partes.length > 0, modo: partes.length && !iguais ? 'valores' : 'iguais', valModo: c ? 'parcela' : 'total' };
-  const cats = CATS.exp.includes(c && c.categoria) || !c ? CATS.exp : [c.categoria, ...CATS.exp];
+  const cats = listaCats('exp', c ? c.categoria : null);
   const parcAtual = c && c.tipo === 'parcelada' ? Math.max(1, Math.min(c.parcelas, mdiff(c.inicio, mk) + 1)) : 1;
   const membros = state.members.length ? state.members : [{ user_id: myId(), login: currentUser.email }];
   const peso = uid => { const p = partes.find(x => x.user_id === uid); return p ? Number(p.peso) : 0; };
@@ -1231,7 +1346,7 @@ function openBillForm(c){
       </div>
       <div class="field">
         <label for="bfCat">Categoria</label>
-        <select class="input" id="bfCat">${cats.map(x => `<option${c && c.categoria === x ? ' selected' : (!c && x === 'Contas' ? ' selected' : '')}>${esc(x)}</option>`).join('')}</select>
+        <select class="input" id="bfCat">${cats.map(x => `<option value="${esc(x)}"${c && c.categoria === x ? ' selected' : (!c && x === 'Contas' ? ' selected' : '')}>${esc(rotuloCat(x))}</option>`).join('')}</select>
       </div>
       <div class="field">
         <label>Tipo</label>
@@ -2325,12 +2440,26 @@ function renderMe(){
   $('drNome').textContent = meuNome();
   $('drLogin').textContent = profile.nome ? displayName(profile.email) : (perfilNovo ? 'Complete seu perfil' : displayName(profile.email));
 }
-function openMenu(){ renderMe(); $('drawer').hidden = false; }
+// computador: abre como balão saindo do botão do perfil; celular: folha que sobe de baixo
+function openMenu(origem){
+  renderMe();
+  const d = $('drawer'), b = origem && origem.getBoundingClientRect ? origem : null;
+  const balao = b && b.id === 'menuBtn' && b.offsetParent !== null;
+  d.classList.toggle('pop', balao); d.classList.toggle('folha', !balao);
+  if (balao){
+    const r = b.getBoundingClientRect();
+    d.style.setProperty('--pop-x', Math.max(8, r.left) + 'px');
+    d.style.setProperty('--pop-y', Math.max(8, innerHeight - r.top + 8) + 'px');
+  }
+  d.hidden = false;
+}
+addEventListener('resize', () => { if (!$('drawer').hidden && $('drawer').classList.contains('pop')) closeMenu(); });
 function closeMenu(){ $('drawer').hidden = true; }
-$('menuBtn').onclick = openMenu;
+$('menuBtn').onclick = () => openMenu($('menuBtn'));
 $('drClose').onclick = closeMenu;
 $('drawer').addEventListener('click', e => { if (e.target.id === 'drawer' || e.target.closest('.drawer-item')) closeMenu(); });
 $('drPerfil').addEventListener('click', () => openPerfil());
+$('drCategorias').addEventListener('click', () => openCategorias());
 $('drExcel').addEventListener('click', () => $('export').click());
 $('drCodigo').addEventListener('click', () => $('ctrlJoin').click());
 // aparência: claro (padrão), escuro ou igual ao celular — guardado neste aparelho
@@ -2716,7 +2845,7 @@ async function desenharComparativo(){
     <p class="cmp-frase">${fGasto}${fSaldo ? ' ' + fSaldo : ''}</p>
     ${parcial ? `<p class="hint" style="margin:0;">O mês ainda não acabou: comparando do dia 1 ao dia ${ate} nos dois meses.</p>` : ''}
     <div class="cmp-cards">${card('Gastos', A.exp, B.exp, false)}${card('Saldo', A.saldo, B.saldo, true)}</div>
-    ${cats.length ? `<div class="dlg-sec"><h3>Onde os gastos mudaram</h3>${cats.map(x => `<div class="cmp-cat"><span class="nm">${esc(x.c)}</span><span class="cmp-dif ${x.a > x.b ? 'ruim' : 'bom'}">${x.a > x.b ? '↑' : '↓'} ${cmp.oculto ? '' : brl(r2(Math.abs(x.a - x.b)))}</span><span class="de">${R(x.b)} → ${R(x.a)}</span></div>`).join('')}</div>` : ''}`}
+    ${cats.length ? `<div class="dlg-sec"><h3>Onde os gastos mudaram</h3>${cats.map(x => `<div class="cmp-cat"><span class="nm">${esc(rotuloCat(x.c))}</span><span class="cmp-dif ${x.a > x.b ? 'ruim' : 'bom'}">${x.a > x.b ? '↑' : '↓'} ${cmp.oculto ? '' : brl(r2(Math.abs(x.a - x.b)))}</span><span class="de">${R(x.b)} → ${R(x.a)}</span></div>`).join('')}</div>` : ''}`}
   </div>`;
 }
 $('btnComparar').onclick = openComparativo;
@@ -2786,37 +2915,70 @@ $('export').onclick = async () => {
   const shared = !c.pessoal;
   const money = '"R$" #,##0.00;-"R$" #,##0.00';
   const wb = XLSX.utils.book_new();
-  const fmtCol = (ws, cols) => {
-    const r = XLSX.utils.decode_range(ws['!ref']);
-    for (let row = 1; row <= r.e.r; row++) cols.forEach(col => { const cell = ws[XLSX.utils.encode_cell({r:row,c:col})]; if (cell && cell.t === 'n') cell.z = money; });
+  const dBR = iso => iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '';
+  const mBR = mk => { if (!mk) return ''; const [y, m] = String(mk).split('-').map(Number); return `${MONTHS[m - 1]} ${y}`; };
+  // cada aba sempre existe: sem dados, fica só o cabeçalho
+  const aba = (nome, cab, linhas, larg, colsDinheiro = [], colsPct = []) => {
+    const ws = XLSX.utils.aoa_to_sheet([cab, ...linhas]);
+    ws['!cols'] = larg.map(w => ({ wch: w }));
+    for (let r = 1; r <= linhas.length; r++){
+      colsDinheiro.forEach(col => { const cel = ws[XLSX.utils.encode_cell({ r, c: col })]; if (cel && cel.t === 'n') cel.z = money; });
+      colsPct.forEach(col => { const cel = ws[XLSX.utils.encode_cell({ r, c: col })]; if (cel && cel.t === 'n') cel.z = '0%'; });
+    }
+    XLSX.utils.book_append_sheet(wb, ws, nome);
   };
-  const all = entries.map(e => {
-    const row = {
-      'Data': e.date.split('-').reverse().join('/'),
-      'Tipo': e.type === 'inc' ? 'Entrada' : 'Saída',
-      'Descrição': e.desc, 'Categoria': e.cat,
-      'Valor': e.type === 'inc' ? e.amount : -e.amount
-    };
-    if (shared) row['Quem lançou'] = nameOf(e.uid);
-    return row;
-  });
-  const ws1 = XLSX.utils.json_to_sheet(all.length ? all : [{Data:'',Tipo:'',Descrição:'',Categoria:'',Valor:''}]);
-  ws1['!cols'] = [{wch:12},{wch:10},{wch:34},{wch:16},{wch:14},{wch:18}];
-  fmtCol(ws1,[4]);
-  XLSX.utils.book_append_sheet(wb, ws1, 'Lançamentos');
 
+  // 1) Lançamentos
+  const cabL = ['Data', 'Tipo', 'Descrição', 'Categoria', 'Valor'].concat(shared ? ['Quem lançou'] : []);
+  aba('Lançamentos', cabL, entries.map(e => [dBR(e.date), e.type === 'inc' ? 'Entrada' : 'Saída', e.desc, e.cat,
+    e.type === 'inc' ? e.amount : -e.amount].concat(shared ? [nameOf(e.uid)] : [])), [12, 10, 34, 18, 14, 18], [4]);
+
+  // 2) Resumo por mês
   const byMonth = {};
-  entries.forEach(e => { const k = e.date.slice(0,7); byMonth[k] = byMonth[k] || {inc:0,exp:0}; byMonth[k][e.type] += e.amount; });
-  const months = Object.keys(byMonth).sort().map(k => {
-    const [y,m] = k.split('-').map(Number), v = byMonth[k];
-    return {'Mês': `${MONTHS[m-1]} ${y}`, 'Entradas': v.inc, 'Saídas': v.exp, 'Saldo': v.inc - v.exp};
+  entries.forEach(e => { const k = e.date.slice(0, 7); byMonth[k] = byMonth[k] || { inc: 0, exp: 0 }; byMonth[k][e.type] += e.amount; });
+  aba('Resumo por mês', ['Mês', 'Entradas', 'Saídas', 'Saldo'],
+    Object.keys(byMonth).sort().map(k => { const v = byMonth[k]; return [mBR(k), r2(v.inc), r2(v.exp), r2(v.inc - v.exp)]; }),
+    [18, 14, 14, 14], [1, 2, 3]);
+
+  // 3) Contas a pagar (situação do mês que está na tela)
+  const mkTela = mkey(state.y, state.m), TIPO_CONTA = { fixa: 'Fixa (todo mês)', parcelada: 'Parcelada', unica: 'Uma vez só' };
+  const linhasC = (state.contas || []).map(ct => {
+    let sit = 'Não vence neste mês', valorMes = '', pago = '';
+    if (ocorre(ct, mkTela)){
+      const i = instancia(ct, mkTela);
+      valorMes = r2(i.total); pago = r2(i.pago);
+      sit = i.paid ? 'Paga' : i.pago > 0 ? 'Paga em parte' : i.days < 0 ? 'Vencida' : 'A pagar';
+    }
+    return [ct.nome, ct.categoria, TIPO_CONTA[ct.tipo] || ct.tipo, Number(ct.valor), ct.dia, mBR(String(ct.inicio).slice(0, 7)),
+      ct.tipo === 'parcelada' ? ct.parcelas : '', valorMes, pago, sit];
   });
-  if (months.length){
-    const ws2 = XLSX.utils.json_to_sheet(months);
-    ws2['!cols'] = [{wch:18},{wch:14},{wch:14},{wch:14}];
-    fmtCol(ws2,[1,2,3]);
-    XLSX.utils.book_append_sheet(wb, ws2, 'Resumo por mês');
-  }
+  aba('Contas', ['Conta', 'Categoria', 'Tipo', 'Valor', 'Vence dia', 'Começa em', 'Parcelas',
+    `Valor em ${mBR(mkTela.slice(0, 7))}`, 'Já pago', 'Situação'], linhasC, [26, 16, 16, 14, 10, 16, 10, 18, 14, 18], [3, 7, 8]);
+
+  // 4) Metas e seus movimentos
+  const metas = state.metas || [];
+  aba('Metas', ['Meta', 'Objetivo', 'Guardado', 'Falta', '% do objetivo', 'Prazo', 'Situação'],
+    metas.map(m => { const i = infoMeta(m);
+      const sit = m.encerrada_em ? `Concluída e usada (${dBR(m.encerrada_em)})` : i.done ? 'Concluída' : 'Em andamento';
+      return [`${m.icone ? m.icone + ' ' : ''}${m.nome}`, Number(m.alvo), i.saldo, i.falta, i.pct / 100, m.prazo ? mBR(String(m.prazo).slice(0, 7)) : 'Sem prazo', sit]; }),
+    [28, 14, 14, 14, 14, 16, 26], [1, 2, 3], [4]);
+  const nomeMeta = Object.fromEntries(metas.map(m => [m.id, m.nome]));
+  aba('Metas - movimentos', ['Data', 'Meta', 'Movimento', 'Valor'].concat(shared ? ['Quem'] : []),
+    (state.metaMovs || []).map(x => [dBR(x.data), nomeMeta[x.meta_id] || '', x.tipo === 'guardar' ? 'Guardou' : 'Retirou',
+      Number(x.valor) * (x.tipo === 'guardar' ? 1 : -1)].concat(shared ? [nameOf(x.user_id)] : [])), [12, 28, 12, 14, 18], [3]);
+
+  // 5) Investimentos e seus movimentos
+  const invs = state.invs || [], IDX = { cdi: 'CDI', pre: 'Prefixado', ipca: 'IPCA +', selic: 'Selic', poupanca: 'Poupança', cotacao: 'Cotação', manual: 'Valor informado' };
+  aba('Investimentos', ['Investimento', 'Tipo', 'Rende por', 'Taxa (%)', 'Aplicado', 'Valor hoje (estimado)', 'Ganho', 'Vencimento', 'Isento de IR'],
+    invs.map(inv => { const k = calcInv(inv), T = TIPOS_INV[inv.tipo] || TIPOS_INV.outro;
+      return [inv.ticker ? `${inv.nome} (${inv.ticker})` : inv.nome, T.nome, IDX[inv.indexador] || inv.indexador || '',
+        inv.taxa != null ? Number(inv.taxa) : '', k.aplicado, k.liquido, k.ganho, inv.vencimento ? dBR(inv.vencimento) : '', inv.isento ? 'Sim' : 'Não']; }),
+    [28, 16, 14, 8, 14, 20, 14, 12, 12], [4, 5, 6]);
+  const nomeInv = Object.fromEntries(invs.map(x => [x.id, x.nome])), MOV = { aporte: 'Aplicou', resgate: 'Resgatou', saldo: 'Atualizou o valor' };
+  aba('Investimentos - movimentos', ['Data', 'Investimento', 'Movimento', 'Valor', 'Quantidade'].concat(shared ? ['Quem'] : []),
+    (state.invMovs || []).map(x => [dBR(x.data), nomeInv[x.investimento_id] || '', MOV[x.tipo] || x.tipo, Number(x.valor),
+      x.quantidade != null ? Number(x.quantidade) : ''].concat(shared ? [nameOf(x.user_id)] : [])), [12, 28, 16, 14, 12, 18], [3]);
+
   const slug = c.nome.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'controle';
   XLSX.writeFile(wb, `pra-onde-foi-${slug}.xlsx`);
 };
