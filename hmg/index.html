@@ -277,7 +277,20 @@
   .drawer{position:absolute;top:0;right:0;bottom:0;width:min(320px,86vw);background:var(--surface);border-left:1px solid var(--divider);
     padding:calc(env(safe-area-inset-top) + 20px) 18px calc(env(safe-area-inset-bottom) + 18px);display:flex;flex-direction:column;gap:18px;overflow:auto;animation:gaveta .18s ease-out}
   @keyframes gaveta{from{transform:translateX(28px);opacity:0}to{transform:none;opacity:1}}
-  @media (prefers-reduced-motion:reduce){.drawer{animation:none}}
+  /* computador: o menu sobe do botão do perfil, como um balão */
+  .drawer-back.pop{background:transparent}
+  .drawer-back.pop .drawer{top:auto;right:auto;left:var(--pop-x,16px);bottom:var(--pop-y,80px);width:280px;max-height:calc(100vh - 32px);
+    padding:14px;gap:10px;border:1px solid var(--divider);border-radius:12px;box-shadow:0 18px 48px rgba(0,0,0,.18),0 2px 6px rgba(0,0,0,.06);
+    transform-origin:bottom left;animation:sobe .16s cubic-bezier(.2,.8,.2,1)}
+  .drawer-back.pop #drClose{display:none}
+  .drawer-back.pop .drawer-item{padding:10px 10px;font-size:14.5px}
+  @keyframes sobe{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+  /* celular: sobe de baixo, como uma folha */
+  .drawer-back.folha .drawer{top:auto;left:0;right:0;bottom:0;width:auto;max-height:86vh;border-left:0;border-top:1px solid var(--divider);
+    border-radius:16px 16px 0 0;padding-top:10px;animation:folha .22s cubic-bezier(.2,.8,.2,1)}
+  .drawer-back.folha .drawer::before{content:"";align-self:center;width:40px;height:4px;border-radius:2px;background:var(--divider);flex:none}
+  @keyframes folha{from{transform:translateY(100%)}to{transform:none}}
+  @media (prefers-reduced-motion:reduce){.drawer,.drawer-back.pop .drawer,.drawer-back.folha .drawer{animation:none}}
   .drawer-item{display:flex;align-items:center;gap:12px;width:100%;padding:13px 10px;border:0;border-radius:12px;background:transparent;color:var(--text);font:inherit;font-size:15px;font-weight:600;cursor:pointer;text-align:left}
   .drawer-item:hover{background:rgba(var(--fg-rgb),.07)}
   .drawer-item svg{color:var(--accent-text);flex:none}
@@ -1140,6 +1153,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=58"></script>
+<script src="app.js?v=59"></script>
 </body>
 </html>

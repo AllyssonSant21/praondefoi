@@ -992,7 +992,7 @@ function setTab(t){
   window.scrollTo(0, 0);
 }
 document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
-$('navMenu').addEventListener('click', () => openMenu());
+$('navMenu').addEventListener('click', () => openMenu($('navMenu')));
 $('tabOffBtn').addEventListener('click', async () => {
   const p = state.controles.find(c => c.pessoal); if (!p) return;
   selectControle(p.id); state.entries = []; state.members = []; render();
@@ -2326,9 +2326,22 @@ function renderMe(){
   $('drNome').textContent = meuNome();
   $('drLogin').textContent = profile.nome ? displayName(profile.email) : (perfilNovo ? 'Complete seu perfil' : displayName(profile.email));
 }
-function openMenu(){ renderMe(); $('drawer').hidden = false; }
+// computador: abre como balão saindo do botão do perfil; celular: folha que sobe de baixo
+function openMenu(origem){
+  renderMe();
+  const d = $('drawer'), b = origem && origem.getBoundingClientRect ? origem : null;
+  const balao = b && b.id === 'menuBtn' && b.offsetParent !== null;
+  d.classList.toggle('pop', balao); d.classList.toggle('folha', !balao);
+  if (balao){
+    const r = b.getBoundingClientRect();
+    d.style.setProperty('--pop-x', Math.max(8, r.left) + 'px');
+    d.style.setProperty('--pop-y', Math.max(8, innerHeight - r.top + 8) + 'px');
+  }
+  d.hidden = false;
+}
+addEventListener('resize', () => { if (!$('drawer').hidden && $('drawer').classList.contains('pop')) closeMenu(); });
 function closeMenu(){ $('drawer').hidden = true; }
-$('menuBtn').onclick = openMenu;
+$('menuBtn').onclick = () => openMenu($('menuBtn'));
 $('drClose').onclick = closeMenu;
 $('drawer').addEventListener('click', e => { if (e.target.id === 'drawer' || e.target.closest('.drawer-item')) closeMenu(); });
 $('drPerfil').addEventListener('click', () => openPerfil());
