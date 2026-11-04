@@ -267,7 +267,7 @@ async function handleSession(session, force){
     return;
   }
   if (!(await loadControles())) return;
-  await Promise.all([loadMembers(), loadEntries(), loadInvites(), loadContas(), loadMetas(), loadInvest(), loadCategorias()]);
+  await Promise.all([loadMembers(), loadEntries(), loadInvites(), loadContas(), loadMetas(), loadInvest(), loadCategorias(), loadCartoes()]);
   fillCats();
   show('viewApp');
   render();
@@ -365,7 +365,7 @@ async function fetchAllEntries(){
   }
   return all.map(fromRow);
 }
-async function refresh(){ const [ok] = await Promise.all([loadEntries(), loadContas(), loadMetas(), loadInvest(), loadCategorias()]); if (ok){ fillCats(); render(); } }
+async function refresh(){ const [ok] = await Promise.all([loadEntries(), loadContas(), loadMetas(), loadInvest(), loadCategorias(), loadCartoes()]); if (ok){ fillCats(); render(); } }
 
 // dados antigos guardados só neste navegador (versão offline)
 function localPending(){
@@ -540,7 +540,7 @@ async function loadCategorias(){
 }
 // emoji de cada categoria do app (as personalizadas usam o emoji que a pessoa escolheu)
 const ICONE_APP = { 'Mercado':'🛒', 'Moradia':'🏠', 'Contas':'🧾', 'Transporte':'🚗', 'Saúde':'💊', 'Lazer':'🎉', 'Educação':'📚',
-  'Outros':'📦', 'Salário':'💰', 'Renda extra':'💸', 'Metas':'🎯' };
+  'Outros':'📦', 'Salário':'💰', 'Renda extra':'💸', 'Metas':'🎯', 'Cartão de crédito':'💳' };
 const iconeCat = nome => { const c = categorias.find(x => x.nome === nome); return (c && c.icone) || ICONE_APP[nome] || ''; };
 // rótulo com o emoji, valor só com o nome (é o que fica gravado no lançamento)
 const rotuloCat = nome => { const i = iconeCat(nome); return i ? `${i} ${nome}` : nome; };
@@ -565,7 +565,7 @@ function fillCats(){
   $('cat').dataset.ultima = $('cat').value;
   document.querySelectorAll('#typeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.type === state.type)));
 }
-document.querySelectorAll('#typeSeg button').forEach(b => b.addEventListener('click', () => { state.type = b.dataset.type; fillCats(); vincOpcoes(); }));
+document.querySelectorAll('#typeSeg button').forEach(b => b.addEventListener('click', () => { state.type = b.dataset.type; fillCats(); vincOpcoes(); pagComOpcoes(); }));
 $('cat').addEventListener('change', async () => {
   const sel = $('cat');
   if (sel.value !== '__nova'){ sel.dataset.ultima = sel.value; return; }
@@ -598,6 +598,7 @@ function vincOpcoes(){
   sel.title = n === 0 ? (state.type === 'exp' ? 'Crie uma meta ou conta a pagar para usar aqui.' : 'Em entradas o "Usar para" não se aplica.') : '';
   sel.value = [...sel.options].some(o => o.value === atual) ? atual : '';
   aplicarVinc(false);
+  if ($('pagCom').options.length) aplicarPagCom();
   // travado: explica do lado por que e como liberar
   $('vincHint').classList.toggle('trava', n === 0);
   if (n === 0 && state.type === 'exp'){ $('vincHint').textContent = sel.title + ' Por enquanto, os lançamentos entram normalmente.'; $('vincHint').hidden = false; }
@@ -644,6 +645,7 @@ $('form').addEventListener('submit', async e => {
   if (!desc) return showError('Escreva uma descrição.');
   if (!(amount > 0)) return showError('Informe um valor maior que zero.');
   if (!state.cid) return showError('Escolha um controle primeiro.');
+  if (!$('pagComWrap').hidden && findCartao($('pagCom').value)){ await salvarCompraForm(desc, amount); return; }
   const alvo = vincAlvo();
   if (alvo){
     const data = $('date').value || todayISO();
@@ -822,9 +824,16 @@ function startRealtime(){
     .on('postgres_changes', { event: '*', schema: 'public', table: 'meta_movs' }, () => rtMetas())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'investimentos' }, () => rtInvest())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'inv_movs' }, () => rtInvest())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'cartoes' }, () => rtCartoes())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'compras_cartao' }, () => rtCartoes())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pag_faturas' }, () => rtCartoes())
     .subscribe(status => { rtOk = status === 'SUBSCRIBED'; });
 }
-let rtContasTimer = null;
+let rtContasTimer = null, rtCartTimer = null;
+function rtCartoes(){
+  clearTimeout(rtCartTimer);
+  rtCartTimer = setTimeout(async () => { if (!$('viewApp').hidden && await loadCartoes()) render(); }, 400);
+}
 function rtContas(){
   clearTimeout(rtContasTimer);
   rtContasTimer = setTimeout(async () => { if (!$('viewApp').hidden && await loadContas()) renderContas(); }, 400);
@@ -946,9 +955,11 @@ function render(){
   const max = list.length ? list[0][1] : 0;
   renderTabs();
   renderContas();
+  renderCartoes();
   renderMetas();
   renderInvest();
   vincOpcoes();
+  pagComOpcoes();
   $('cats').innerHTML = list.length ? list.map(([name,v]) => `
     <div style="display:flex;flex-direction:column;gap:5px;">
       <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
@@ -963,6 +974,14 @@ function render(){
         <span>Guardado em metas</span><b class="verde" style="font-variant-numeric:tabular-nums;">${brl(guardadoMes)}</b>
       </div>
       <span class="by" style="margin:0;">Não é gasto: o dinheiro continua seu, só foi separado para as metas.</span>
+    </div>`);
+  const noCartao = cartaoOn() ? r2((state.compras || []).filter(c => c.data.startsWith(ym)).reduce((s, c) => s + Number(c.valor), 0)) : 0;
+  if (noCartao > 0) $('cats').insertAdjacentHTML('beforeend', `
+    <div class="guardado-mes">
+      <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
+        <span>💳 Comprado no cartão</span><b style="font-variant-numeric:tabular-nums;">${brl(noCartao)}</b>
+      </div>
+      <span class="by" style="margin:0;">Ainda não saiu da conta: entra no saldo quando a fatura for paga. Detalhes na aba Cartões.</span>
     </div>`);
 }
 
@@ -979,8 +998,8 @@ const myId = () => currentUser ? currentUser.id : null;
 const quem = uid => uid === myId() ? 'você' : nameOf(uid);
 
 Object.assign(state, { tab: 'lanc', contas: [], partes: {}, cmeses: {}, pags: [], pagsMeses: [], contasOk: true });
-try { const t = localStorage.getItem('pof-aba'); if (['lanc','contas','metas','invest'].includes(t)) state.tab = t; } catch(e){}
-try { const t = new URLSearchParams(location.search).get('aba'); if (['lanc','contas','metas','invest'].includes(t)) state.tab = t; } catch(e){}
+try { const t = localStorage.getItem('pof-aba'); if (['lanc','cartoes','contas','metas','invest'].includes(t)) state.tab = t; } catch(e){}
+try { const t = new URLSearchParams(location.search).get('aba'); if (['lanc','cartoes','contas','metas','invest'].includes(t)) state.tab = t; } catch(e){}
 
 function ocorre(c, mk){
   if (c.tipo === 'unica') return mk === c.inicio;
@@ -1066,10 +1085,17 @@ function alertas(){
       if (!primeiro || mk < primeiro) primeiro = mk;
     });
   });
+  if (cartaoOn()) [-2, -1, 0].map(k => mkey(t.getFullYear(), t.getMonth() + k)).forEach(mk => {
+    faturasDoMes(mk).forEach(i => {
+      if (i.falta <= 0 || i.days > 0) return;
+      if (i.days < 0) late++; else hoje++;
+      if (!primeiro || mk < primeiro) primeiro = mk;
+    });
+  });
   return { late, hoje, primeiro };
 }
 
-const TITULOS = { lanc: 'Lançamentos', contas: 'Contas a pagar', metas: 'Metas', invest: 'Investimentos' };
+const TITULOS = { lanc: 'Lançamentos', cartoes: 'Cartões', contas: 'Contas a pagar', metas: 'Metas', invest: 'Investimentos' };
 // o aviso de contas vencidas só aparece em Contas a pagar (nas outras abas fica só o número no menu)
 function syncAlerta(){
   $('billAlert').hidden = !state.alertaN || !modOn('contas') || state.tab !== 'contas';
@@ -1089,12 +1115,13 @@ function renderTabs(){
     if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
   $('tabLanc').hidden = desligada || state.tab !== 'lanc';
+  $('tabCartoes').hidden = desligada || state.tab !== 'cartoes';
   $('tabContas').hidden = desligada || state.tab !== 'contas';
   $('tabMetas').hidden = desligada || state.tab !== 'metas';
   $('tabInvest').hidden = desligada || state.tab !== 'invest';
   $('export').hidden = state.tab !== 'lanc';
   syncAlerta();
-  const porMes = state.tab === 'lanc' || state.tab === 'contas';
+  const porMes = state.tab === 'lanc' || state.tab === 'contas' || state.tab === 'cartoes';
   $('monthNav').style.display = porMes ? 'flex' : 'none';
   if (!porMes){ $('monthTitle').textContent = TITULOS[state.tab]; document.title = `${TITULOS[state.tab]} · Pra Onde Foi?`; }
   else { $('monthTitle').textContent = TITULOS[state.tab]; document.title = `${TITULOS[state.tab]} · ${MONTHS[state.m]} ${state.y} · Pra Onde Foi?`; }
@@ -1148,25 +1175,27 @@ function renderContas(){
   const list = state.contas.filter(c => ocorre(c, mk)).map(c => instancia(c, mk))
     .filter(i => !(i.antes && i.c.tipo === 'parcelada' && i.pago === 0))
     .sort((a, b) => (a.paid - b.paid) || (a.due - b.due) || a.c.nome.localeCompare(b.c.nome));
-  const total = r2(list.reduce((s, i) => s + i.total, 0));
-  const pago = r2(list.reduce((s, i) => s + i.pago, 0));
-  const falta = r2(list.reduce((s, i) => s + i.falta, 0));
-  const pagas = list.filter(i => i.paid).length;
+  const fats = faturasDoMes(mk);
+  const total = r2(list.reduce((s, i) => s + i.total, 0) + fats.reduce((s, i) => s + i.total, 0));
+  const pago = r2(list.reduce((s, i) => s + i.pago, 0) + fats.reduce((s, i) => s + i.pago, 0));
+  const falta = r2(list.reduce((s, i) => s + i.falta, 0) + fats.reduce((s, i) => s + i.falta, 0));
+  const nTot = list.length + fats.length;
+  const pagas = list.filter(i => i.paid).length + fats.filter(i => i.st === 'paga').length;
   const minhas = list.filter(i => i.parts.some(p => p.uid === me));
   const minhaFalta = r2(minhas.reduce((s, i) => s + i.parts.filter(p => p.uid === me).reduce((a, p) => a + Math.min(p.falta, i.falta), 0), 0));
 
   $('billTotal').textContent = brl(total);
-  $('billTotalNote').textContent = plural(list.length, 'conta');
+  $('billTotalNote').textContent = plural(list.length, 'conta') + (fats.length ? ` + ${plural(fats.length, 'fatura')}` : '');
   $('billPaid').textContent = brl(pago); $('billPaid').classList.toggle('zero', !pago);
-  const parciais = list.filter(i => !i.paid && i.pago > 0).length;
-  $('billPaidNote').textContent = !list.length ? '' : `${pagas} de ${list.length} ${list.length === 1 ? 'paga' : 'pagas'}` + (parciais ? ` · ${parciais} em parte` : '');
+  const parciais = list.filter(i => !i.paid && i.pago > 0).length + fats.filter(i => i.st !== 'paga' && i.pago > 0).length;
+  $('billPaidNote').textContent = !nTot ? '' : `${pagas} de ${nTot} ${nTot === 1 ? 'paga' : 'pagas'}` + (parciais ? ` · ${parciais} em parte` : '');
   $('billLeft').textContent = brl(falta);
-  $('billLeftNote').textContent = !list.length ? 'Nenhuma conta neste mês'
+  $('billLeftNote').textContent = !nTot ? 'Nenhuma conta neste mês'
     : falta <= 0 ? 'Tudo pago ✓'
     : minhas.length ? `Minha parte: falta ${brl(minhaFalta)}`
-    : `${plural(list.length - pagas, 'conta')} em aberto`;
+    : `${plural(nTot - pagas, 'conta')} em aberto`;
 
-  $('billEmpty').hidden = list.length > 0;
+  $('billEmpty').hidden = nTot > 0;
   $('billEmpty').textContent = 'Nenhuma conta neste mês. Toque em "Nova conta" para cadastrar aluguel, luz, cartão…';
   $('billList').innerHTML = list.map(i => {
     const c = i.c;
@@ -1191,7 +1220,7 @@ function renderContas(){
         <span class="bill-act" style="display:flex;gap:6px;align-items:center;">${tag}${i.paid ? '' : `<button class="btn btn-primary btn-sm" data-pay="${esc(c.id)}" type="button" aria-label="Pagar ${esc(c.nome)}">Pagar</button>`}</span>
       </div>
     </div>`;
-  }).join('');
+  }).join('') + (fats.length ? `<div class="kicker" style="margin:var(--space-4) 0 0;">Faturas de cartão</div>` + fats.map(fatHtml).join('') : '');
   vincOpcoes();   // a conta nova aparece na hora no "Usar para" de Lançamentos
 }
 
@@ -2407,14 +2436,515 @@ $('dlg2Body').addEventListener('submit', async e => {
   await refresh();
 });
 
+/* ======================= CARTÕES DE CRÉDITO ======================= */
+// O app nunca guarda dados do cartão: só apelido, banco (para a cor), dia de fechamento, dia de vencimento e limite.
+// Compra no cartão não entra no saldo. Ela vai para a fatura; pagar a fatura cria a saída em Lançamentos.
+const BANCOS = [
+  ['nubank','Nubank','🟣'], ['itau','Itaú','🟠'], ['bradesco','Bradesco','🔴'], ['santander','Santander','🔴'],
+  ['bb','Banco do Brasil','🟡'], ['caixa','Caixa','🔵'], ['inter','Inter','🟠'], ['c6','C6 Bank','⚫'],
+  ['picpay','PicPay','🟢'], ['mercadopago','Mercado Pago','🔵'], ['xp','XP','⚫'], ['btg','BTG Pactual','🔵'],
+  ['neon','Neon','🔵'], ['pagbank','PagBank','🟢'], ['next','Next','🟢'], ['pan','Banco Pan','🔵'],
+  ['sicredi','Sicredi','🟢'], ['sicoob','Sicoob','🟢'], ['will','Will Bank','🟡'], ['porto','Porto Bank','🔵'],
+  ['banrisul','Banrisul','🔵'], ['original','Original','🟢']
+].map(([k, nome, cor]) => ({ k, nome, cor }));
+const CORES_CARTAO = ['💳','🟣','🟠','🔴','🟡','🟢','🔵','⚫','⚪','🟤'];
+const bancoDe = k => BANCOS.find(b => b.k === k);
+const iconeCartao = k => (k && (k.icone || (bancoDe(k.banco) || {}).cor)) || '💳';
+const findCartao = id => (state.cartoes || []).find(k => k.id === id);
+const ultimoDia = (y, m) => new Date(y, m + 1, 0).getDate();
+const podeCartao = k => !!k && ((currentUser && k.criado_por === currentUser.id) || !!(current() || {}).sou_dono);
+const podeCompra = c => !!c && ((currentUser && c.user_id === currentUser.id) || !!(current() || {}).sou_dono);
+const mesCurtoAno = mk => `${MES_CURTO[Number(mk.slice(5, 7)) - 1].toLowerCase()}/${mk.slice(2, 4)}`;
+Object.assign(state, { cartoes: [], compras: [], pagFat: [], cartOk: true, kcSel: '' });
+
+// em qual fatura (mês do vencimento) cai uma compra (igual à conta do banco de dados)
+function faturaDaCompra(k, iso){
+  const [y, m, d] = iso.split('-').map(Number);
+  const fecha = Math.min(k.fecha, ultimoDia(y, m - 1));
+  return mkey(y, m - 1 + (d >= fecha ? 1 : 0) + (k.vence <= k.fecha ? 1 : 0));
+}
+function datasFatura(k, mk){
+  const y = Number(mk.slice(0, 4)), m = Number(mk.slice(5, 7)) - 1;
+  const vence = new Date(y, m, Math.min(k.vence, ultimoDia(y, m)));
+  const c = new Date(y, k.vence <= k.fecha ? m - 1 : m, 1);
+  const fecha = new Date(c.getFullYear(), c.getMonth(), Math.min(k.fecha, ultimoDia(c.getFullYear(), c.getMonth())));
+  return { fecha, vence };
+}
+// parcelas que caem numa fatura (centavos que sobram ficam na 1ª parcela)
+function parcelasNaFatura(kid, mk){
+  const out = [];
+  (state.compras || []).forEach(c => {
+    if (kid && c.cartao_id !== kid) return;
+    const i = mdiff(c.fatura, mk);
+    if (i < 0 || i >= c.parcelas) return;
+    const tot = cents(Number(c.valor)), base = Math.floor(tot / c.parcelas);
+    out.push({ c, n: i + 1, valor: (i === 0 ? tot - base * (c.parcelas - 1) : base) / 100 });
+  });
+  return out.sort((a, b) => b.c.data.localeCompare(a.c.data) || a.c.descricao.localeCompare(b.c.descricao));
+}
+function infoFatura(k, mk){
+  const parcelas = parcelasNaFatura(k.id, mk);
+  const total = r2(parcelas.reduce((s, p) => s + p.valor, 0));
+  const pags = (state.pagFat || []).filter(p => p.cartao_id === k.id && p.mes === mk);
+  const pago = r2(pags.reduce((s, p) => s + Number(p.valor), 0));
+  const falta = Math.max(0, r2(total - pago));
+  const { fecha, vence } = datasFatura(k, mk);
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const days = Math.round((vence - hoje) / 86400000);
+  const st = total <= 0 && pago <= 0 ? 'vazia' : falta <= 0 ? 'paga' : hoje < fecha ? 'aberta' : days < 0 ? 'vencida' : 'fechada';
+  return { k, mk, parcelas, total, pags, pago: Math.min(pago, total), falta, fecha, vence, days, st };
+}
+// quanto do limite está ocupado: tudo que foi comprado menos o que já foi pago
+function usadoCartao(k){
+  const comprado = (state.compras || []).filter(c => c.cartao_id === k.id).reduce((s, c) => s + Number(c.valor), 0);
+  const pago = (state.pagFat || []).filter(p => p.cartao_id === k.id).reduce((s, p) => s + Number(p.valor), 0);
+  return Math.max(0, r2(comprado - pago));
+}
+const cartoesAtivos = () => (state.cartoes || []).filter(k => !k.oculto);
+const cartaoOn = () => state.cartOk && modOn('cartoes');
+
+let cartSeq = 0;
+async function loadCartoes(){
+  const seq = ++cartSeq;
+  if (!state.cid){ state.cartoes = []; state.compras = []; state.pagFat = []; return true; }
+  const cid = state.cid;
+  const [a, b, c] = await Promise.all([
+    sb.from('cartoes').select('id,nome,banco,icone,fecha,vence,limite,oculto,criado_por').eq('controle_id', cid).order('criado_em'),
+    sb.from('compras_cartao').select('id,cartao_id,user_id,descricao,categoria,valor,parcelas,data,fatura').eq('controle_id', cid).order('data', { ascending: false }),
+    sb.from('pag_faturas').select('id,cartao_id,mes,user_id,valor,data').eq('controle_id', cid).order('criado_em')
+  ]);
+  if (seq !== cartSeq) return false;
+  const e = a.error || b.error || c.error;
+  if (e){
+    // sem o SQL dos cartões rodado: a área fica indisponível e o resto do app segue normal
+    if (['42P01','PGRST205','PGRST200'].includes(e.code) || /does not exist|could not find the table|schema cache/i.test(e.message || '')){
+      state.cartOk = false; state.cartoes = []; state.compras = []; state.pagFat = [];
+    }
+    return true;
+  }
+  state.cartOk = true;
+  state.cartoes = a.data; state.compras = b.data; state.pagFat = c.data;
+  if (state.kcSel && !findCartao(state.kcSel)) state.kcSel = '';
+  return true;
+}
+
+/* ---------- aba Cartões ---------- */
+function renderCartoes(){
+  if (!$('tabCartoes')) return;
+  const mk = mkey(state.y, state.m), mkProx = mkey(state.y, state.m + 1);
+  const ativos = cartoesAtivos();
+  const lista = state.kcSel ? [findCartao(state.kcSel)].filter(Boolean) : (state.cartoes || []);
+  $('kcNova').disabled = !state.cartOk || !ativos.length;
+  $('kcMeus').disabled = !state.cartOk;
+  if (!state.cartOk){
+    ['kcFat','kcLim','kcProx'].forEach(id => { $(id).textContent = brl(0); });
+    ['kcFatNote','kcLimNote','kcProxNote'].forEach(id => { $(id).textContent = ''; });
+    $('kcChips').innerHTML = ''; $('kcFaturas').innerHTML = ''; $('kcCompras').innerHTML = ''; $('kcCats').innerHTML = '';
+    $('kcDetalhe').hidden = true;
+    $('kcVazio').hidden = false; $('kcVazio').textContent = 'Esta área está temporariamente indisponível. Tente de novo mais tarde.';
+    return;
+  }
+  // escolher o cartão
+  $('kcChips').hidden = (state.cartoes || []).length < 2;
+  $('kcChips').innerHTML = `<button type="button" class="chip" data-kc-sel="" aria-pressed="${!state.kcSel}">Todos</button>` +
+    (state.cartoes || []).filter(k => !k.oculto || k.id === state.kcSel).map(k =>
+      `<button type="button" class="chip" data-kc-sel="${esc(k.id)}" aria-pressed="${state.kcSel === k.id}"><span class="kc-chip-ic">${esc(iconeCartao(k))}</span>${esc(k.nome)}</button>`).join('');
+
+  const infos = lista.map(k => infoFatura(k, mk));
+  const visiveis = infos.filter(i => i.st !== 'vazia' || state.kcSel);   // em "Todos" só as faturas com compra
+  const total = r2(infos.reduce((s, i) => s + i.total, 0));
+  const falta = r2(infos.reduce((s, i) => s + i.falta, 0));
+  const prox = r2(lista.reduce((s, k) => s + infoFatura(k, mkProx).total, 0));
+  $('kcFat').textContent = brl(total); $('kcFat').classList.toggle('zero', !total);
+  const um = state.kcSel ? infos[0] : null;
+  $('kcFatNote').textContent = !(state.cartoes || []).length ? 'Nenhum cartão cadastrado'
+    : um ? ({ vazia: 'Nada nesta fatura', paga: 'Paga ✓', aberta: `Aberta · fecha ${ddmm(um.fecha)}`,
+              fechada: `Fechada · vence ${ddmm(um.vence)}`, vencida: `Vencida em ${ddmm(um.vence)}` })[um.st]
+    : !total ? 'Nada nas faturas deste mês' : falta <= 0 ? 'Tudo pago ✓' : `Falta pagar ${brl(falta)}`;
+  const comLimite = lista.filter(k => Number(k.limite) > 0);
+  const limite = r2(comLimite.reduce((s, k) => s + Number(k.limite), 0));
+  const usado = r2(comLimite.reduce((s, k) => s + usadoCartao(k), 0));
+  $('kcLim').textContent = comLimite.length ? brl(r2(limite - usado)) : '—';
+  $('kcLim').classList.toggle('zero', !comLimite.length);
+  $('kcLimNote').textContent = comLimite.length ? `Usado ${brl(usado)} de ${brl(limite)}` : 'Cadastre o limite em Meus cartões';
+  $('kcProx').textContent = brl(prox); $('kcProx').classList.toggle('zero', !prox);
+  $('kcProxNote').textContent = `${MONTHS[Number(mkProx.slice(5, 7)) - 1]}, lançado até agora`;
+
+  $('kcVazio').hidden = visiveis.length > 0;
+  $('kcVazio').textContent = !(state.cartoes || []).length
+    ? 'Cadastre seu cartão em "Meus cartões": só o apelido (ex.: Nubank), o dia que a fatura fecha e o dia que vence. Nada de número ou senha.'
+    : 'Nenhuma compra nas faturas deste mês.';
+  $('kcFaturas').innerHTML = visiveis.map(fatHtml).join('');
+
+  // compras da fatura
+  const parcelas = state.kcSel ? (infos[0] ? infos[0].parcelas : []) : parcelasNaFatura('', mk);
+  $('kcDetalhe').hidden = !(state.cartoes || []).length;
+  const shared = isShared();
+  $('kcCompras').innerHTML = parcelas.length ? parcelas.map(p => {
+    const c = p.c, k = findCartao(c.cartao_id), pode = podeCompra(c);
+    const meta = [`${c.data.slice(8, 10)}/${c.data.slice(5, 7)}`, esc(rotuloCat(c.categoria)),
+      c.parcelas > 1 ? `${p.n}/${c.parcelas}` : '', !state.kcSel && k ? esc(k.nome) : '', shared ? esc(quem(c.user_id)) : ''].filter(Boolean).join(' · ');
+    return `<div class="kc-compra${pode ? ' pode' : ''}"${pode ? ` data-kc-compra="${esc(c.id)}" role="button" tabindex="0"` : ''}>
+      <span class="kc-ic">${esc(iconeCat(c.categoria) || '🏷️')}</span>
+      <span style="min-width:0;"><span class="kc-d" style="display:block;">${esc(c.descricao)}</span><span class="by" style="margin:0;">${meta}</span></span>
+      <span class="kc-v">− ${brl(p.valor)}</span>
+    </div>`;
+  }).join('') : '<p style="font-size:14px;color:var(--muted);margin:0;">Nenhuma compra nesta fatura.</p>';
+
+  const byCat = {};
+  parcelas.forEach(p => { byCat[p.c.categoria] = r2((byCat[p.c.categoria] || 0) + p.valor); });
+  const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+  const max = cats.length ? cats[0][1] : 0, soma = cats.reduce((s, x) => s + x[1], 0);
+  $('kcCats').innerHTML = cats.length ? cats.map(([name, v]) => `
+    <div style="display:flex;flex-direction:column;gap:5px;">
+      <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
+        <span>${esc(rotuloCat(name))}</span>
+        <span style="font-variant-numeric:tabular-nums;color:var(--muted);">${brl(v)} · ${Math.round(soma ? v / soma * 100 : 0)}%</span>
+      </div>
+      <div style="height:6px;background:var(--track);border-radius:999px;overflow:hidden;"><div style="height:100%;width:${max ? v / max * 100 : 0}%;background:var(--accent);border-radius:999px;"></div></div>
+    </div>`).join('') : '<span style="font-size:14px;color:var(--muted);">Sem compras nesta fatura.</span>';
+}
+// uma fatura em forma de linha (usada em Cartões e em Contas a pagar)
+function fatHtml(i){
+  const k = i.k;
+  const tag = i.st === 'paga' ? '<span class="tag tag-neutral">Paga ✓</span>'
+    : i.st === 'vencida' ? '<span class="tag tag-red">Vencida</span>'
+    : i.st === 'aberta' ? '<span class="tag tag-neutral">Aberta</span>'
+    : i.st === 'vazia' ? ''
+    : i.days === 0 ? '<span class="tag tag-accent">Vence hoje</span>'
+    : i.days <= 3 ? `<span class="tag tag-accent">Vence em ${plural(i.days, 'dia')}</span>`
+    : '<span class="tag tag-neutral">Fechada</span>';
+  const cls = i.st === 'paga' ? 'paid' : i.st === 'vencida' ? 'late' : (i.st === 'fechada' && i.days <= 3) ? 'soon' : 'ok';
+  const linha2 = [i.st === 'aberta' ? `fecha ${ddmm(i.fecha)}` : `fechou ${ddmm(i.fecha)}`, `vence ${ddmm(i.vence)}`,
+    i.st !== 'paga' && i.pago > 0 ? `pago ${brl(i.pago)} de ${brl(i.total)}` : '', plural(i.parcelas.length, 'compra')].filter(Boolean).join(' · ');
+  return `
+    <div class="bill fat ${cls}" data-kc-fat="${esc(k.id)}" data-mk="${esc(i.mk)}">
+      <div class="bill-day"><b>${i.vence.getDate()}</b><small>${MES_CURTO[i.vence.getMonth()]}</small></div>
+      <div style="min-width:0;">
+        <div class="bill-name">${esc(iconeCartao(k))} Fatura ${esc(k.nome)}</div>
+        <div class="by">${linha2}</div>
+        ${i.st !== 'paga' && i.pago > 0 ? `<div class="prog"><div style="width:${Math.min(100, i.pago / i.total * 100)}%"></div></div>` : ''}
+      </div>
+      <div class="bill-side">
+        <span class="bill-val">${brl(i.total)}</span>
+        <span class="bill-act" style="display:flex;gap:6px;align-items:center;">${tag}${i.falta > 0 ? `<button class="btn btn-primary btn-sm" data-kc-pagar="${esc(k.id)}" data-mk="${esc(i.mk)}" type="button" aria-label="Pagar fatura ${esc(k.nome)}">Pagar</button>` : ''}</span>
+      </div>
+    </div>`;
+}
+// faturas do mês que aparecem em Contas a pagar
+function faturasDoMes(mk){
+  if (!cartaoOn()) return [];
+  return (state.cartoes || []).map(k => infoFatura(k, mk)).filter(i => i.total > 0);
+}
+function cliqueFatura(e){
+  const pg = e.target.closest('[data-kc-pagar]');
+  if (pg){ e.stopPropagation(); return openPagarFatura(pg.dataset.kcPagar, pg.dataset.mk); }
+  const f = e.target.closest('[data-kc-fat]');
+  if (f){ state.kcSel = f.dataset.kcFat; if (state.tab !== 'cartoes') setTab('cartoes'); renderCartoes(); return true; }
+}
+$('kcFaturas').addEventListener('click', cliqueFatura);
+$('billList').addEventListener('click', e => { if (e.target.closest('[data-kc-fat]')){ e.stopImmediatePropagation(); cliqueFatura(e); } }, true);
+$('kcChips').addEventListener('click', e => {
+  const b = e.target.closest('[data-kc-sel]'); if (!b) return;
+  state.kcSel = b.dataset.kcSel; renderCartoes();
+});
+$('kcCompras').addEventListener('click', e => { const r = e.target.closest('[data-kc-compra]'); if (r) openCompra(r.dataset.kcCompra); });
+$('kcCompras').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const r = e.target.closest('[data-kc-compra]'); if (r){ e.preventDefault(); openCompra(r.dataset.kcCompra); }
+});
+$('kcMeus').onclick = () => openMeusCartoes();
+$('kcNova').onclick = () => openCompra(null);
+
+/* ---------- Lançamentos: "Pagar com" ---------- */
+const opcoesParc = atual => Array.from({ length: 24 }, (_, i) => i + 1)
+  .map(n => `<option value="${n}"${n === atual ? ' selected' : ''}>${n === 1 ? 'À vista (1x)' : n + 'x'}</option>`).join('');
+$('parc').innerHTML = opcoesParc(1);
+function pagComOpcoes(){
+  const sel = $('pagCom'), atual = sel.value;
+  const on = cartaoOn() && state.type === 'exp';
+  $('pagComWrap').hidden = !on;
+  if (!on){ sel.value = ''; aplicarPagCom(); return; }
+  sel.innerHTML = '<option value="">💵 Dinheiro, débito ou Pix</option>' +
+    (cartoesAtivos().length ? `<optgroup label="Cartão de crédito">${cartoesAtivos().map(k => `<option value="${esc(k.id)}">${esc(iconeCartao(k))} ${esc(k.nome)}</option>`).join('')}</optgroup>` : '') +
+    '<option value="__novo">+ Cadastrar cartão…</option>';
+  sel.value = [...sel.options].some(o => o.value === atual) && atual !== '__novo' ? atual : '';
+  sel.dataset.ultimo = sel.value;
+  aplicarPagCom();
+}
+function aplicarPagCom(){
+  const k = findCartao($('pagCom').value);
+  $('parcWrap').hidden = !k;
+  // no cartão o "Usar para" (meta/conta) não se aplica
+  if (k && $('vinc').value){ $('vinc').value = ''; aplicarVinc(false); }
+  $('vinc').disabled = !!k || $('vinc').options.length <= 1;
+  $('pagCom').disabled = !!vincAlvo();
+  kcHintForm();
+}
+function kcHintForm(){
+  const k = findCartao($('pagCom').value), h = $('kcHint');
+  if (!k){ h.hidden = true; return; }
+  const f = faturaDaCompra(k, $('date').value || todayISO()), n = Number($('parc').value) || 1;
+  const v = parseAmount($('amount').value);
+  h.textContent = `💳 Vai para a fatura de ${mlabel(f)} do ${k.nome}` +
+    (n > 1 ? `, em ${n}x${v > 0 ? ' de ' + brl(Math.floor(cents(v) / n) / 100) : ''} até ${mlabel(mkey(Number(f.slice(0, 4)), Number(f.slice(5, 7)) - 1 + n - 1))}` : '') +
+    '. Não mexe no saldo agora: entra quando a fatura for paga.';
+  h.hidden = false;
+}
+$('pagCom').addEventListener('change', async () => {
+  const sel = $('pagCom');
+  if (sel.value === '__novo'){
+    sel.value = sel.dataset.ultimo || '';
+    const novo = await janelaCartao(null);
+    if (novo){ pagComOpcoes(); sel.value = novo; }
+  }
+  sel.dataset.ultimo = sel.value;
+  aplicarPagCom();
+});
+['parc', 'date'].forEach(id => $(id).addEventListener('change', kcHintForm));
+$('amount').addEventListener('input', () => { if (!$('kcHint').hidden) kcHintForm(); });
+$('vinc').addEventListener('change', () => { $('pagCom').disabled = !!vincAlvo(); });
+
+// gravar a compra no cartão (chamado pelo formulário de Lançamentos)
+async function salvarCompraForm(desc, amount){
+  const k = findCartao($('pagCom').value); if (!k) return false;
+  const data = $('date').value || todayISO(), n = Number($('parc').value) || 1, cat = $('cat').value;
+  $('addBtn').disabled = true;
+  const { data: f, error } = await sb.rpc('salvar_compra', { p_id: null, p_cartao: k.id, p_desc: desc, p_cat: cat, p_valor: amount, p_parcelas: n, p_data: data });
+  $('addBtn').disabled = false;
+  if (error){ showError(rpcMsg(error)); return true; }
+  $('desc').value = ''; $('amount').value = ''; $('parc').value = '1';
+  toast(`${brl(amount)}${n > 1 ? ` em ${n}x` : ''} na fatura de ${mlabel(String(f).slice(0, 10))} do ${k.nome}. Entra no saldo quando a fatura for paga.`, true);
+  await loadCartoes(); render(); kcHintForm();
+  $('desc').focus();
+  return true;
+}
+
+/* ---------- janelas: cartão, meus cartões, compra, pagar fatura ---------- */
+const opcoesDia = atual => Array.from({ length: 31 }, (_, i) => i + 1).map(d => `<option value="${d}"${d === atual ? ' selected' : ''}>Dia ${d}</option>`).join('');
+function janelaCartao(k){
+  return new Promise(res => {
+    const banco = k ? (k.banco || 'outro') : '';
+    openDlg2('Cartões', k ? 'Editar cartão' : 'Novo cartão', `
+      <p class="hint" style="margin:0;">🔒 O app nunca pede número, CVV, validade ou senha. Só o que precisa para saber quando a fatura fecha e vence.</p>
+      <div class="field"><label>Banco</label>
+        <div class="kc-bancos" role="group" aria-label="Banco">${BANCOS.map(b => `<button type="button" class="kc-banco" data-kc-banco="${b.k}" aria-pressed="${banco === b.k}"><span>${b.cor}</span>${esc(b.nome)}</button>`).join('')}
+          <button type="button" class="kc-banco" data-kc-banco="outro" aria-pressed="${banco === 'outro'}"><span>✏️</span>Outro</button></div>
+      </div>
+      <div class="field"><label for="kfNome">Apelido</label><input class="input" id="kfNome" maxlength="30" autocomplete="off" placeholder="Ex.: Nubank, Itaú da Ana" value="${k ? esc(k.nome) : ''}"></div>
+      <div class="field" id="kfCorWrap"${banco === 'outro' ? '' : ' hidden'}><label>Cor</label>
+        <div class="ct-emojis" role="group" aria-label="Cor">${CORES_CARTAO.map(c => `<button type="button" class="ct-emoji" data-kc-cor="${c}" aria-pressed="${(k && k.icone ? k.icone : '💳') === c}">${c}</button>`).join('')}</div>
+      </div>
+      <div class="kc-dias">
+        <div class="field"><label for="kfFecha">Fatura fecha</label><select class="input" id="kfFecha">${opcoesDia(k ? k.fecha : 3)}</select></div>
+        <div class="field"><label for="kfVence">Fatura vence</label><select class="input" id="kfVence">${opcoesDia(k ? k.vence : 10)}</select></div>
+      </div>
+      <div class="field"><label for="kfLim">Limite (opcional)</label><input class="input" id="kfLim" inputmode="decimal" placeholder="Ex.: 5.000,00" value="${k && k.limite ? num(Number(k.limite)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
+      <span class="hint" style="margin:0;">Compras feitas no dia do fechamento ou depois vão para a fatura seguinte. As datas estão no app do banco, em "Fatura".</span>
+      <span class="hint" id="kfErro" style="color:var(--alerta);" hidden></span>
+      <button class="btn btn-primary" type="button" data-kc-salvar style="min-height:44px;">${k ? 'Salvar' : 'Cadastrar cartão'}</button>`,
+      { tipo: 'kcform', k, res, banco, auto: k ? '' : null });
+  });
+}
+function openMeusCartoes(){
+  const l = (state.cartoes || []).slice().sort((a, b) => (a.oculto - b.oculto) || a.nome.localeCompare(b.nome));
+  openDlg2('Cartões', 'Meus cartões', `
+    <p class="hint" style="margin:0;">Só apelido, fechamento, vencimento e limite. ${isShared() ? 'Todos deste controle veem e lançam nestes cartões.' : 'Só você vê.'}</p>
+    <div>${l.length ? l.map(k => `
+      <div class="kc-item${k.oculto ? ' oculto' : ''}">
+        <span class="kc-ic">${esc(iconeCartao(k))}</span>
+        <span style="min-width:0;"><b>${esc(k.nome)}</b><small>fecha dia ${k.fecha} · vence dia ${k.vence}${Number(k.limite) > 0 ? ` · limite ${brl(Number(k.limite))}` : ''}${k.oculto ? ' · escondido' : ''}</small></span>
+        <span class="kc-acoes">${podeCartao(k) ? `<button class="btn btn-ghost btn-sm" type="button" data-kc-editar="${esc(k.id)}">Editar</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-kc-ocultar="${esc(k.id)}">${k.oculto ? 'Mostrar' : 'Esconder'}</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-kc-excluir="${esc(k.id)}" style="color:var(--alerta);">Excluir</button>` : ''}</span>
+      </div>`).join('') : '<p class="hint" style="margin:6px 0;">Nenhum cartão ainda.</p>'}</div>
+    <button class="btn btn-primary" type="button" data-kc-novo style="min-height:44px;">+ Novo cartão</button>`, { tipo: 'kcmeus' });
+}
+function openCompra(id){
+  const c = id ? (state.compras || []).find(x => x.id === id) : null;
+  if (id && !c) return;
+  const ativos = cartoesAtivos();
+  const kid = c ? c.cartao_id : (state.kcSel && findCartao(state.kcSel) && !findCartao(state.kcSel).oculto ? state.kcSel : (ativos[0] || {}).id);
+  const opts = (state.cartoes || []).filter(k => !k.oculto || k.id === kid)
+    .map(k => `<option value="${esc(k.id)}"${k.id === kid ? ' selected' : ''}>${esc(iconeCartao(k))} ${esc(k.nome)}</option>`).join('');
+  openDlg2('Cartão de crédito', c ? 'Editar compra' : 'Compra no cartão', `
+    <div class="field"><label for="kpCartao">Cartão</label><select class="input" id="kpCartao">${opts}</select></div>
+    <div class="field"><label for="kpDesc">Descrição</label><input class="input" id="kpDesc" maxlength="200" autocomplete="off" placeholder="Ex.: Geladeira, iFood" value="${c ? esc(c.descricao) : ''}"></div>
+    <div class="kc-dias">
+      <div class="field"><label for="kpValor">Valor total (R$)</label><input class="input" id="kpValor" inputmode="decimal" placeholder="0,00" value="${c ? num(Number(c.valor)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
+      <div class="field"><label for="kpParc">Parcelas</label><select class="input" id="kpParc">${opcoesParc(c ? c.parcelas : 1)}</select></div>
+    </div>
+    <div class="kc-dias">
+      <div class="field"><label for="kpCat">Categoria</label><select class="input" id="kpCat">${opcoesCat('exp', c ? c.categoria : null, false)}</select></div>
+      <div class="field"><label for="kpData">Data da compra</label><input class="input" id="kpData" type="date" value="${c ? c.data : todayISO()}"></div>
+    </div>
+    <span class="hint" id="kpInfo" style="margin:0;"></span>
+    <span class="hint" id="kpErro" style="color:var(--alerta);" hidden></span>
+    <button class="btn btn-primary" type="button" data-kc-salvarcompra style="min-height:44px;">${c ? 'Salvar' : 'Lançar no cartão'}</button>
+    ${c ? '<button class="btn btn-ghost" type="button" data-kc-excluircompra style="color:var(--alerta);">Excluir compra (todas as parcelas)</button>' : ''}`,
+    { tipo: 'kccompra', c });
+  kpInfo();
+  if (!c) setTimeout(() => $('kpDesc').focus(), 0);
+}
+function kpInfo(){
+  const k = findCartao($('kpCartao').value); if (!k){ $('kpInfo').textContent = ''; return; }
+  const f = faturaDaCompra(k, $('kpData').value || todayISO()), n = Number($('kpParc').value) || 1, v = parseAmount($('kpValor').value);
+  $('kpInfo').textContent = `Vai para a fatura de ${mlabel(f)}` + (n > 1 ? ` e termina em ${mlabel(mkey(Number(f.slice(0, 4)), Number(f.slice(5, 7)) - 1 + n - 1))}${v > 0 ? ` (${n}x de ${brl(Math.floor(cents(v) / n) / 100)})` : ''}` : '') + '.';
+}
+function openPagarFatura(kid, mk){
+  const k = findCartao(kid); if (!k) return;
+  const i = infoFatura(k, mk);
+  const me = myId();
+  openDlg2(`Pagar · ${mlabel(mk)}`, `${iconeCartao(k)} Fatura ${k.nome}`, `
+    <div class="dlg-sec">
+      <div class="kv"><span>Total da fatura</span><b>${brl(i.total)}</b></div>
+      ${i.pago > 0 ? `<div class="kv"><span>Já pago</span><b>${brl(i.pago)}</b></div>` : ''}
+      <div class="kv"><span>Falta pagar</span><b style="color:var(--accent-text);">${brl(i.falta)}</b></div>
+      <div class="kv"><span>Vencimento</span><b>${ddmm(i.vence)}</b></div>
+    </div>
+    ${i.falta > 0 ? `<div class="dlg-sec" style="gap:var(--space-3);">
+      <div class="field"><label for="kpgVal">Quanto você está pagando (R$)</label><input class="input" id="kpgVal" inputmode="decimal" value="${num(i.falta)}" style="font-variant-numeric:tabular-nums;"></div>
+      <div class="field"><label for="kpgData">Data do pagamento</label><input class="input" id="kpgData" type="date" value="${todayISO()}"></div>
+      <span class="hint" style="margin:0;">Entra como saída em Lançamentos (💳 Cartão de crédito) e conta no saldo deste mês.</span>
+      <span class="hint" id="kpgErro" style="color:var(--alerta);" hidden></span>
+      <button class="btn btn-primary" type="button" data-kc-confpagar style="min-height:44px;">Registrar pagamento</button>
+    </div>` : ''}
+    ${i.pags.length ? `<div class="dlg-sec"><h3>Pagamentos</h3><div class="kc-pags">${i.pags.map(p => `
+      <div class="kv"><span>${p.data.slice(8, 10)}/${p.data.slice(5, 7)} · ${esc(quem(p.user_id))}</span><b>${brl(Number(p.valor))}${p.user_id === me ? `<button class="btn btn-ghost btn-sm" type="button" data-kc-desfazer="${esc(p.id)}">Desfazer</button>` : ''}</b></div>`).join('')}</div></div>` : ''}`,
+    { tipo: 'kcpag', kid, mk });
+}
+
+$('dlg2Body').addEventListener('click', async e => {
+  const t = dlg2.tipo;
+  if (!['kcform', 'kcmeus', 'kccompra', 'kcpag'].includes(t)) return;
+  const ctx = dlg2;
+  if (t === 'kcform'){
+    const bb = e.target.closest('[data-kc-banco]');
+    if (bb){
+      document.querySelectorAll('[data-kc-banco]').forEach(x => x.setAttribute('aria-pressed', String(x === bb)));
+      ctx.banco = bb.dataset.kcBanco;
+      $('kfCorWrap').hidden = ctx.banco !== 'outro';
+      // o apelido acompanha o banco enquanto a pessoa não escrever outro
+      const b = bancoDe(ctx.banco), nome = $('kfNome');
+      if (b && (!nome.value.trim() || nome.value === ctx.auto)){ nome.value = b.nome; ctx.auto = b.nome; }
+      if (ctx.banco === 'outro' && nome.value === ctx.auto){ nome.value = ''; nome.focus(); }
+      return;
+    }
+    const cor = e.target.closest('[data-kc-cor]');
+    if (cor){ document.querySelectorAll('[data-kc-cor]').forEach(x => x.setAttribute('aria-pressed', String(x === cor))); return; }
+    const sv = e.target.closest('[data-kc-salvar]'); if (!sv) return;
+    const erro = m => { $('kfErro').textContent = m; $('kfErro').hidden = false; };
+    const nome = $('kfNome').value.trim(), limTxt = $('kfLim').value.trim(), lim = limTxt ? parseAmount(limTxt) : null;
+    if (!ctx.banco) return erro('Escolha o banco (ou "Outro").');
+    if (!nome) return erro('Dê um apelido para o cartão.');
+    if (/\d{12,}/.test(nome.replace(/[\s.-]/g, ''))) return erro('Não coloque o número do cartão. Use só um apelido, como "Nubank".');
+    if (limTxt && !(lim > 0)) return erro('Limite inválido. Deixe em branco se não quiser informar.');
+    const icone = ctx.banco === 'outro' ? ((document.querySelector('[data-kc-cor][aria-pressed="true"]') || {}).dataset || {}).kcCor || '💳' : null;
+    sv.disabled = true;
+    const { data: id, error } = await sb.rpc('salvar_cartao', { p_id: ctx.k ? ctx.k.id : null, cid: state.cid, p_nome: nome,
+      p_banco: ctx.banco === 'outro' ? null : ctx.banco, p_icone: icone, p_fecha: Number($('kfFecha').value), p_vence: Number($('kfVence').value), p_limite: lim });
+    sv.disabled = false;
+    if (error) return erro(rpcMsg(error));
+    await loadCartoes();
+    closeDlg2(); render();
+    toast(ctx.k ? 'Cartão atualizado.' : `Cartão "${nome}" cadastrado.`, true);
+    if (ctx.res) ctx.res(id);
+    return;
+  }
+  if (t === 'kcmeus'){
+    if (e.target.closest('[data-kc-novo]')){ await janelaCartao(null); openMeusCartoes(); return; }
+    const ed = e.target.closest('[data-kc-editar]');
+    if (ed){ const k = findCartao(ed.dataset.kcEditar); if (k){ await janelaCartao(k); openMeusCartoes(); } return; }
+    const oc = e.target.closest('[data-kc-ocultar]');
+    if (oc){
+      const k = findCartao(oc.dataset.kcOcultar); if (!k) return;
+      oc.disabled = true;
+      const { error } = await sb.rpc('ocultar_cartao', { p_id: k.id, p_oculto: !k.oculto });
+      if (error){ oc.disabled = false; return toast(rpcMsg(error)); }
+      await loadCartoes(); render(); openMeusCartoes();
+      toast(k.oculto ? `"${k.nome}" voltou.` : `"${k.nome}" escondido. As compras dele continuam nas faturas.`, true);
+      return;
+    }
+    const ex = e.target.closest('[data-kc-excluir]');
+    if (ex){
+      const k = findCartao(ex.dataset.kcExcluir); if (!k) return;
+      const n = (state.compras || []).filter(c => c.cartao_id === k.id).length;
+      if (!await confirmar(`Excluir o cartão "${k.nome}"?\n\n${n ? `As ${plural(n, 'compra')} dele somem junto. ` : ''}As faturas já pagas continuam em Lançamentos.`)) return openMeusCartoes();
+      const { error } = await sb.rpc('excluir_cartao', { p_id: k.id });
+      if (error){ toast(rpcMsg(error)); return openMeusCartoes(); }
+      await loadCartoes(); render(); openMeusCartoes();
+      toast('Cartão excluído.', true);
+    }
+    return;
+  }
+  if (t === 'kccompra'){
+    const sv = e.target.closest('[data-kc-salvarcompra]');
+    const erro = m => { $('kpErro').textContent = m; $('kpErro').hidden = false; };
+    if (sv){
+      const desc = $('kpDesc').value.trim(), v = parseAmount($('kpValor').value);
+      if (!$('kpCartao').value) return erro('Cadastre um cartão primeiro.');
+      if (!desc) return erro('Escreva uma descrição.');
+      if (!(v > 0)) return erro('Informe um valor maior que zero.');
+      sv.disabled = true;
+      const { data: f, error } = await sb.rpc('salvar_compra', { p_id: ctx.c ? ctx.c.id : null, p_cartao: $('kpCartao').value, p_desc: desc,
+        p_cat: $('kpCat').value, p_valor: v, p_parcelas: Number($('kpParc').value) || 1, p_data: $('kpData').value || todayISO() });
+      sv.disabled = false;
+      if (error) return erro(rpcMsg(error));
+      await loadCartoes(); closeDlg2(); render();
+      toast(ctx.c ? 'Compra atualizada.' : `Lançado na fatura de ${mlabel(String(f).slice(0, 10))}.`, true);
+      return;
+    }
+    if (e.target.closest('[data-kc-excluircompra]')){
+      const c = ctx.c; if (!c) return;
+      if (!await confirmar(`Excluir esta compra?\n\n${c.descricao} · ${brl(Number(c.valor))}${c.parcelas > 1 ? ` em ${c.parcelas}x (todas as parcelas)` : ''}`)) return openCompra(c.id);
+      const { error } = await sb.rpc('excluir_compra', { p_id: c.id });
+      if (error){ toast(rpcMsg(error)); return; }
+      await loadCartoes(); closeDlg2(); render();
+      toast('Compra excluída.', true);
+    }
+    return;
+  }
+  if (t === 'kcpag'){
+    const ok = e.target.closest('[data-kc-confpagar]');
+    if (ok){
+      const v = parseAmount($('kpgVal').value);
+      const erro = m => { $('kpgErro').textContent = m; $('kpgErro').hidden = false; };
+      if (!(v > 0)) return erro('Informe um valor maior que zero.');
+      ok.disabled = true;
+      const { error } = await sb.rpc('pagar_fatura', { p_cartao: ctx.kid, p_mes: ctx.mk, p_valor: v, p_data: $('kpgData').value || todayISO() });
+      ok.disabled = false;
+      if (error) return erro(rpcMsg(error));
+      closeDlg2();
+      toast(`Pagamento de ${brl(v)} registrado. Já está em Lançamentos.`, true);
+      await loadCartoes(); await refresh();
+      return;
+    }
+    const d = e.target.closest('[data-kc-desfazer]');
+    if (d){
+      if (!await confirmar('Desfazer este pagamento? A saída em Lançamentos também é apagada.')) return openPagarFatura(ctx.kid, ctx.mk);
+      const { error } = await sb.rpc('desfazer_pag_fatura', { pag: d.dataset.kcDesfazer });
+      if (error){ toast(rpcMsg(error)); return; }
+      await loadCartoes(); await refresh();
+      openPagarFatura(ctx.kid, ctx.mk);
+      toast('Pagamento desfeito.', true);
+    }
+  }
+});
+$('dlg2Body').addEventListener('change', e => { if (dlg2.tipo === 'kccompra' && ['kpCartao', 'kpParc', 'kpData'].includes(e.target.id)) kpInfo(); });
+$('dlg2Body').addEventListener('input', e => {
+  if (dlg2.tipo === 'kccompra' && e.target.id === 'kpValor') kpInfo();
+  if (dlg2.tipo === 'kcform' && e.target.id === 'kfNome') dlg2.auto = null;   // a pessoa escreveu o próprio apelido
+});
+
 /* ======================= O QUE O CONTROLE COMPARTILHA ======================= */
 const MODULOS = [
   { k: 'lanc', nome: 'Gastos (lançamentos)' },
   { k: 'contas', nome: 'Contas a pagar' },
   { k: 'metas', nome: 'Metas' },
   { k: 'invest', nome: 'Investimentos' },
+  { k: 'cartoes', nome: 'Cartões de crédito' },
 ];
-const modulosDe = c => !c || c.pessoal || !Array.isArray(c.modulos) ? ['lanc', 'contas', 'metas', 'invest'] : c.modulos;
+const modulosDe = c => !c || c.pessoal || !Array.isArray(c.modulos) ? ['lanc', 'contas', 'metas', 'invest', 'cartoes'] : c.modulos;
 const modOn = k => modulosDe(current()).includes(k);
 function modulosHtml(c){
   const ms = modulosDe(c), dono = c.sou_dono;
@@ -2866,7 +3396,7 @@ const valoresOriginais = new Map();
 let valoresOcultos = false;
 try { valoresOcultos = localStorage.getItem('pof-ocultar') === '1'; } catch(e){}
 // resumos e listas (lançamentos, categorias, contas, metas, investimentos); os campos de digitar ficam de fora
-const areasValores = () => document.querySelectorAll('#viewApp .stats, #viewApp #budget, #rows, #cats, #billList, #metasGrid, #invList, #invDist');
+const areasValores = () => document.querySelectorAll('#viewApp .stats, #viewApp #budget, #rows, #cats, #billList, #metasGrid, #invList, #invDist, #kcFaturas, #kcCompras, #kcCats');
 function mascararValores(){
   areasValores().forEach(raiz => {
     const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT); let n;
@@ -2980,6 +3510,20 @@ $('export').onclick = async () => {
   aba('Investimentos - movimentos', ['Data', 'Investimento', 'Movimento', 'Valor', 'Quantidade'].concat(shared ? ['Quem'] : []),
     (state.invMovs || []).map(x => [dBR(x.data), nomeInv[x.investimento_id] || '', MOV[x.tipo] || x.tipo, Number(x.valor),
       x.quantidade != null ? Number(x.quantidade) : ''].concat(shared ? [nameOf(x.user_id)] : [])), [12, 28, 16, 14, 12, 18], [3]);
+
+  // 6) Cartões: cada parcela na fatura em que cai
+  const linhasK = [];
+  (state.compras || []).forEach(x => {
+    const k = findCartao(x.cartao_id), tot = cents(Number(x.valor)), base = Math.floor(tot / x.parcelas);
+    for (let n = 0; n < x.parcelas; n++){
+      const f = mkey(Number(x.fatura.slice(0, 4)), Number(x.fatura.slice(5, 7)) - 1 + n);
+      linhasK.push([mBR(f.slice(0, 7)), k ? k.nome : '', dBR(x.data), x.descricao, x.categoria, x.parcelas > 1 ? `${n + 1}/${x.parcelas}` : 'À vista',
+        -((n === 0 ? tot - base * (x.parcelas - 1) : base) / 100), Number(x.valor)].concat(shared ? [nameOf(x.user_id)] : []).concat([f]));
+    }
+  });
+  linhasK.sort((a, b) => a[a.length - 1].localeCompare(b[b.length - 1]) || a[1].localeCompare(b[1]));
+  aba('Cartões', ['Fatura', 'Cartão', 'Data da compra', 'Descrição', 'Categoria', 'Parcela', 'Valor na fatura', 'Valor total da compra'].concat(shared ? ['Quem'] : []),
+    linhasK.map(l => l.slice(0, -1)), [16, 18, 14, 30, 18, 10, 16, 20, 18], [6, 7]);
 
   const slug = c.nome.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'controle';
   XLSX.writeFile(wb, `pra-onde-foi-${slug}.xlsx`);
