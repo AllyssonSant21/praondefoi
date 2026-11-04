@@ -688,6 +688,22 @@
   .olho-topo[aria-pressed="true"]{color:var(--accent-text);border-color:rgba(var(--accent-rgb),.7);background:rgba(var(--accent-rgb),.12)}
   .olho-topo[aria-pressed="true"] .ic-olho{display:none} .olho-topo[aria-pressed="true"] .ic-olho-fechado{display:block}
   .olho-linha{display:none !important}
+  /* lista de lançamentos no celular: descrição em cima, "data · categoria" embaixo, valor à direita */
+  .lmeta{display:none}
+  @media (max-width:560px){
+    #tableWrap .table thead{display:none}
+    #tableWrap .table,#tableWrap .table tbody{display:block}
+    #rows tr{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"d v" "d a";column-gap:12px;align-items:start;padding:12px 2px;border-bottom:1px solid rgba(var(--fg-rgb),.1)}
+    #rows td{display:block;padding:0 !important;border:0 !important;width:auto !important}
+    #rows td:nth-child(1),#rows td:nth-child(3){display:none !important}
+    #rows td:nth-child(2){grid-area:d;min-width:0}
+    #rows td:nth-child(4){grid-area:v;text-align:right;font-weight:600 !important;font-size:15px}
+    #rows td:nth-child(5){grid-area:a;display:flex !important;justify-content:flex-end;gap:2px;margin-top:2px}
+    #rows .ldesc{display:block;font-weight:500;font-size:15px;line-height:1.3;overflow-wrap:anywhere}
+    #rows .by,#rows .cat-inline{display:none !important}
+    #rows .lmeta{display:block;margin-top:3px;font-size:13px;color:var(--muted)}
+    #rows .btn-icon{width:34px !important;height:30px !important}
+  }
   /* categorias personalizadas */
   .ct-emojis{display:flex;flex-wrap:wrap;gap:6px}
   .ct-emoji{min-width:40px;height:40px;padding:0 8px;border:1px solid rgba(var(--fg-rgb),.18);border-radius:var(--r-btn);background:var(--surface);font:inherit;font-size:18px;color:var(--muted);cursor:pointer}
@@ -1251,6 +1267,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=62"></script>
+<script src="app.js?v=63"></script>
 </body>
 </html>
