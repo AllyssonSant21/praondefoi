@@ -802,6 +802,23 @@
   .auth-seguro li{position:relative;padding-left:22px}
   .auth-seguro li::before{content:"";position:absolute;left:3px;top:3px;width:10px;height:6px;border-left:2px solid var(--green);border-bottom:2px solid var(--green);transform:rotate(-45deg)}
   .dados-lista{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+
+  /* tela de entrar: lista de recursos (opção A) */
+.auth-feats.nova-lista{display:grid;grid-template-columns:1fr;gap:18px 28px;margin-top:4px}
+@media (min-width:600px){.auth-feats.nova-lista{grid-template-columns:1fr 1fr}}
+.nova-lista li{display:flex;gap:14px;align-items:flex-start}
+.nova-lista .ic{flex:none;width:40px;height:40px;border-radius:8px;display:grid;place-items:center;background:rgba(var(--accent-rgb),.16);color:var(--accent-text)}
+.nova-lista b,.nova-passos b{display:block;font-size:15.5px;margin-bottom:2px;color:var(--text)}
+.nova-lista span:not(.ic),.nova-passos span:not(.n){font-size:14px;color:var(--muted);line-height:1.45}
+.auth-feats.nova-passos{display:flex;flex-direction:column;gap:0;counter-reset:none;margin-top:4px}
+.nova-passos li{display:flex;gap:16px;align-items:flex-start;padding:16px 0;border-bottom:1px solid var(--divider)}
+.nova-passos li:last-child{border-bottom:0}
+.nova-passos .n{flex:none;width:36px;height:36px;border-radius:6px;display:grid;place-items:center;background:var(--accent);color:#16181d;font-weight:700;font-size:17px}
+.auth-selos{align-self:flex-start;justify-content:flex-start;display:flex;flex-wrap:wrap;gap:10px 20px;font-size:13.5px;color:var(--muted);margin-top:22px}
+.auth-selos span{display:inline-flex;align-items:center;gap:7px}
+.auth-selos svg{width:16px;height:16px;color:var(--accent-text)}
+.feats-wrap{grid-area:feats;display:flex;flex-direction:column}
+.feats-wrap .auth-feats{grid-area:auto}
 </style>
 </head>
 <body>
@@ -831,14 +848,8 @@
       <h1 class="auth-title">Pra onde<br>foi<span class="hl">?</span></h1>
       <p class="auth-lead">Descubra para onde vai o seu dinheiro, <span class="hl">em qualquer lugar</span>.</p>
     </div>
-    <ul class="auth-feats">
-      <li class="auth-feat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16 14.2a5 5 0 0 1 6 4.8"/></svg></span><div><b>Sozinho, a dois ou em família</b><span>O seu controle pessoal e controles compartilhados com quem você escolher.</span></div></li>
-      <li class="auth-feat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="3"/><path d="M3 10h18M8 2.5v4M16 2.5v4"/><path d="m9 15 2 2 4-4"/></svg></span><div><b>Contas a pagar</b><span>Fixas, parceladas e divididas, com aviso de vencimento.</span></div></li>
-      <li class="auth-feat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg></span><div><b>Para onde foi</b><span>Gastos por categoria, mês a mês, com planilha no Excel.</span></div></li>
-      <li class="auth-feat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18h2"/></svg></span><div><b>No celular e no PC</b><span>Instale como app e veja tudo sincronizado.</span></div></li>
-    </ul>
+    <div class="feats-wrap"><ul class="auth-feats nova-lista"><li><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg></span><div><b>Cartões de crédito</b><span>Faturas e parcelas, sem pedir dados do cartão.</span></div></li><li><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="3"/><path d="M3 10h18M8 2.5v4M16 2.5v4"/></svg></span><div><b>Contas a pagar</b><span>Aviso antes de vencer.</span></div></li><li><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg></span><div><b>Metas</b><span>Guarde dinheiro para o que importa.</span></div></li><li><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span><div><b>Investimentos</b><span>Quanto rende, mês a mês.</span></div></li><li><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16 14.2a5 5 0 0 1 6 4.8"/></svg></span><div><b>A dois ou em família</b><span>Cada um lança, todos veem.</span></div></li><li><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><div><b>Planilha no Excel</b><span>Baixe tudo quando quiser.</span></div></li></ul><div class="auth-selos"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18h2"/></svg>Celular e PC</span><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>Não conecta no seu banco</span></div></div>
     <div class="auth-side">
-    <div class="auth-preview" aria-hidden="true"><span class="k">Saldo do mês</span><span class="v">R$ 3.787,65</span><span class="n">Sobrou 73% do que entrou</span></div>
     <div class="blueprint auth-card">
       <div class="seg" id="authSeg" role="group" aria-label="Acesso" style="align-self:flex-start;">
         <button type="button" data-mode="entrar" aria-pressed="true">Entrar</button>
@@ -1372,6 +1383,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=68"></script>
+<script src="app.js?v=69"></script>
 </body>
 </html>
