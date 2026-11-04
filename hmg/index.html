@@ -676,6 +676,7 @@
   /* seletor Saída/Entrada e outros: trilho cinza, opção marcada em branco */
   .seg{background:var(--track) !important;border-color:transparent !important}
   .seg button[aria-pressed="true"]{background:var(--surface) !important;color:var(--text) !important;box-shadow:0 1px 3px rgba(16,24,40,.14) !important}
+  .seg button:not([aria-pressed="true"]):hover{background:transparent !important;color:var(--text) !important}
   #typeSeg button[data-type="exp"][aria-pressed="true"]{color:var(--alerta) !important}
   #typeSeg button[data-type="inc"][aria-pressed="true"]{color:var(--green) !important}
   .side-item[aria-current="page"],.side-item.on,.side-item[aria-pressed="true"]{background:rgba(var(--accent-rgb),.18) !important}

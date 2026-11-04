@@ -460,8 +460,9 @@ function janelaCategoria(cat, tipoPadrao){
       <div class="field"><label>Ícone (opcional)</label>
         <div class="ct-emojis" role="group" aria-label="Ícone">${['', ...EMOJIS_CAT].map(e => `<button type="button" class="ct-emoji" data-ct-emoji="${e}" aria-pressed="${(cat ? (cat.icone || '') : '') === e}">${e || 'Sem'}</button>`).join('')}</div>
       </div>
-      <div class="field"><label>Vale para</label>
-        <div class="seg" id="ctTipo">${[['exp','Saída'],['inc','Entrada'],['ambos','As duas']].map(([v, l]) => `<button type="button" data-ct-tipo="${v}" aria-pressed="${t === v}">${l}</button>`).join('')}</div>
+      <div class="field"><label>Aparece em qual lista?</label>
+        <div class="seg" id="ctTipo">${[['exp','Saídas'],['inc','Entradas'],['ambos','Nas duas']].map(([v, l]) => `<button type="button" data-ct-tipo="${v}" aria-pressed="${t === v}">${l}</button>`).join('')}</div>
+        <span class="hint" style="margin:0;">Ex.: "Pet" só faz sentido em saídas. "Presente" pode ser as duas: quando você dá e quando você ganha.</span>
       </div>
       ${cat ? '<p class="hint" style="margin:0;">Ao renomear, os lançamentos e as contas com essa categoria passam a usar o nome novo.</p>' : ''}
       <span class="hint" id="ctErro" style="color:var(--alerta);" hidden></span>
@@ -499,7 +500,7 @@ $('dlg2Body').addEventListener('keydown', e => { if (dlg2.tipo === 'categoria' &
 /* ---------- Menu → Minhas categorias ---------- */
 function openCategorias(){
   const minhas = categorias.slice().sort((a, b) => (a.oculta - b.oculta) || a.nome.localeCompare(b.nome));
-  const TIPO = { exp: 'Saída', inc: 'Entrada', ambos: 'Saída e entrada' };
+  const TIPO = { exp: 'Saídas', inc: 'Entradas', ambos: 'Saídas e entradas' };
   const pode = c => (currentUser && c.criado_por === currentUser.id) || !!(current() || {}).sou_dono;
   openDlg2('Categorias', 'Minhas categorias', `
     <p class="hint" style="margin:0;">As categorias do app (Mercado, Moradia…) estão sempre disponíveis. Aqui ficam as que você criou${isShared() ? ' neste controle, que todos dele usam' : ''}.</p>
