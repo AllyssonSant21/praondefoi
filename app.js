@@ -2587,6 +2587,7 @@ function renderCartoes(){
       <span class="kc-ic">${esc(iconeCat(c.categoria) || '🏷️')}</span>
       <span style="min-width:0;"><span class="kc-d" style="display:block;">${esc(c.descricao)}</span><span class="by" style="margin:0;">${meta}</span></span>
       <span class="kc-v">− ${brl(p.valor)}</span>
+      <span class="kc-acao">${pode ? `<button class="btn btn-ghost btn-icon" type="button" data-kc-edit="${esc(c.id)}" style="color:var(--muted);" aria-label="Editar ${esc(c.descricao)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="btn btn-ghost btn-icon" type="button" data-kc-del="${esc(c.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(c.descricao)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</span>
     </div>`;
   }).join('') : '<p style="font-size:14px;color:var(--muted);margin:0;">Nenhuma compra nesta fatura.</p>';
 
@@ -2647,7 +2648,21 @@ $('kcChips').addEventListener('click', e => {
   const b = e.target.closest('[data-kc-sel]'); if (!b) return;
   state.kcSel = b.dataset.kcSel; renderCartoes();
 });
-$('kcCompras').addEventListener('click', e => { const r = e.target.closest('[data-kc-compra]'); if (r) openCompra(r.dataset.kcCompra); });
+$('kcCompras').addEventListener('click', async e => {
+  const del = e.target.closest('[data-kc-del]');
+  if (del){
+    const c = (state.compras || []).find(x => x.id === del.dataset.kcDel); if (!c) return;
+    if (!await confirmar(`Excluir esta compra?\n\n${c.descricao} · ${brl(Number(c.valor))}${c.parcelas > 1 ? ` em ${c.parcelas}x (todas as parcelas)` : ''}`)) return;
+    del.disabled = true;
+    const { error } = await sb.rpc('excluir_compra', { p_id: c.id });
+    if (error){ del.disabled = false; return toast(rpcMsg(error)); }
+    await loadCartoes(); render();
+    return toast('Compra excluída.', true);
+  }
+  const ed = e.target.closest('[data-kc-edit]');
+  if (ed) return openCompra(ed.dataset.kcEdit);
+  const r = e.target.closest('[data-kc-compra]'); if (r) openCompra(r.dataset.kcCompra);
+});
 $('kcCompras').addEventListener('keydown', e => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
   const r = e.target.closest('[data-kc-compra]'); if (r){ e.preventDefault(); openCompra(r.dataset.kcCompra); }

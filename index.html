@@ -768,11 +768,13 @@
   /* ===== cartões de crédito ===== */
   .kc-hint{margin:0}
   .kc-chip-ic{font-size:14px;line-height:1}
-  .kc-compra{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:var(--space-3);align-items:center;padding:12px 4px;border-bottom:1px solid rgba(var(--fg-rgb),.08)}
+  .kc-compra{display:grid;grid-template-columns:34px minmax(0,1fr) auto auto;gap:var(--space-3);align-items:center;padding:12px 4px;border-bottom:1px solid rgba(var(--fg-rgb),.08)}
   .kc-compra.pode{cursor:pointer}
   .kc-compra.pode:hover{background:rgba(var(--fg-rgb),.04)}
   .kc-compra .kc-ic{width:34px;height:34px;border-radius:var(--r-cartao);background:var(--bg);border:1px solid var(--divider);display:flex;align-items:center;justify-content:center;font-size:16px}
   .kc-compra .kc-d{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .kc-compra .kc-acao{display:flex;white-space:nowrap;margin-right:-6px}
+  .kc-compra .kc-acao:empty{display:none}
   .kc-compra .kc-v{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--out)}
   .kc-bancos{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:6px;max-height:228px;overflow:auto;padding:2px}
   .kc-banco{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1.5px solid var(--divider);border-radius:var(--r-btn);background:none;color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer;text-align:left;min-height:42px}
@@ -1382,6 +1384,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="app.js?v=70"></script>
+<script src="app.js?v=71"></script>
 </body>
 </html>
