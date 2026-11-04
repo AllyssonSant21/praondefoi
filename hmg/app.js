@@ -2916,37 +2916,70 @@ $('export').onclick = async () => {
   const shared = !c.pessoal;
   const money = '"R$" #,##0.00;-"R$" #,##0.00';
   const wb = XLSX.utils.book_new();
-  const fmtCol = (ws, cols) => {
-    const r = XLSX.utils.decode_range(ws['!ref']);
-    for (let row = 1; row <= r.e.r; row++) cols.forEach(col => { const cell = ws[XLSX.utils.encode_cell({r:row,c:col})]; if (cell && cell.t === 'n') cell.z = money; });
+  const dBR = iso => iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '';
+  const mBR = mk => { if (!mk) return ''; const [y, m] = String(mk).split('-').map(Number); return `${MONTHS[m - 1]} ${y}`; };
+  // cada aba sempre existe: sem dados, fica só o cabeçalho
+  const aba = (nome, cab, linhas, larg, colsDinheiro = [], colsPct = []) => {
+    const ws = XLSX.utils.aoa_to_sheet([cab, ...linhas]);
+    ws['!cols'] = larg.map(w => ({ wch: w }));
+    for (let r = 1; r <= linhas.length; r++){
+      colsDinheiro.forEach(col => { const cel = ws[XLSX.utils.encode_cell({ r, c: col })]; if (cel && cel.t === 'n') cel.z = money; });
+      colsPct.forEach(col => { const cel = ws[XLSX.utils.encode_cell({ r, c: col })]; if (cel && cel.t === 'n') cel.z = '0%'; });
+    }
+    XLSX.utils.book_append_sheet(wb, ws, nome);
   };
-  const all = entries.map(e => {
-    const row = {
-      'Data': e.date.split('-').reverse().join('/'),
-      'Tipo': e.type === 'inc' ? 'Entrada' : 'Saída',
-      'Descrição': e.desc, 'Categoria': e.cat,
-      'Valor': e.type === 'inc' ? e.amount : -e.amount
-    };
-    if (shared) row['Quem lançou'] = nameOf(e.uid);
-    return row;
-  });
-  const ws1 = XLSX.utils.json_to_sheet(all.length ? all : [{Data:'',Tipo:'',Descrição:'',Categoria:'',Valor:''}]);
-  ws1['!cols'] = [{wch:12},{wch:10},{wch:34},{wch:16},{wch:14},{wch:18}];
-  fmtCol(ws1,[4]);
-  XLSX.utils.book_append_sheet(wb, ws1, 'Lançamentos');
 
+  // 1) Lançamentos
+  const cabL = ['Data', 'Tipo', 'Descrição', 'Categoria', 'Valor'].concat(shared ? ['Quem lançou'] : []);
+  aba('Lançamentos', cabL, entries.map(e => [dBR(e.date), e.type === 'inc' ? 'Entrada' : 'Saída', e.desc, e.cat,
+    e.type === 'inc' ? e.amount : -e.amount].concat(shared ? [nameOf(e.uid)] : [])), [12, 10, 34, 18, 14, 18], [4]);
+
+  // 2) Resumo por mês
   const byMonth = {};
-  entries.forEach(e => { const k = e.date.slice(0,7); byMonth[k] = byMonth[k] || {inc:0,exp:0}; byMonth[k][e.type] += e.amount; });
-  const months = Object.keys(byMonth).sort().map(k => {
-    const [y,m] = k.split('-').map(Number), v = byMonth[k];
-    return {'Mês': `${MONTHS[m-1]} ${y}`, 'Entradas': v.inc, 'Saídas': v.exp, 'Saldo': v.inc - v.exp};
+  entries.forEach(e => { const k = e.date.slice(0, 7); byMonth[k] = byMonth[k] || { inc: 0, exp: 0 }; byMonth[k][e.type] += e.amount; });
+  aba('Resumo por mês', ['Mês', 'Entradas', 'Saídas', 'Saldo'],
+    Object.keys(byMonth).sort().map(k => { const v = byMonth[k]; return [mBR(k), r2(v.inc), r2(v.exp), r2(v.inc - v.exp)]; }),
+    [18, 14, 14, 14], [1, 2, 3]);
+
+  // 3) Contas a pagar (situação do mês que está na tela)
+  const mkTela = mkey(state.y, state.m), TIPO_CONTA = { fixa: 'Fixa (todo mês)', parcelada: 'Parcelada', unica: 'Uma vez só' };
+  const linhasC = (state.contas || []).map(ct => {
+    let sit = 'Não vence neste mês', valorMes = '', pago = '';
+    if (ocorre(ct, mkTela)){
+      const i = instancia(ct, mkTela);
+      valorMes = r2(i.total); pago = r2(i.pago);
+      sit = i.paid ? 'Paga' : i.pago > 0 ? 'Paga em parte' : i.days < 0 ? 'Vencida' : 'A pagar';
+    }
+    return [ct.nome, ct.categoria, TIPO_CONTA[ct.tipo] || ct.tipo, Number(ct.valor), ct.dia, mBR(String(ct.inicio).slice(0, 7)),
+      ct.tipo === 'parcelada' ? ct.parcelas : '', valorMes, pago, sit];
   });
-  if (months.length){
-    const ws2 = XLSX.utils.json_to_sheet(months);
-    ws2['!cols'] = [{wch:18},{wch:14},{wch:14},{wch:14}];
-    fmtCol(ws2,[1,2,3]);
-    XLSX.utils.book_append_sheet(wb, ws2, 'Resumo por mês');
-  }
+  aba('Contas', ['Conta', 'Categoria', 'Tipo', 'Valor', 'Vence dia', 'Começa em', 'Parcelas',
+    `Valor em ${mBR(mkTela.slice(0, 7))}`, 'Já pago', 'Situação'], linhasC, [26, 16, 16, 14, 10, 16, 10, 18, 14, 18], [3, 7, 8]);
+
+  // 4) Metas e seus movimentos
+  const metas = state.metas || [];
+  aba('Metas', ['Meta', 'Objetivo', 'Guardado', 'Falta', '% do objetivo', 'Prazo', 'Situação'],
+    metas.map(m => { const i = infoMeta(m);
+      const sit = m.encerrada_em ? `Concluída e usada (${dBR(m.encerrada_em)})` : i.done ? 'Concluída' : 'Em andamento';
+      return [`${m.icone ? m.icone + ' ' : ''}${m.nome}`, Number(m.alvo), i.saldo, i.falta, i.pct / 100, m.prazo ? mBR(String(m.prazo).slice(0, 7)) : 'Sem prazo', sit]; }),
+    [28, 14, 14, 14, 14, 16, 26], [1, 2, 3], [4]);
+  const nomeMeta = Object.fromEntries(metas.map(m => [m.id, m.nome]));
+  aba('Metas - movimentos', ['Data', 'Meta', 'Movimento', 'Valor'].concat(shared ? ['Quem'] : []),
+    (state.metaMovs || []).map(x => [dBR(x.data), nomeMeta[x.meta_id] || '', x.tipo === 'guardar' ? 'Guardou' : 'Retirou',
+      Number(x.valor) * (x.tipo === 'guardar' ? 1 : -1)].concat(shared ? [nameOf(x.user_id)] : [])), [12, 28, 12, 14, 18], [3]);
+
+  // 5) Investimentos e seus movimentos
+  const invs = state.invs || [], IDX = { cdi: 'CDI', pre: 'Prefixado', ipca: 'IPCA +', selic: 'Selic', poupanca: 'Poupança', cotacao: 'Cotação', manual: 'Valor informado' };
+  aba('Investimentos', ['Investimento', 'Tipo', 'Rende por', 'Taxa (%)', 'Aplicado', 'Valor hoje (estimado)', 'Ganho', 'Vencimento', 'Isento de IR'],
+    invs.map(inv => { const k = calcInv(inv), T = TIPOS_INV[inv.tipo] || TIPOS_INV.outro;
+      return [inv.ticker ? `${inv.nome} (${inv.ticker})` : inv.nome, T.nome, IDX[inv.indexador] || inv.indexador || '',
+        inv.taxa != null ? Number(inv.taxa) : '', k.aplicado, k.liquido, k.ganho, inv.vencimento ? dBR(inv.vencimento) : '', inv.isento ? 'Sim' : 'Não']; }),
+    [28, 16, 14, 8, 14, 20, 14, 12, 12], [4, 5, 6]);
+  const nomeInv = Object.fromEntries(invs.map(x => [x.id, x.nome])), MOV = { aporte: 'Aplicou', resgate: 'Resgatou', saldo: 'Atualizou o valor' };
+  aba('Investimentos - movimentos', ['Data', 'Investimento', 'Movimento', 'Valor', 'Quantidade'].concat(shared ? ['Quem'] : []),
+    (state.invMovs || []).map(x => [dBR(x.data), nomeInv[x.investimento_id] || '', MOV[x.tipo] || x.tipo, Number(x.valor),
+      x.quantidade != null ? Number(x.quantidade) : ''].concat(shared ? [nameOf(x.user_id)] : [])), [12, 28, 16, 14, 12, 18], [3]);
+
   const slug = c.nome.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'controle';
   XLSX.writeFile(wb, `pra-onde-foi-${slug}.xlsx`);
 };
