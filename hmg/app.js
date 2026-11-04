@@ -771,9 +771,9 @@ function render(){
   const shared = isShared();
 
   renderCtrlBar();
-  $('monthTitle').textContent = `${MONTHS[m]} ${y}`;
-  { const d = new Date(); $('today').hidden = (y === d.getFullYear() && m === d.getMonth()); }
-  document.title = `${MONTHS[m]} ${y} · Pra Onde Foi?`;
+  $('mesLongo').textContent = `${MONTHS[m]} ${y}`;
+  $('mesCurto').textContent = `${MONTHS[m].slice(0, 3)} ${y}`;
+  { const d = new Date(); $('today').classList.toggle('mes-atual', y === d.getFullYear() && m === d.getMonth()); }
   $('incVal').textContent = brl(inc); $('incVal').classList.toggle('zero', !inc); $('incNote').textContent = plural(month.length - expList.length,'lançamento');
   $('expVal').textContent = brl(exp); $('expVal').classList.toggle('zero', !exp); $('expNote').textContent = plural(expList.length,'lançamento');
   $('balVal').textContent = brl(bal); $('balVal').classList.toggle('zero', !bal);
@@ -954,7 +954,7 @@ function alertas(){
   return { late, hoje, primeiro };
 }
 
-const TITULOS = { metas: 'Metas', invest: 'Investimentos' };
+const TITULOS = { lanc: 'Lançamentos', contas: 'Contas a pagar', metas: 'Metas', invest: 'Investimentos' };
 // o aviso de contas vencidas só aparece em Contas a pagar (nas outras abas fica só o número no menu)
 function syncAlerta(){
   $('billAlert').hidden = !state.alertaN || !modOn('contas') || state.tab !== 'contas';
@@ -982,7 +982,7 @@ function renderTabs(){
   const porMes = state.tab === 'lanc' || state.tab === 'contas';
   $('monthNav').style.display = porMes ? 'flex' : 'none';
   if (!porMes){ $('monthTitle').textContent = TITULOS[state.tab]; document.title = `${TITULOS[state.tab]} · Pra Onde Foi?`; }
-  else { $('monthTitle').textContent = `${MONTHS[state.m]} ${state.y}`; document.title = `${MONTHS[state.m]} ${state.y} · Pra Onde Foi?`; }
+  else { $('monthTitle').textContent = TITULOS[state.tab]; document.title = `${TITULOS[state.tab]} · ${MONTHS[state.m]} ${state.y} · Pra Onde Foi?`; }
 }
 function setTab(t){
   state.tab = t;
