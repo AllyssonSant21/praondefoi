@@ -2861,7 +2861,7 @@ $('dlg2Body').addEventListener('click', e => {
 
 /* ======================= ESCONDER VALORES ======================= */
 // Botão "Esconder valores": troca os valores dos resumos e das listas por "R$ ••••". Fica guardado neste aparelho.
-const MASCARA = 'R$ ••••', RX_DINHEIRO = /-?R\$\s?-?[\d.]+,\d{2}/g;
+const MASCARA = 'R$ ••••', RX_DINHEIRO = /-?R\$\s?-?[\d.]+,\d{2}/g, RX_PCT = /[+−-]?\d+(?:,\d+)?\s?%/g;
 const valoresOriginais = new Map();
 let valoresOcultos = false;
 try { valoresOcultos = localStorage.getItem('pof-ocultar') === '1'; } catch(e){}
@@ -2871,13 +2871,14 @@ function mascararValores(){
   areasValores().forEach(raiz => {
     const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT); let n;
     while ((n = w.nextNode())){
-      const t = n.nodeValue, novo = t.replace(RX_DINHEIRO, MASCARA);
-      if (novo !== t){ valoresOriginais.set(n, t); n.nodeValue = novo; }
+      // valores e porcentagens ("Sobrou 67% do que entrou" também entrega quanto a pessoa ganha)
+      const t = n.nodeValue, novo = t.replace(RX_DINHEIRO, MASCARA).replace(RX_PCT, '••%');
+      if (novo !== t){ valoresOriginais.set(n, [t, novo]); n.nodeValue = novo; }
     }
   });
 }
 function mostrarValores(){
-  for (const [n, t] of valoresOriginais) if (n.isConnected && n.nodeValue.includes(MASCARA)) n.nodeValue = t;
+  for (const [n, [t, novo]] of valoresOriginais) if (n.isConnected && n.nodeValue === novo) n.nodeValue = t;
   valoresOriginais.clear();
 }
 const vigiaValores = new MutationObserver(() => {
