@@ -460,6 +460,28 @@
   .cmp-cat .nm{font-weight:600}
   .cmp-cat .de{grid-column:1;font-size:12.5px;color:var(--muted)}
   .cmp-cat .cmp-dif{grid-row:1 / span 2;grid-column:2;align-self:center;font-size:13px}
+  .uso-resumo{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+  .uso-num{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid var(--divider);border-radius:var(--r-cartao);background:var(--surface);text-align:left;font:inherit;color:inherit;cursor:pointer}
+  .uso-num b{font-family:var(--font-heading);font-weight:800;font-size:26px;line-height:1.1}
+  .uso-num span{font-size:12.5px;color:var(--muted)}
+  .uso-num[aria-pressed="true"]{border-color:rgba(var(--accent-rgb),.7);background:rgba(var(--accent-rgb),.1)}
+  .uso-lista{display:flex;flex-direction:column}
+  .uso-item{display:grid;grid-template-columns:minmax(0,1.6fr) auto minmax(0,1fr) minmax(0,1fr);gap:4px 16px;align-items:center;padding:12px 0;border-top:1px solid var(--divider);font-size:14px}
+  .uso-item .quem{font-weight:600;word-break:break-all}
+  .uso-item .quem small{display:block;font-weight:400;color:var(--muted);font-size:12.5px}
+  .uso-item .dado{color:var(--muted);font-size:13px}
+  .uso-item .dado b{color:var(--text);font-weight:600}
+  .tag-uso-ativo{background:rgba(var(--green-rgb),.14);color:var(--green)}
+  .tag-uso-esfriando{background:rgba(var(--accent-rgb),.18);color:var(--accent-text)}
+  .tag-uso-parado{background:rgba(var(--red-rgb),.12);color:var(--alerta)}
+  .tag-uso-nunca{background:rgba(var(--fg-rgb),.08);color:var(--muted)}
+  .tag-uso-pendente,.tag-uso-bloqueado{background:transparent;color:var(--muted);border:1px dashed var(--divider)}
+  @media (max-width:720px){
+    .uso-resumo{grid-template-columns:repeat(2,minmax(0,1fr))}
+    #usoSeg{display:none}   /* no celular os cartões já filtram (toque de novo para ver todos) */
+    .uso-item{grid-template-columns:minmax(0,1fr) auto}
+    .uso-item .dado{grid-column:1 / -1}
+  }
   .olho-linha{display:flex;justify-content:flex-end;margin:0 0 calc(-1 * var(--space-2))}
   .olho-btn{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:6px 12px;border:1px solid var(--divider);border-radius:var(--r-btn);background:var(--surface);color:var(--muted);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
   .olho-btn:hover{color:var(--text)}
@@ -1022,6 +1044,25 @@
       Aqui você vê apenas o usuário e a situação de cada conta. Os lançamentos ficam protegidos pelo banco de dados e só o dono consegue ver.
     </p>
   </section>
+
+  <section class="blueprint" id="usoSec" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4);">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        <h2 style="font-size:22px;text-transform:uppercase;">Uso do app</h2>
+        <span class="note" style="font-size:13px;color:var(--muted);">Só datas e quantidades. Valores e descrições nunca aparecem aqui.</span>
+      </div>
+      <div class="seg" id="usoSeg" role="group" aria-label="Filtrar uso" style="max-width:100%;overflow-x:auto;">
+        <button type="button" data-uso="todos" aria-pressed="true">Todos</button>
+        <button type="button" data-uso="ativo" aria-pressed="false">Ativos</button>
+        <button type="button" data-uso="esfriando" aria-pressed="false">Esfriando</button>
+        <button type="button" data-uso="parado" aria-pressed="false">Parados</button>
+        <button type="button" data-uso="nunca" aria-pressed="false">Nunca usaram</button>
+      </div>
+    </div>
+    <div class="uso-resumo" id="usoResumo"></div>
+    <p class="hint" id="usoAviso" hidden style="margin:0;"></p>
+    <div id="usoLista" class="uso-lista"></div>
+  </section>
 </div>
 </div>
 
@@ -1099,6 +1140,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=57"></script>
+<script src="app.js?v=58"></script>
 </body>
 </html>
