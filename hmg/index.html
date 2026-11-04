@@ -1074,25 +1074,25 @@
 <div id="tabCartoes" style="display:contents" hidden>
   <section class="stats resumo">
     <div class="stat stat-bal" id="kcFatCard">
-      <span class="kicker">Fatura do mês</span>
+      <span class="kicker" id="kcGastoK">Gasto no cartão</span>
       <span class="big" id="kcFat">R$ 0,00</span>
       <span class="note" id="kcFatNote"></span>
+    </div>
+    <div class="stat">
+      <span class="kicker"><i class="seta neutra" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></i><span id="kcPagarK">Fatura a pagar</span></span>
+      <span class="big" id="kcProx">R$ 0,00</span>
+      <span class="note" id="kcProxNote"></span>
     </div>
     <div class="stat">
       <span class="kicker"><i class="seta neutra" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19"/></svg></i>Limite disponível</span>
       <span class="big" id="kcLim">R$ 0,00</span>
       <span class="note" id="kcLimNote"></span>
     </div>
-    <div class="stat">
-      <span class="kicker"><i class="seta neutra" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></i>Próxima fatura</span>
-      <span class="big" id="kcProx">R$ 0,00</span>
-      <span class="note" id="kcProxNote"></span>
-    </div>
   </section>
 
   <section class="blueprint" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4);">
     <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
-      <h2 style="font-size:22px;text-transform:uppercase;">Faturas</h2>
+      <h2 style="font-size:22px;text-transform:uppercase;" id="kcFatTit">Faturas</h2>
       <span style="display:flex;flex-wrap:wrap;gap:var(--space-2);">
         <button class="btn btn-secondary" id="kcMeus" type="button">Meus cartões</button>
         <button class="btn btn-primary" id="kcNova" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Compra no cartão</button>
@@ -1105,7 +1105,7 @@
 
   <section id="kcDetalhe" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:var(--space-8);align-items:start;">
     <div class="span2" style="display:flex;flex-direction:column;gap:var(--space-3);min-width:0;">
-      <h2 style="font-size:22px;text-transform:uppercase;">Compras da fatura</h2>
+      <h2 style="font-size:22px;text-transform:uppercase;" id="kcComTit">Compras do mês</h2>
       <div id="kcCompras"></div>
     </div>
     <div style="display:flex;flex-direction:column;gap:var(--space-4);">
@@ -1386,6 +1386,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=71"></script>
+<script src="app.js?v=72"></script>
 </body>
 </html>
