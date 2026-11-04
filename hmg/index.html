@@ -689,6 +689,8 @@
   .olho-topo[aria-pressed="true"]{color:var(--accent-text);border-color:rgba(var(--accent-rgb),.7);background:rgba(var(--accent-rgb),.12)}
   .olho-topo[aria-pressed="true"] .ic-olho{display:none} .olho-topo[aria-pressed="true"] .ic-olho-fechado{display:block}
   .olho-linha{display:none !important}
+  /* planilha só pelo Menu (o botão fica escondido; o Menu e o perfil acionam ele) */
+  #export{display:none !important}
   /* lista de lançamentos no celular: descrição em cima, "data · categoria" embaixo, valor à direita */
   .lmeta{display:none}
   @media (max-width:560px){
