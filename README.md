@@ -22,7 +22,8 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   12. `supabase-metas2.sql` — metas concluídas: "usei o dinheiro" e desfazer (rodar depois do supabase-metas.sql).
   13. `supabase-seguranca3.sql` — checklist OWASP/LGPD: "Excluir minha conta" pelo app, registro de eventos de segurança (180 dias) e senha temporária com mínimo de 8.
   14. `supabase-uso.sql` — painel de uso no portal admin: último acesso e quantidade de lançamentos por conta (sem valores).
-- **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os 14 scripts na ordem; ative pg_net e pg_cron antes e rode uma vez só.
+  15. `supabase-categorias.sql` — categorias personalizadas por controle (ex.: Pet, Academia), com emoji; renomear atualiza os lançamentos.
+- **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os 15 scripts na ordem; ative pg_net e pg_cron antes e rode uma vez só.
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.
 - **Marca:** pasta `logo/` (SVG e PNG).
 

@@ -267,7 +267,8 @@ async function handleSession(session, force){
     return;
   }
   if (!(await loadControles())) return;
-  await Promise.all([loadMembers(), loadEntries(), loadInvites(), loadContas(), loadMetas(), loadInvest()]);
+  await Promise.all([loadMembers(), loadEntries(), loadInvites(), loadContas(), loadMetas(), loadInvest(), loadCategorias()]);
+  fillCats();
   show('viewApp');
   render();
   startRealtime();
@@ -364,7 +365,7 @@ async function fetchAllEntries(){
   }
   return all.map(fromRow);
 }
-async function refresh(){ const [ok] = await Promise.all([loadEntries(), loadContas(), loadMetas(), loadInvest()]); if (ok) render(); }
+async function refresh(){ const [ok] = await Promise.all([loadEntries(), loadContas(), loadMetas(), loadInvest(), loadCategorias()]); if (ok){ fillCats(); render(); } }
 
 // dados antigos guardados só neste navegador (versão offline)
 function localPending(){
@@ -449,14 +450,124 @@ function confirmar(msg, okTxt){
   });
 }
 
+/* ---------- janela: nova categoria / editar categoria ---------- */
+const EMOJIS_CAT = ['🐶','🏋️','💄','🎮','🍔','☕','👶','🎁','✈️','🚗','💊','📚','🧾','🏠','💼','🎵'];
+function janelaCategoria(cat, tipoPadrao){
+  return new Promise(res => {
+    const t = cat ? cat.tipo : (tipoPadrao || 'exp');
+    openDlg2('Categorias', cat ? 'Editar categoria' : 'Nova categoria', `
+      <div class="field"><label for="ctNome">Nome</label><input class="input" id="ctNome" maxlength="30" placeholder="Ex.: Pet, Academia, Farmácia" value="${cat ? esc(cat.nome) : ''}" autocomplete="off"></div>
+      <div class="field"><label>Ícone (opcional)</label>
+        <div class="ct-emojis" role="group" aria-label="Ícone">${['', ...EMOJIS_CAT].map(e => `<button type="button" class="ct-emoji" data-ct-emoji="${e}" aria-pressed="${(cat ? (cat.icone || '') : '') === e}">${e || 'Sem'}</button>`).join('')}</div>
+      </div>
+      <div class="field"><label>Vale para</label>
+        <div class="seg" id="ctTipo">${[['exp','Saída'],['inc','Entrada'],['ambos','As duas']].map(([v, l]) => `<button type="button" data-ct-tipo="${v}" aria-pressed="${t === v}">${l}</button>`).join('')}</div>
+      </div>
+      ${cat ? '<p class="hint" style="margin:0;">Ao renomear, os lançamentos e as contas com essa categoria passam a usar o nome novo.</p>' : ''}
+      <span class="hint" id="ctErro" style="color:var(--alerta);" hidden></span>
+      <button class="btn btn-primary" type="button" data-ct-salvar style="min-height:44px;">${cat ? 'Salvar' : 'Criar categoria'}</button>`,
+      { tipo: 'categoria', cat, res });
+    setTimeout(() => $('ctNome').focus(), 0);
+  });
+}
+async function novaCategoria(tipo){ return janelaCategoria(null, tipo); }
+$('dlg2Body').addEventListener('click', async e => {
+  if (dlg2.tipo !== 'categoria') return;
+  const em = e.target.closest('[data-ct-emoji]');
+  if (em){ document.querySelectorAll('[data-ct-emoji]').forEach(b => b.setAttribute('aria-pressed', String(b === em))); return; }
+  const tp = e.target.closest('[data-ct-tipo]');
+  if (tp){ document.querySelectorAll('[data-ct-tipo]').forEach(b => b.setAttribute('aria-pressed', String(b === tp))); return; }
+  if (!e.target.closest('[data-ct-salvar]')) return;
+  const nome = $('ctNome').value.trim();
+  const icone = (document.querySelector('[data-ct-emoji][aria-pressed="true"]') || {}).dataset?.ctEmoji || '';
+  const tipo = (document.querySelector('[data-ct-tipo][aria-pressed="true"]') || {}).dataset?.ctTipo || 'exp';
+  const erro = m => { $('ctErro').textContent = m; $('ctErro').hidden = false; };
+  if (!nome) return erro('Dê um nome para a categoria.');
+  const b = e.target.closest('[data-ct-salvar]'); b.disabled = true;
+  const { cat, res } = dlg2;
+  const { error } = await sb.rpc('salvar_categoria', { p_id: cat ? cat.id : null, cid: state.cid, p_nome: nome, p_icone: icone, p_tipo: tipo });
+  b.disabled = false;
+  if (error) return erro(rpcMsg(error));
+  await loadCategorias();
+  if (cat && cat.nome !== nome) await loadEntries();
+  closeDlg2(); fillCats(); render();
+  toast(cat ? 'Categoria atualizada.' : `Categoria "${nome}" criada.`, true);
+  if (res) res(nome);
+});
+$('dlg2Body').addEventListener('keydown', e => { if (dlg2.tipo === 'categoria' && e.key === 'Enter' && e.target.id === 'ctNome'){ e.preventDefault(); document.querySelector('[data-ct-salvar]').click(); } });
+
+/* ---------- Menu → Minhas categorias ---------- */
+function openCategorias(){
+  const minhas = categorias.slice().sort((a, b) => (a.oculta - b.oculta) || a.nome.localeCompare(b.nome));
+  const TIPO = { exp: 'Saída', inc: 'Entrada', ambos: 'Saída e entrada' };
+  const pode = c => (currentUser && c.criado_por === currentUser.id) || !!(current() || {}).sou_dono;
+  openDlg2('Categorias', 'Minhas categorias', `
+    <p class="hint" style="margin:0;">As categorias do app (Mercado, Moradia…) estão sempre disponíveis. Aqui ficam as que você criou${isShared() ? ' neste controle, que todos dele usam' : ''}.</p>
+    <div class="ct-lista">${minhas.length ? minhas.map(c => `
+      <div class="ct-item${c.oculta ? ' oculta' : ''}">
+        <span class="ct-ic">${c.icone ? esc(c.icone) : '🏷️'}</span>
+        <span class="ct-nm"><b>${esc(c.nome)}</b><small>${TIPO[c.tipo]}${c.oculta ? ' · escondida' : ''}</small></span>
+        ${pode(c) ? `<button class="btn btn-ghost btn-sm" type="button" data-ct-editar="${esc(c.id)}">Editar</button>
+        <button class="btn btn-ghost btn-sm" type="button" data-ct-ocultar="${esc(c.id)}">${c.oculta ? 'Mostrar' : 'Esconder'}</button>` : ''}
+      </div>`).join('') : '<p class="hint" style="margin:6px 0;">Você ainda não criou nenhuma categoria.</p>'}</div>
+    <button class="btn btn-primary" type="button" data-ct-nova style="min-height:44px;">+ Nova categoria</button>`, { tipo: 'categorias' });
+}
+$('dlg2Body').addEventListener('click', async e => {
+  if (dlg2.tipo !== 'categorias') return;
+  if (e.target.closest('[data-ct-nova]')){ await novaCategoria(state.type); openCategorias(); return; }
+  const ed = e.target.closest('[data-ct-editar]');
+  if (ed){ const c = categorias.find(x => x.id === ed.dataset.ctEditar); if (c){ await janelaCategoria(c); openCategorias(); } return; }
+  const oc = e.target.closest('[data-ct-ocultar]');
+  if (oc){
+    const c = categorias.find(x => x.id === oc.dataset.ctOcultar); if (!c) return;
+    oc.disabled = true;
+    const { error } = await sb.rpc('ocultar_categoria', { p_id: c.id, p_oculta: !c.oculta });
+    if (error){ oc.disabled = false; return toast(rpcMsg(error)); }
+    await loadCategorias(); fillCats(); openCategorias();
+    toast(c.oculta ? `"${c.nome}" voltou para a lista.` : `"${c.nome}" saiu da lista. Os lançamentos antigos continuam com ela.`, true);
+  }
+});
+
 /* ======================= FORMULÁRIO ======================= */
+/* ---------- categorias personalizadas (por controle) ---------- */
+let categorias = [];
+async function loadCategorias(){
+  if (!state.cid){ categorias = []; return true; }
+  const { data, error } = await sb.from('categorias').select('id,tipo,nome,icone,oculta,criado_por').eq('controle_id', state.cid).order('nome');
+  categorias = error ? [] : data;      // sem o SQL rodado: só as categorias do app
+  return true;
+}
+// rótulo com o emoji, valor só com o nome (é o que fica gravado no lançamento)
+const rotuloCat = nome => { const c = categorias.find(x => x.nome === nome); return c && c.icone ? `${c.icone} ${nome}` : nome; };
+function listaCats(tipo, atual){
+  const base = CATS[tipo].filter(c => c !== 'Outros');
+  const minhas = categorias.filter(c => !c.oculta && (c.tipo === tipo || c.tipo === 'ambos')).map(c => c.nome);
+  const l = [...base, ...minhas, 'Outros'];
+  if (atual && !l.includes(atual)) l.unshift(atual);
+  return l;
+}
+const opcoesCat = (tipo, atual, comNova = true) => listaCats(tipo, atual)
+  .map(c => `<option value="${esc(c)}"${c === atual ? ' selected' : ''}>${esc(rotuloCat(c))}</option>`).join('')
+  + (comNova ? '<option value="__nova">+ Nova categoria…</option>' : '');
+
 function fillCats(){
   // exemplo do campo Descrição combina com o tipo (saída ou entrada)
   if (!$('desc').readOnly) $('desc').placeholder = state.type === 'inc' ? 'Ex.: Salário, freela, Pix recebido' : 'Ex.: Mercado da semana';
-  $('cat').innerHTML = CATS[state.type].map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if ($('cat').disabled) return;     // travada pelo "Usar para"
+  const antes = $('cat').value;
+  $('cat').innerHTML = opcoesCat(state.type, null);
+  if (antes && antes !== '__nova' && [...$('cat').options].some(o => o.value === antes)) $('cat').value = antes;
+  $('cat').dataset.ultima = $('cat').value;
   document.querySelectorAll('#typeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.type === state.type)));
 }
 document.querySelectorAll('#typeSeg button').forEach(b => b.addEventListener('click', () => { state.type = b.dataset.type; fillCats(); vincOpcoes(); }));
+$('cat').addEventListener('change', async () => {
+  const sel = $('cat');
+  if (sel.value !== '__nova'){ sel.dataset.ultima = sel.value; return; }
+  sel.value = sel.dataset.ultima || CATS[state.type][0];
+  const nova = await novaCategoria(state.type);
+  if (nova){ fillCats(); sel.value = nova; sel.dataset.ultima = nova; }
+});
 
 /* ---------- "Usar para": lançar já guardando numa meta ou pagando uma conta ---------- */
 function contasAbertasDoMes(){
@@ -612,9 +723,8 @@ async function openLancEdit(id){
   leCats();
 }
 function leCats(){
-  const lista = CATS[dlg2.letipo].slice();
-  if (dlg2.cat && !lista.includes(dlg2.cat) && dlg2.letipo === (state.entries.find(x => x.id === dlg2.id) || {}).type) lista.unshift(dlg2.cat);
-  $('leCat').innerHTML = lista.map(c => `<option${c === dlg2.cat ? ' selected' : ''}>${esc(c)}</option>`).join('');
+  const mesmoTipo = dlg2.letipo === (state.entries.find(x => x.id === dlg2.id) || {}).type;
+  $('leCat').innerHTML = opcoesCat(dlg2.letipo, mesmoTipo ? dlg2.cat : null, false);
 }
 $('dlg2Body').addEventListener('click', async e => {
   if (dlg2.tipo !== 'lancEdit') return;
@@ -1210,7 +1320,7 @@ function openBillForm(c){
   const partes = c ? (state.partes[c.id] || []) : [];
   const iguais = partes.every(p => Number(p.peso) === Number((partes[0] || {}).peso));
   bf = { c, tipo: c ? c.tipo : 'fixa', dividir: partes.length > 0, modo: partes.length && !iguais ? 'valores' : 'iguais', valModo: c ? 'parcela' : 'total' };
-  const cats = CATS.exp.includes(c && c.categoria) || !c ? CATS.exp : [c.categoria, ...CATS.exp];
+  const cats = listaCats('exp', c ? c.categoria : null);
   const parcAtual = c && c.tipo === 'parcelada' ? Math.max(1, Math.min(c.parcelas, mdiff(c.inicio, mk) + 1)) : 1;
   const membros = state.members.length ? state.members : [{ user_id: myId(), login: currentUser.email }];
   const peso = uid => { const p = partes.find(x => x.user_id === uid); return p ? Number(p.peso) : 0; };
@@ -1232,7 +1342,7 @@ function openBillForm(c){
       </div>
       <div class="field">
         <label for="bfCat">Categoria</label>
-        <select class="input" id="bfCat">${cats.map(x => `<option${c && c.categoria === x ? ' selected' : (!c && x === 'Contas' ? ' selected' : '')}>${esc(x)}</option>`).join('')}</select>
+        <select class="input" id="bfCat">${cats.map(x => `<option value="${esc(x)}"${c && c.categoria === x ? ' selected' : (!c && x === 'Contas' ? ' selected' : '')}>${esc(rotuloCat(x))}</option>`).join('')}</select>
       </div>
       <div class="field">
         <label>Tipo</label>
@@ -2345,6 +2455,7 @@ $('menuBtn').onclick = () => openMenu($('menuBtn'));
 $('drClose').onclick = closeMenu;
 $('drawer').addEventListener('click', e => { if (e.target.id === 'drawer' || e.target.closest('.drawer-item')) closeMenu(); });
 $('drPerfil').addEventListener('click', () => openPerfil());
+$('drCategorias').addEventListener('click', () => openCategorias());
 $('drExcel').addEventListener('click', () => $('export').click());
 $('drCodigo').addEventListener('click', () => $('ctrlJoin').click());
 // aparência: claro (padrão), escuro ou igual ao celular — guardado neste aparelho
