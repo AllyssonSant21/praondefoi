@@ -126,7 +126,7 @@ function translateError(err){
 /* ---------- captcha (Cloudflare Turnstile) ----------
    Só liga quando a chave pública estiver preenchida. Depois disso, ligar o captcha também no Supabase
    (Authentication → Attack Protection), senão ele não é exigido no servidor. */
-const TURNSTILE_KEY = '';
+const TURNSTILE_KEY = '0x4AAAAAAF08CgIz2L5QlGbl';
 let captchaId = null, captchaToken = null;
 window.pofCaptchaPronto = () => {
   if (!window.turnstile || captchaId !== null) return;
