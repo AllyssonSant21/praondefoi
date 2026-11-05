@@ -104,6 +104,7 @@ $('backLogin').onclick = async () => {
 function translateError(err){
   const msg = (err && (err.message || err.error_description)) || String(err);
   if (/invalid login credentials/i.test(msg)) return 'Usuário ou senha incorretos.';
+  if (/captcha/i.test(msg)) return 'Não conseguimos confirmar que você não é um robô. Espere o quadrinho de verificação e tente de novo.';
   if (/not confirmed/i.test(msg)) return 'Confirme seu e-mail pelo link que enviamos antes de entrar.';
   if (/already registered|already been registered|already exists/i.test(msg)) return 'Esse usuário já existe. Use "Entrar" ou escolha outro nome.';
   if (/email address .* invalid|invalid email/i.test(msg)) return 'Esse nome de usuário não foi aceito. Tente só letras e números.';
@@ -121,6 +122,76 @@ function translateError(err){
   return 'Algo deu errado. Tente de novo.';
 }
 
+/* ---------- captcha (Cloudflare Turnstile) ----------
+   Só liga quando a chave pública estiver preenchida. Depois disso, ligar o captcha também no Supabase
+   (Authentication → Attack Protection), senão ele não é exigido no servidor. */
+const TURNSTILE_KEY = '0x4AAAAAAF08CgIz2L5QlGbl';
+let captchaId = null, captchaToken = null;
+window.pofCaptchaPronto = () => {
+  if (!window.turnstile || captchaId !== null) return;
+  captchaId = window.turnstile.render('#captchaBox', {
+    sitekey: TURNSTILE_KEY, language: 'pt-br', theme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
+    callback: t => { captchaToken = t; },
+    'expired-callback': () => { captchaToken = null; },
+    'error-callback': () => { captchaToken = null; }
+  });
+};
+function carregarCaptcha(){
+  if (!TURNSTILE_KEY || document.getElementById('tsScript')) return;
+  const sc = document.createElement('script');
+  sc.id = 'tsScript'; sc.async = true;
+  sc.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=pofCaptchaPronto';
+  document.head.appendChild(sc);
+}
+const captchaLigado = () => !!TURNSTILE_KEY && authMode !== 'nova';
+function mostrarCaptcha(){ $('captchaBox').hidden = !captchaLigado(); if (captchaLigado()) carregarCaptcha(); }
+function captchaUsado(){ captchaToken = null; try { if (window.turnstile && captchaId !== null) window.turnstile.reset(captchaId); } catch(e){} }
+mostrarCaptcha();
+document.querySelectorAll('#authSeg button').forEach(b => b.addEventListener('click', mostrarCaptcha));
+
+/* ---------- trava de senha errada ----------
+   A partir da 2ª senha errada no mesmo login: espera 10 s, depois 20 s, 30 s... (máximo 5 min).
+   Fica guardado no navegador (recarregar não zera) e é separado por login. Acertou: zera. */
+const TRAVA_KEY = 'pof-trava';
+const hashLogin = t => { let h = 2166136261; for (const c of String(t).toLowerCase()) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; } return h.toString(36); };
+function travas(){ try { return JSON.parse(localStorage.getItem(TRAVA_KEY) || '{}') || {}; } catch(e){ return {}; } }
+function salvarTravas(t){
+  const agora = Date.now();
+  for (const k of Object.keys(t)) if (t[k].ate < agora - 86400000) delete t[k];   // esquece o que tem mais de 1 dia
+  try { localStorage.setItem(TRAVA_KEY, JSON.stringify(t)); } catch(e){}
+}
+function travaDe(email){ return email ? travas()[hashLogin(email)] : null; }
+function senhaErrada(email){
+  const t = travas(), k = hashLogin(email), r = t[k] || { n: 0, ate: 0 };
+  r.n++;
+  const seg = r.n >= 2 ? Math.min(300, (r.n - 1) * 10) : 0;
+  r.ate = Date.now() + seg * 1000;
+  t[k] = r; salvarTravas(t);
+  return seg;
+}
+function senhaCerta(email){ const t = travas(); delete t[hashLogin(email)]; salvarTravas(t); }
+let travaTimer = null;
+function aplicarTrava(){
+  clearInterval(travaTimer); travaTimer = null;
+  const btn = $('authSubmit');
+  const r = authMode === 'entrar' ? travaDe(toLoginEmail($('authEmail').value.trim())) : null;
+  const falta = r ? Math.ceil((r.ate - Date.now()) / 1000) : 0;
+  if (falta <= 0){
+    if (btn.dataset.travado){ delete btn.dataset.travado; btn.disabled = false; btn.textContent = {entrar:'Entrar', criar:'Criar conta', esqueci:'Enviar link de recuperação', nova:'Salvar nova senha'}[authMode]; }
+    return;
+  }
+  const tick = () => {
+    const atual = travaDe(toLoginEmail($('authEmail').value.trim()));
+    const s = atual ? Math.ceil((atual.ate - Date.now()) / 1000) : 0;
+    if (s <= 0) return aplicarTrava();
+    btn.dataset.travado = '1'; btn.disabled = true;
+    btn.textContent = `Tente de novo em ${s >= 60 ? Math.floor(s / 60) + 'min ' + String(s % 60).padStart(2, '0') + 's' : s + 's'}`;
+  };
+  tick(); travaTimer = setInterval(tick, 1000);
+}
+$('authEmail').addEventListener('input', aplicarTrava);
+document.querySelectorAll('#authSeg button').forEach(b => b.addEventListener('click', aplicarTrava));
+
 $('authForm').addEventListener('submit', async e => {
   e.preventDefault();
   const typed = $('authEmail').value.trim(), pass = $('authPass').value;
@@ -132,20 +203,36 @@ $('authForm').addEventListener('submit', async e => {
   // senha nova: mínimo 8. Para entrar, aceita as senhas antigas de 6 ou 7.
   if ((authMode === 'criar' || authMode === 'nova') && pass.length < 8) return authMsg('A senha precisa ter pelo menos 8 caracteres.', 'err');
   if (authMode === 'entrar' && !pass) return authMsg('Digite a sua senha.', 'err');
+  if (authMode === 'entrar'){
+    const r = travaDe(email);
+    if (r && r.ate > Date.now()){ aplicarTrava(); return authMsg('Muitas tentativas com senha errada. Espere a contagem terminar ou use "Esqueci minha senha".', 'err'); }
+  }
+  if (captchaLigado() && !captchaToken) return authMsg('Espere a verificação de segurança terminar (o quadrinho acima do botão).', 'err');
+  const cap = captchaLigado() ? { captchaToken } : {};
   const btn = $('authSubmit'); btn.disabled = true; authMsg('');
   try {
     if (authMode === 'entrar'){
-      const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-      if (error) throw error;
+      const { error } = await sb.auth.signInWithPassword({ email, password: pass, options: cap });
+      if (error){
+        // só senha errada conta para a trava (internet fora, servidor fora etc. não)
+        if (/invalid login credentials/i.test(error.message || '')){
+          const seg = senhaErrada(email);
+          authMsg(seg ? `Usuário ou senha incorretos. Espere ${seg >= 60 ? Math.round(seg / 60) + ' min' : seg + ' s'} para tentar de novo. Esqueceu? Use "Esqueci minha senha".` : 'Usuário ou senha incorretos.', 'err');
+          btn.disabled = false; aplicarTrava();
+          return;
+        }
+        throw error;
+      }
+      senhaCerta(email);
     } else if (authMode === 'criar'){
-      const { data, error } = await sb.auth.signUp({ email, password: pass, options: { emailRedirectTo: REDIRECT } });
+      const { data, error } = await sb.auth.signUp({ email, password: pass, options: { emailRedirectTo: REDIRECT, ...cap } });
       if (error) throw error;
       if (!data.session){
         setAuthMode('entrar');
         authMsg(`Conta criada! Enviamos um link de confirmação para ${typed}. Confirme e depois entre aqui.`, 'ok');
       }
     } else if (authMode === 'esqueci'){
-      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: REDIRECT });
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: REDIRECT, ...cap });
       if (error) throw error;
       authMsg('Se esse e-mail tiver conta, enviamos um link para criar uma nova senha.', 'ok');
     } else if (authMode === 'nova'){
@@ -160,7 +247,8 @@ $('authForm').addEventListener('submit', async e => {
   } catch (err) {
     authMsg(translateError(err), 'err');
   } finally {
-    btn.disabled = false;
+    if (cap.captchaToken) captchaUsado();   // cada verificação vale uma tentativa só
+    if (!btn.dataset.travado) btn.disabled = false;
   }
 });
 
@@ -974,7 +1062,7 @@ function render(){
       </div>
       <span class="by" style="margin:0;">Não é gasto: o dinheiro continua seu, só foi separado para as metas.</span>
     </div>`);
-  const noCartao = cartaoOn() ? r2((state.compras || []).filter(c => c.data.startsWith(ym)).reduce((s, c) => s + Number(c.valor), 0)) : 0;
+  const noCartao = cartaoOn() ? r2(parcelasDoMes('', mkey(state.y, state.m)).filter(p => !p.c.ajuste).reduce((s, p) => s + p.valor, 0)) : 0;
   if (noCartao > 0) $('cats').insertAdjacentHTML('beforeend', `
     <div class="guardado-mes">
       <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
@@ -2469,30 +2557,39 @@ function datasFatura(k, mk){
   const fecha = new Date(c.getFullYear(), c.getMonth(), Math.min(k.fecha, ultimoDia(c.getFullYear(), c.getMonth())));
   return { fecha, vence };
 }
-// parcelas que caem numa fatura (centavos que sobram ficam na 1ª parcela)
+// valor da parcela j (0 = a 1ª) — os centavos que sobram ficam na 1ª parcela
+function valorParcela(c, j){
+  const tot = cents(Number(c.valor)), base = Math.floor(tot / c.parcelas);
+  return (j === 0 ? tot - base * (c.parcelas - 1) : base) / 100;
+}
+const iniDe = c => Math.max(1, Number(c.parcela_ini) || 1);
+// parcelas que caem numa fatura. A compra entra na fatura "fatura" pela parcela "parcela_ini"
+// (parcelado que já estava rolando antes do app começa no meio)
 function parcelasNaFatura(kid, mk){
   const out = [];
   (state.compras || []).forEach(c => {
     if (kid && c.cartao_id !== kid) return;
-    const i = mdiff(c.fatura, mk);
-    if (i < 0 || i >= c.parcelas) return;
-    const tot = cents(Number(c.valor)), base = Math.floor(tot / c.parcelas);
-    out.push({ c, n: i + 1, valor: (i === 0 ? tot - base * (c.parcelas - 1) : base) / 100 });
+    const i = mdiff(c.fatura, mk), j = iniDe(c) - 1 + i;
+    if (i < 0 || j >= c.parcelas) return;
+    out.push({ c, i, n: j + 1, valor: valorParcela(c, j) });
   });
   return out.sort((a, b) => b.c.data.localeCompare(a.c.data) || a.c.descricao.localeCompare(b.c.descricao));
 }
-// parcelas pelo mês em que a compra foi feita: 1ª parcela no mês da compra, as outras nos meses seguintes
+// parcelas pelo mês em que a compra foi feita: a primeira no mês da compra, as outras nos meses seguintes
 function parcelasDoMes(kid, mk){
   const out = [];
   (state.compras || []).forEach(c => {
     if (kid && c.cartao_id !== kid) return;
-    const i = mdiff(c.data.slice(0, 7) + '-01', mk);
-    if (i < 0 || i >= c.parcelas) return;
-    const tot = cents(Number(c.valor)), base = Math.floor(tot / c.parcelas);
-    out.push({ c, n: i + 1, valor: (i === 0 ? tot - base * (c.parcelas - 1) : base) / 100 });
+    const i = mdiff(c.data.slice(0, 7) + '-01', mk), j = iniDe(c) - 1 + i;
+    if (i < 0 || j >= c.parcelas) return;
+    out.push({ c, i, n: j + 1, valor: valorParcela(c, j) });
   });
-  return out.sort((a, b) => (a.n > 1) - (b.n > 1) || b.c.data.localeCompare(a.c.data) || a.c.descricao.localeCompare(b.c.descricao));
+  return out.sort((a, b) => (a.i > 0) - (b.i > 0) || b.c.data.localeCompare(a.c.data) || a.c.descricao.localeCompare(b.c.descricao));
 }
+// fatura onde cai cada parcela
+const faturaDaParcela = (c, n) => mkey(Number(c.fatura.slice(0, 4)), Number(c.fatura.slice(5, 7)) - 1 + n - iniDe(c));
+// a fatura "aberta" de um mês: a que recebe a maior parte das compras dele (as do dia 15)
+const faturaAbertaDoMes = (k, mk) => faturaDaCompra(k, mk.slice(0, 8) + '15');
 function infoFatura(k, mk){
   const parcelas = parcelasNaFatura(k.id, mk);
   const total = r2(parcelas.reduce((s, p) => s + p.valor, 0));
@@ -2507,7 +2604,9 @@ function infoFatura(k, mk){
 }
 // quanto do limite está ocupado: tudo que foi comprado menos o que já foi pago
 function usadoCartao(k){
-  const comprado = (state.compras || []).filter(c => c.cartao_id === k.id).reduce((s, c) => s + Number(c.valor), 0);
+  // parcelado que começou no meio: só conta o que falta das parcelas
+  const comprado = (state.compras || []).filter(c => c.cartao_id === k.id)
+    .reduce((s, c) => { let v = Number(c.valor); for (let j = 0; j < iniDe(c) - 1; j++) v -= valorParcela(c, j); return s + v; }, 0);
   const pago = (state.pagFat || []).filter(p => p.cartao_id === k.id).reduce((s, p) => s + Number(p.valor), 0);
   return Math.max(0, r2(comprado - pago));
 }
@@ -2521,10 +2620,13 @@ async function loadCartoes(){
   const cid = state.cid;
   const [a, b, c] = await Promise.all([
     sb.from('cartoes').select('id,nome,banco,icone,fecha,vence,limite,oculto,criado_por').eq('controle_id', cid).order('criado_em'),
-    sb.from('compras_cartao').select('id,cartao_id,user_id,descricao,categoria,valor,parcelas,data,fatura').eq('controle_id', cid).order('data', { ascending: false }),
+    sb.from('compras_cartao').select('id,cartao_id,user_id,descricao,categoria,valor,parcelas,data,fatura' + (state.cart2 !== false ? ',parcela_ini,ajuste' : '')).eq('controle_id', cid).order('data', { ascending: false }),
     sb.from('pag_faturas').select('id,cartao_id,mes,user_id,valor,data').eq('controle_id', cid).order('criado_em')
   ]);
   if (seq !== cartSeq) return false;
+  // banco ainda sem o SQL "cartões parte 2": segue sem parcela inicial e sem saldo anterior
+  if (b.error && state.cart2 !== false && (b.error.code === '42703' || /parcela_ini|ajuste/.test(b.error.message || ''))){ state.cart2 = false; return loadCartoes(); }
+  if (!b.error && state.cart2 !== false) state.cart2 = true;
   const e = a.error || b.error || c.error;
   if (e){
     // sem o SQL dos cartões rodado: a área fica indisponível e o resto do app segue normal
@@ -2562,26 +2664,33 @@ function renderCartoes(){
       `<button type="button" class="chip" data-kc-sel="${esc(k.id)}" aria-pressed="${state.kcSel === k.id}"><span class="kc-chip-ic">${esc(iconeCartao(k))}</span>${esc(k.nome)}</button>`).join('');
 
   const nomeMes = MONTHS[state.m].toLowerCase();
-  const infos = lista.map(k => infoFatura(k, mk));
-  const visiveis = infos.filter(i => i.st !== 'vazia' || state.kcSel);   // em "Todos" só as faturas com compra
+  const mesNome = m => MONTHS[Number(m.slice(5, 7)) - 1].toLowerCase();
+  const infos = lista.map(k => infoFatura(k, mk));                                   // vencem neste mês
+  const abertas = lista.map(k => infoFatura(k, faturaAbertaDoMes(k, mk)));          // recebem as compras deste mês
+  const aPagar = infos.filter(i => i.mk !== faturaAbertaDoMes(i.k, mk) && (i.falta > 0 || (state.kcSel && i.st !== 'vazia')));
+  const visiveis = [...aPagar, ...abertas.filter(i => i.st !== 'vazia' || state.kcSel)];
   const parcelas = parcelasDoMes(state.kcSel, mk);
   // 1) quanto foi no cartão neste mês (compras do mês + parcelas de compras antigas)
-  const gasto = r2(parcelas.reduce((s, p) => s + p.valor, 0));
-  const novas = parcelas.filter(p => p.n === 1).length, antigas = parcelas.length - novas;
+  // saldo anterior não é gasto do mês: fica na fatura, mas fora da soma e do "No que gastou"
+  const doMes = parcelas.filter(p => !p.c.ajuste);
+  const gasto = r2(doMes.reduce((s, p) => s + p.valor, 0));
+  const novas = doMes.filter(p => p.i === 0).length, antigas = doMes.length - novas;
   $('kcGastoK').textContent = `Gasto no cartão em ${nomeMes}`;
   $('kcFat').textContent = brl(gasto); $('kcFat').classList.toggle('zero', !gasto);
   $('kcFatNote').textContent = !(state.cartoes || []).length ? 'Nenhum cartão cadastrado'
-    : !parcelas.length ? 'Nenhuma compra neste mês'
+    : !doMes.length ? 'Nenhuma compra neste mês'
     : [novas ? plural(novas, 'compra') : '', antigas ? `${antigas} ${antigas === 1 ? 'parcela' : 'parcelas'} de antes` : ''].filter(Boolean).join(' + ');
-  // 2) fatura que vence neste mês (é o que se paga)
-  const total = r2(infos.reduce((s, i) => s + i.total, 0));
-  const falta = r2(infos.reduce((s, i) => s + i.falta, 0));
-  const um = state.kcSel ? infos[0] : null;
-  $('kcPagarK').textContent = `Fatura que vence em ${nomeMes}`;
-  $('kcProx').textContent = brl(total); $('kcProx').classList.toggle('zero', !total);
-  $('kcProxNote').textContent = um ? ({ vazia: 'Nada nesta fatura', paga: 'Paga ✓', aberta: `Aberta · fecha ${ddmm(um.fecha)}`,
+  // 2) a fatura aberta (normalmente a do mês seguinte), onde caem as compras deste mês
+  const mesesAbertos = [...new Set(abertas.map(i => i.mk))];
+  const totAberta = r2(abertas.reduce((s, i) => s + i.total, 0));
+  const faltaMes = r2(aPagar.reduce((s, i) => s + i.falta, 0));
+  const um = state.kcSel ? abertas[0] : null;
+  $('kcPagarK').textContent = mesesAbertos.length === 1 ? `Fatura de ${mesNome(mesesAbertos[0])}` : 'Faturas abertas';
+  $('kcProx').textContent = brl(totAberta); $('kcProx').classList.toggle('zero', !totAberta);
+  $('kcProxNote').textContent = faltaMes > 0 ? `A pagar ainda em ${nomeMes}: ${brl(faltaMes)}`
+    : um ? ({ vazia: `Fecha ${ddmm(um.fecha)} · vence ${ddmm(um.vence)}`, paga: 'Paga ✓', aberta: `Fecha ${ddmm(um.fecha)} · vence ${ddmm(um.vence)}`,
               fechada: `Fechada · vence ${ddmm(um.vence)}`, vencida: `Vencida em ${ddmm(um.vence)}` })[um.st]
-    : !total ? 'Nenhuma fatura vence neste mês' : falta <= 0 ? 'Tudo pago ✓' : `Falta pagar ${brl(falta)}`;
+    : !lista.length ? '' : mesesAbertos.length === 1 ? `Vence em ${mesNome(mesesAbertos[0])}` : plural(lista.length, 'cartão');
   // 3) limite
   const comLimite = lista.filter(k => Number(k.limite) > 0);
   const limite = r2(comLimite.reduce((s, k) => s + Number(k.limite), 0));
@@ -2589,24 +2698,24 @@ function renderCartoes(){
   $('kcLim').textContent = comLimite.length ? brl(r2(limite - usado)) : '—';
   $('kcLim').classList.toggle('zero', !comLimite.length);
   $('kcLimNote').textContent = comLimite.length ? `Usado ${brl(usado)} de ${brl(limite)}` : 'Cadastre o limite em Meus cartões';
-  $('kcFatTit').textContent = `Faturas de ${nomeMes}`;
+  $('kcFatTit').textContent = 'Faturas';
   $('kcComTit').textContent = `Compras de ${nomeMes}`;
 
   $('kcVazio').hidden = visiveis.length > 0;
   $('kcVazio').textContent = !(state.cartoes || []).length
     ? 'Cadastre seu cartão em "Meus cartões": só o apelido (ex.: Nubank), o dia que a fatura fecha e o dia que vence. Nada de número ou senha.'
-    : `Nenhuma fatura vence em ${nomeMes}.`;
-  $('kcFaturas').innerHTML = visiveis.map(fatHtml).join('');
+    : 'Nenhuma compra nas faturas deste mês.';
+  $('kcFaturas').innerHTML = visiveis.map(i => fatHtml(i, true)).join('');
 
   $('kcDetalhe').hidden = !(state.cartoes || []).length;
   const shared = isShared();
   $('kcCompras').innerHTML = parcelas.length ? parcelas.map(p => {
     const c = p.c, k = findCartao(c.cartao_id), pode = podeCompra(c);
-    const meta = [`${c.data.slice(8, 10)}/${c.data.slice(5, 7)}`, esc(rotuloCat(c.categoria)),
+    const meta = [c.ajuste ? 'saldo anterior' : `${c.data.slice(8, 10)}/${c.data.slice(5, 7)}`, c.ajuste ? '' : esc(rotuloCat(c.categoria)),
       c.parcelas > 1 ? `${p.n}/${c.parcelas}` : '', !state.kcSel && k ? esc(k.nome) : '', shared ? esc(quem(c.user_id)) : '',
-      `fatura ${mesCurtoAno(mkey(Number(c.fatura.slice(0, 4)), Number(c.fatura.slice(5, 7)) - 1 + p.n - 1))}`].filter(Boolean).join(' · ');
+      `fatura ${mesCurtoAno(faturaDaParcela(c, p.n))}`].filter(Boolean).join(' · ');
     return `<div class="kc-compra${pode ? ' pode' : ''}"${pode ? ` data-kc-compra="${esc(c.id)}" role="button" tabindex="0"` : ''}>
-      <span class="kc-ic">${esc(iconeCat(c.categoria) || '🏷️')}</span>
+      <span class="kc-ic">${c.ajuste ? '🧾' : esc(iconeCat(c.categoria) || '🏷️')}</span>
       <span style="min-width:0;"><span class="kc-d" style="display:block;">${esc(c.descricao)}</span><span class="by" style="margin:0;">${meta}</span></span>
       <span class="kc-v">− ${brl(p.valor)}</span>
       <span class="kc-acao">${pode ? `<button class="btn btn-ghost btn-icon" type="button" data-kc-edit="${esc(c.id)}" style="color:var(--muted);" aria-label="Editar ${esc(c.descricao)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="btn btn-ghost btn-icon" type="button" data-kc-del="${esc(c.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(c.descricao)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</span>
@@ -2614,7 +2723,7 @@ function renderCartoes(){
   }).join('') : '<p style="font-size:14px;color:var(--muted);margin:0;">Nenhuma compra no cartão neste mês.</p>';
 
   const byCat = {};
-  parcelas.forEach(p => { byCat[p.c.categoria] = r2((byCat[p.c.categoria] || 0) + p.valor); });
+  doMes.forEach(p => { byCat[p.c.categoria] = r2((byCat[p.c.categoria] || 0) + p.valor); });
   const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
   const max = cats.length ? cats[0][1] : 0, soma = cats.reduce((s, x) => s + x[1], 0);
   $('kcCats').innerHTML = cats.length ? cats.map(([name, v]) => `
@@ -2627,7 +2736,7 @@ function renderCartoes(){
     </div>`).join('') : '<span style="font-size:14px;color:var(--muted);">Sem compras neste mês.</span>';
 }
 // uma fatura em forma de linha (usada em Cartões e em Contas a pagar)
-function fatHtml(i){
+function fatHtml(i, naAbaCartoes){
   const k = i.k;
   const tag = i.st === 'paga' ? '<span class="tag tag-neutral">Paga ✓</span>'
     : i.st === 'vencida' ? '<span class="tag tag-red">Vencida</span>'
@@ -2643,13 +2752,13 @@ function fatHtml(i){
     <div class="bill fat ${cls}" data-kc-fat="${esc(k.id)}" data-mk="${esc(i.mk)}">
       <div class="bill-day"><b>${i.vence.getDate()}</b><small>${MES_CURTO[i.vence.getMonth()]}</small></div>
       <div style="min-width:0;">
-        <div class="bill-name">${esc(iconeCartao(k))} Fatura ${esc(k.nome)}</div>
+        <div class="bill-name">${esc(iconeCartao(k))} ${esc(k.nome)} · fatura de ${MONTHS[Number(i.mk.slice(5, 7)) - 1].toLowerCase()}</div>
         <div class="by">${linha2}</div>
         ${i.st !== 'paga' && i.pago > 0 ? `<div class="prog"><div style="width:${Math.min(100, i.pago / i.total * 100)}%"></div></div>` : ''}
       </div>
       <div class="bill-side">
         <span class="bill-val">${brl(i.total)}</span>
-        <span class="bill-act" style="display:flex;gap:6px;align-items:center;">${tag}${i.falta > 0 ? `<button class="btn btn-primary btn-sm" data-kc-pagar="${esc(k.id)}" data-mk="${esc(i.mk)}" type="button" aria-label="Pagar fatura ${esc(k.nome)}">Pagar</button>` : ''}</span>
+        <span class="bill-act" style="display:flex;gap:6px;align-items:center;">${tag}${naAbaCartoes && state.cart2 && i.st !== 'paga' ? `<button class="btn btn-ghost btn-sm" data-kc-ajustar="${esc(k.id)}" data-mk="${esc(i.mk)}" type="button" aria-label="Ajustar fatura ${esc(k.nome)}">Ajustar</button>` : ''}${i.falta > 0 ? `<button class="btn btn-primary btn-sm" data-kc-pagar="${esc(k.id)}" data-mk="${esc(i.mk)}" type="button" aria-label="Pagar fatura ${esc(k.nome)}">Pagar</button>` : ''}</span>
       </div>
     </div>`;
 }
@@ -2659,6 +2768,8 @@ function faturasDoMes(mk){
   return (state.cartoes || []).map(k => infoFatura(k, mk)).filter(i => i.total > 0);
 }
 function cliqueFatura(e){
+  const aj = e.target.closest('[data-kc-ajustar]');
+  if (aj){ e.stopPropagation(); return openAjuste(aj.dataset.kcAjustar, aj.dataset.mk, null); }
   const pg = e.target.closest('[data-kc-pagar]');
   if (pg){ e.stopPropagation(); return openPagarFatura(pg.dataset.kcPagar, pg.dataset.mk); }
   const f = e.target.closest('[data-kc-fat]');
@@ -2682,8 +2793,9 @@ $('kcCompras').addEventListener('click', async e => {
     return toast('Compra excluída.', true);
   }
   const ed = e.target.closest('[data-kc-edit]');
-  if (ed) return openCompra(ed.dataset.kcEdit);
-  const r = e.target.closest('[data-kc-compra]'); if (r) openCompra(r.dataset.kcCompra);
+  if (ed){ const c = (state.compras || []).find(x => x.id === ed.dataset.kcEdit); return c && c.ajuste ? openAjuste(c.cartao_id, c.fatura, c) : openCompra(ed.dataset.kcEdit); }
+  const r = e.target.closest('[data-kc-compra]');
+  if (r){ const c = (state.compras || []).find(x => x.id === r.dataset.kcCompra); if (c && c.ajuste) openAjuste(c.cartao_id, c.fatura, c); else openCompra(r.dataset.kcCompra); }
 });
 $('kcCompras').addEventListener('keydown', e => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -2810,6 +2922,9 @@ function openCompra(id){
       <div class="field"><label for="kpValor">Valor total (R$)</label><input class="input" id="kpValor" inputmode="decimal" placeholder="0,00" value="${c ? num(Number(c.valor)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
       <div class="field"><label for="kpParc">Parcelas</label><select class="input" id="kpParc">${opcoesParc(c ? c.parcelas : 1)}</select></div>
     </div>
+    ${state.cart2 ? `<div class="field" id="kpIniWrap"${c && c.parcelas > 1 ? '' : ' hidden'}><label for="kpIni">Já está em qual parcela?</label>
+      <select class="input" id="kpIni">${opcoesIni(c ? c.parcelas : 1, c ? iniDe(c) : 1)}</select>
+      <span class="hint" style="margin:0;">Compra de antes do app? Escolha a parcela que cai na próxima fatura. As anteriores não entram.</span></div>` : ''}
     <div class="kc-dias">
       <div class="field"><label for="kpCat">Categoria</label><select class="input" id="kpCat">${opcoesCat('exp', c ? c.categoria : null, false)}</select></div>
       <div class="field"><label for="kpData">Data da compra</label><input class="input" id="kpData" type="date" value="${c ? c.data : todayISO()}"></div>
@@ -2822,10 +2937,40 @@ function openCompra(id){
   kpInfo();
   if (!c) setTimeout(() => $('kpDesc').focus(), 0);
 }
+const opcoesIni = (n, atual) => Array.from({ length: n }, (_, i) => i + 1)
+  .map(i => `<option value="${i}"${i === atual ? ' selected' : ''}>${i === 1 ? 'Começando agora (1ª)' : `${i}ª de ${n}`}</option>`).join('');
 function kpInfo(){
   const k = findCartao($('kpCartao').value); if (!k){ $('kpInfo').textContent = ''; return; }
-  const f = faturaDaCompra(k, $('kpData').value || todayISO()), n = Number($('kpParc').value) || 1, v = parseAmount($('kpValor').value);
-  $('kpInfo').textContent = `Vai para a fatura de ${mlabel(f)}` + (n > 1 ? ` e termina em ${mlabel(mkey(Number(f.slice(0, 4)), Number(f.slice(5, 7)) - 1 + n - 1))}${v > 0 ? ` (${n}x de ${brl(Math.floor(cents(v) / n) / 100)})` : ''}` : '') + '.';
+  const n = Number($('kpParc').value) || 1, v = parseAmount($('kpValor').value);
+  // "já está em qual parcela": acompanha o número de parcelas
+  if ($('kpIni')){
+    const atual = Math.min(Number($('kpIni').value) || 1, n);
+    if ($('kpIni').options.length !== n) $('kpIni').innerHTML = opcoesIni(n, atual);
+    $('kpIniWrap').hidden = n < 2;
+  }
+  const ini = $('kpIni') && n > 1 ? Number($('kpIni').value) || 1 : 1, faltam = n - ini + 1;
+  const f = faturaDaCompra(k, $('kpData').value || todayISO());
+  $('kpInfo').textContent = (ini > 1 ? `A ${ini}ª parcela vai para a fatura de ${mlabel(f)}` : `Vai para a fatura de ${mlabel(f)}`) +
+    (faltam > 1 ? ` e termina em ${mlabel(mkey(Number(f.slice(0, 4)), Number(f.slice(5, 7)) - 1 + faltam - 1))}${v > 0 ? ` (${faltam}x de ${brl(Math.floor(cents(v) / n) / 100)})` : ''}` : '') + '.';
+}
+function openAjuste(kid, mk, c){
+  const k = findCartao(kid); if (!k) return;
+  const i = infoFatura(k, mk);
+  const outros = i.parcelas.filter(p => !p.c.ajuste).reduce((s, p) => s + p.valor, 0);
+  openDlg2(`Ajustar · ${mlabel(mk)}`, `${iconeCartao(k)} ${k.nome} · fatura de ${MONTHS[Number(mk.slice(5, 7)) - 1].toLowerCase()}`, `
+    <p class="hint" style="margin:0;">Começou a usar o app com a fatura já andando? Coloque aqui o valor que já estava nela, sem lançar compra por compra. Ele aparece como "Saldo anterior".</p>
+    <div class="dlg-sec">
+      <div class="kv"><span>Compras lançadas no app</span><b>${brl(r2(outros))}</b></div>
+      <div class="kv"><span>Total da fatura agora</span><b>${brl(i.total)}</b></div>
+      <div class="kv"><span>Vencimento</span><b>${ddmm(i.vence)}</b></div>
+    </div>
+    <div class="field"><label for="kaValor">Saldo anterior (R$)</label><input class="input" id="kaValor" inputmode="decimal" placeholder="Ex.: 800,00" value="${c ? num(Number(c.valor)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
+    <div class="field"><label for="kaDesc">Descrição (opcional)</label><input class="input" id="kaDesc" maxlength="200" autocomplete="off" placeholder="Saldo anterior da fatura" value="${c && c.descricao !== 'Saldo anterior da fatura' ? esc(c.descricao) : ''}"></div>
+    <span class="hint" id="kaErro" style="color:var(--alerta);" hidden></span>
+    <button class="btn btn-primary" type="button" data-kc-salvarajuste style="min-height:44px;">${c ? 'Salvar' : 'Adicionar à fatura'}</button>
+    ${c ? '<button class="btn btn-ghost" type="button" data-kc-excluirajuste style="color:var(--alerta);">Tirar o saldo anterior</button>' : ''}`,
+    { tipo: 'kcajuste', kid, mk, c });
+  setTimeout(() => $('kaValor').focus(), 0);
 }
 function openPagarFatura(kid, mk){
   const k = findCartao(kid); if (!k) return;
@@ -2852,7 +2997,7 @@ function openPagarFatura(kid, mk){
 
 $('dlg2Body').addEventListener('click', async e => {
   const t = dlg2.tipo;
-  if (!['kcform', 'kcmeus', 'kccompra', 'kcpag'].includes(t)) return;
+  if (!['kcform', 'kcmeus', 'kccompra', 'kcpag', 'kcajuste'].includes(t)) return;
   const ctx = dlg2;
   if (t === 'kcform'){
     const bb = e.target.closest('[data-kc-banco]');
@@ -2913,6 +3058,29 @@ $('dlg2Body').addEventListener('click', async e => {
     }
     return;
   }
+  if (t === 'kcajuste'){
+    const erro = m => { $('kaErro').textContent = m; $('kaErro').hidden = false; };
+    const sv = e.target.closest('[data-kc-salvarajuste]');
+    if (sv){
+      const v = parseAmount($('kaValor').value);
+      if (!(v > 0)) return erro('Informe um valor maior que zero.');
+      sv.disabled = true;
+      const { error } = await sb.rpc('salvar_ajuste_fatura', { p_id: ctx.c ? ctx.c.id : null, p_cartao: ctx.kid, p_mes: ctx.mk, p_valor: v, p_desc: $('kaDesc').value.trim() || null });
+      sv.disabled = false;
+      if (error) return erro(rpcMsg(error));
+      await loadCartoes(); closeDlg2(); render();
+      toast(`Saldo anterior de ${brl(v)} na fatura de ${mlabel(ctx.mk)}.`, true);
+      return;
+    }
+    if (e.target.closest('[data-kc-excluirajuste]') && ctx.c){
+      if (!await confirmar(`Tirar o saldo anterior de ${brl(Number(ctx.c.valor))} desta fatura?`)) return openAjuste(ctx.kid, ctx.mk, ctx.c);
+      const { error } = await sb.rpc('excluir_compra', { p_id: ctx.c.id });
+      if (error){ toast(rpcMsg(error)); return; }
+      await loadCartoes(); closeDlg2(); render();
+      toast('Saldo anterior retirado.', true);
+    }
+    return;
+  }
   if (t === 'kccompra'){
     const sv = e.target.closest('[data-kc-salvarcompra]');
     const erro = m => { $('kpErro').textContent = m; $('kpErro').hidden = false; };
@@ -2922,8 +3090,11 @@ $('dlg2Body').addEventListener('click', async e => {
       if (!desc) return erro('Escreva uma descrição.');
       if (!(v > 0)) return erro('Informe um valor maior que zero.');
       sv.disabled = true;
-      const { data: f, error } = await sb.rpc('salvar_compra', { p_id: ctx.c ? ctx.c.id : null, p_cartao: $('kpCartao').value, p_desc: desc,
-        p_cat: $('kpCat').value, p_valor: v, p_parcelas: Number($('kpParc').value) || 1, p_data: $('kpData').value || todayISO() });
+      const n = Number($('kpParc').value) || 1;
+      const args = { p_id: ctx.c ? ctx.c.id : null, p_cartao: $('kpCartao').value, p_desc: desc,
+        p_cat: $('kpCat').value, p_valor: v, p_parcelas: n, p_data: $('kpData').value || todayISO() };
+      if (state.cart2) args.p_parcela_ini = $('kpIni') && n > 1 ? Number($('kpIni').value) || 1 : 1;
+      const { data: f, error } = await sb.rpc('salvar_compra', args);
       sv.disabled = false;
       if (error) return erro(rpcMsg(error));
       await loadCartoes(); closeDlg2(); render();
@@ -2966,7 +3137,7 @@ $('dlg2Body').addEventListener('click', async e => {
     }
   }
 });
-$('dlg2Body').addEventListener('change', e => { if (dlg2.tipo === 'kccompra' && ['kpCartao', 'kpParc', 'kpData'].includes(e.target.id)) kpInfo(); });
+$('dlg2Body').addEventListener('change', e => { if (dlg2.tipo === 'kccompra' && ['kpCartao', 'kpParc', 'kpData', 'kpIni'].includes(e.target.id)) kpInfo(); });
 $('dlg2Body').addEventListener('input', e => {
   if (dlg2.tipo === 'kccompra' && e.target.id === 'kpValor') kpInfo();
   if (dlg2.tipo === 'kcform' && e.target.id === 'kfNome') dlg2.auto = null;   // a pessoa escreveu o próprio apelido
@@ -3579,11 +3750,12 @@ $('export').onclick = async () => {
   // 6) Cartões: cada parcela na fatura em que cai
   const linhasK = [];
   (state.compras || []).forEach(x => {
-    const k = findCartao(x.cartao_id), tot = cents(Number(x.valor)), base = Math.floor(tot / x.parcelas);
-    for (let n = 0; n < x.parcelas; n++){
-      const f = mkey(Number(x.fatura.slice(0, 4)), Number(x.fatura.slice(5, 7)) - 1 + n);
-      linhasK.push([mBR(f.slice(0, 7)), k ? k.nome : '', dBR(x.data), x.descricao, x.categoria, x.parcelas > 1 ? `${n + 1}/${x.parcelas}` : 'À vista',
-        -((n === 0 ? tot - base * (x.parcelas - 1) : base) / 100), Number(x.valor)].concat(shared ? [nameOf(x.user_id)] : []).concat([f]));
+    const k = findCartao(x.cartao_id);
+    for (let n = iniDe(x) - 1; n < x.parcelas; n++){
+      const f = faturaDaParcela(x, n + 1);
+      linhasK.push([mBR(f.slice(0, 7)), k ? k.nome : '', x.ajuste ? '' : dBR(x.data), x.descricao, x.ajuste ? 'Saldo anterior' : x.categoria,
+        x.ajuste ? '' : x.parcelas > 1 ? `${n + 1}/${x.parcelas}` : 'À vista',
+        -valorParcela(x, n), Number(x.valor)].concat(shared ? [nameOf(x.user_id)] : []).concat([f]));
     }
   });
   linhasK.sort((a, b) => a[a.length - 1].localeCompare(b[b.length - 1]) || a[1].localeCompare(b[1]));

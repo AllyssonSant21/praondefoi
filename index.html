@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleusercontent.com; connect-src 'self' https://syffvgczgukoickcprni.supabase.co wss://syffvgczgukoickcprni.supabase.co; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleusercontent.com; connect-src 'self' https://syffvgczgukoickcprni.supabase.co wss://syffvgczgukoickcprni.supabase.co; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f5f6f8">
@@ -820,6 +820,7 @@
 .auth-selos svg{width:16px;height:16px;color:var(--accent-text)}
 .feats-wrap{grid-area:feats;display:flex;flex-direction:column}
 .feats-wrap .auth-feats{grid-area:auto}
+  .captcha-box{min-height:65px;display:flex;justify-content:center}
 </style>
 </head>
 <body>
@@ -868,6 +869,7 @@
           <input class="input" id="authPass" type="password" autocomplete="current-password" placeholder="Sua senha">
         </div>
         <p class="by" id="authAceite" hidden style="margin:0;font-size:12.5px;">Ao criar a conta você concorda com os <a href="termos.html" style="color:inherit;">Termos de uso</a> e a <a href="privacidade.html" style="color:inherit;">Política de privacidade</a>.</p>
+        <div id="captchaBox" class="captcha-box" hidden></div>
         <button class="btn btn-primary" id="authSubmit" type="submit" style="min-height:44px;">Entrar</button>
       </form>
       <p class="msg" id="authMsg" role="status"></p>
@@ -1384,6 +1386,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="app.js?v=72"></script>
+<script src="app.js?v=74"></script>
 </body>
 </html>
