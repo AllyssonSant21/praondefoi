@@ -151,6 +151,8 @@ begin
   execute 'revoke all on function public.total_fatura(uuid, date) from public, anon, authenticated';
   -- funções internas de registro: ninguém chama direto (fecha o que sobrou aberto)
   foreach f in array array['ev_usuarios()', 'ev_perfis()', 'ev_membros()', 'ev_controles()'] loop
-    execute format('revoke all on function public.%s from public, anon, authenticated', f);
+    if to_regprocedure('public.' || f) is not null then   -- só se existir (vem do supabase-seguranca3.sql)
+      execute format('revoke all on function public.%s from public, anon, authenticated', f);
+    end if;
   end loop;
 end $$;
