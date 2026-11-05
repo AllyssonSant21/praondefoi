@@ -1,0 +1,9 @@
+Modelos de e-mail do Supabase (Authentication -> Emails -> Templates).
+Cole o HTML de cada arquivo no modelo correspondente e use o assunto indicado.
+
+confirmar-cadastro.html  ->  Assunto: Confirme seu e-mail · Pra Onde Foi?
+nova-senha.html  ->  Assunto: Crie uma nova senha · Pra Onde Foi?
+trocar-email.html  ->  Assunto: Confirme seu novo e-mail · Pra Onde Foi?
+link-de-acesso.html  ->  Assunto: Seu link de acesso · Pra Onde Foi?
+
+Confirm signup = confirmar-cadastro | Reset password = nova-senha | Change email address = trocar-email | Magic link = link-de-acesso

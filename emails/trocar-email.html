@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Confirme o novo e-mail</title></head>
+<body style="margin:0;padding:0;background:#f4f5f7;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:32px 12px;font-family:Arial,Helvetica,sans-serif;">
+  <tr><td align="center">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border:1px solid #e3e5e9;border-radius:6px;">
+      <tr><td style="padding:28px 28px 8px 28px;">
+        <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+          <td><img src="https://praondefoiapp.com.br/icons/icon-192.png" width="44" height="44" alt="" style="display:block;border-radius:10px;"></td>
+          <td style="padding-left:12px;font-size:17px;font-weight:bold;color:#16181d;line-height:1.1;">Pra onde<br>foi<span style="color:#b07a06;">?</span></td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:16px 28px 0 28px;">
+        <h1 style="margin:0 0 12px 0;font-size:22px;line-height:1.25;color:#16181d;">Confirme o novo e-mail</h1>
+        <p style="margin:0 0 22px 0;font-size:15px;line-height:1.55;color:#3d424c;">Você pediu para usar o e-mail {{ .NewEmail }} na sua conta do Pra Onde Foi?. Toque no botão abaixo para confirmar.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:#ffc83d;border-radius:4px;">
+          <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:13px 22px;font-size:15px;font-weight:bold;color:#16181d;text-decoration:none;">Confirmar novo e-mail</a>
+        </td></tr></table>
+        <p style="margin:22px 0 0 0;font-size:13px;line-height:1.5;color:#5e6470;">Até confirmar, a conta continua com o e-mail antigo.</p>
+        <p style="margin:10px 0 0 0;font-size:12px;line-height:1.5;color:#8a8f99;word-break:break-all;">Se o botão não abrir, copie este endereço no navegador:<br><a href="{{ .ConfirmationURL }}" style="color:#8a6100;">{{ .ConfirmationURL }}</a></p>
+      </td></tr>
+      <tr><td style="padding:22px 28px 26px 28px;">
+        <p style="margin:0;padding-top:16px;border-top:1px solid #e3e5e9;font-size:12px;line-height:1.5;color:#8a8f99;">Não pediu essa troca? Ignore este e-mail e troque sua senha no app por segurança.<br>O Pra Onde Foi? nunca pede senha do banco, CPF ou dados do cartão por e-mail.</p>
+      </td></tr>
+    </table>
+    <p style="margin:14px 0 0 0;font-size:11px;color:#a0a5ae;font-family:Arial,Helvetica,sans-serif;">Pra Onde Foi? · praondefoiapp.com.br</p>
+  </td></tr>
+</table>
+</body></html>
