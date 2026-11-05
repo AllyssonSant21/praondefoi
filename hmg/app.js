@@ -2543,7 +2543,7 @@ const ultimoDia = (y, m) => new Date(y, m + 1, 0).getDate();
 const podeCartao = k => !!k && ((currentUser && k.criado_por === currentUser.id) || !!(current() || {}).sou_dono);
 const podeCompra = c => !!c && ((currentUser && c.user_id === currentUser.id) || !!(current() || {}).sou_dono);
 const mesCurtoAno = mk => `${MES_CURTO[Number(mk.slice(5, 7)) - 1].toLowerCase()}/${mk.slice(2, 4)}`;
-Object.assign(state, { cartoes: [], compras: [], pagFat: [], cartOk: true, kcSel: '' });
+Object.assign(state, { cartoes: [], compras: [], pagFat: [], cartOk: true, kcSel: '', kcVista: 'mes' });
 
 // em qual fatura (mês do vencimento) cai uma compra (igual à conta do banco de dados)
 function faturaDaCompra(k, iso){
@@ -2644,6 +2644,7 @@ async function loadCartoes(){
 
 /* ---------- aba Cartões ---------- */
 function renderCartoes(){
+  renderTodasCompras();
   if (!$('tabCartoes')) return;
   const mk = mkey(state.y, state.m), mkProx = mkey(state.y, state.m + 1);
   const ativos = cartoesAtivos();
@@ -2708,7 +2709,7 @@ function renderCartoes(){
     : 'Nenhuma compra nas faturas deste mês.';
   $('kcFaturas').innerHTML = visiveis.map(i => fatHtml(i, true)).join('');
 
-  $('kcDetalhe').hidden = !(state.cartoes || []).length;
+  $('kcDetalhe').hidden = !(state.cartoes || []).length || state.kcVista === 'todas';
   const shared = isShared();
   $('kcCompras').innerHTML = parcelas.length ? parcelas.map(p => {
     const c = p.c, k = findCartao(c.cartao_id), pode = podeCompra(c);
@@ -2782,7 +2783,56 @@ $('kcChips').addEventListener('click', e => {
   const b = e.target.closest('[data-kc-sel]'); if (!b) return;
   state.kcSel = b.dataset.kcSel; renderCartoes();
 });
-$('kcCompras').addEventListener('click', async e => {
+// "Todas as compras": cada compra uma vez (não as parcelas), da mais nova para a mais antiga
+function renderTodasCompras(){
+  if (!$('kcTodasSec')) return;
+  const todas = state.kcVista === 'todas' && state.cartOk && (state.cartoes || []).length > 0;
+  $('kcVistaRow').hidden = !state.cartOk || !(state.cartoes || []).length;
+  document.querySelectorAll('[data-kc-vista]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.kcVista === (todas ? 'todas' : 'mes'))));
+  $('kcTodasSec').hidden = !todas;
+  if (todas) $('kcDetalhe').hidden = true;
+  if (!todas) return;
+  const hoje = mkey(new Date().getFullYear(), new Date().getMonth());
+  const q = semAcento($('kcBusca').value.trim());
+  const lista = (state.compras || []).filter(c => {
+    if (state.kcSel && c.cartao_id !== state.kcSel) return false;
+    if (!q) return true;
+    const k = findCartao(c.cartao_id);
+    return semAcento(`${c.descricao} ${c.categoria} ${k ? k.nome : ''}`).includes(q);
+  }).sort((a, b) => b.data.localeCompare(a.data) || a.descricao.localeCompare(b.descricao));
+  // quanto ainda vai cair: parcelas em faturas deste mês em diante
+  const aCair = c => { let v = 0, n = 0; for (let j = iniDe(c) - 1; j < c.parcelas; j++) if (faturaDaParcela(c, j + 1) >= hoje){ v += valorParcela(c, j); n++; } return { v: r2(v), n }; };
+  const total = r2(lista.reduce((s, c) => s + Number(c.valor), 0));
+  const futuro = r2(lista.reduce((s, c) => s + aCair(c).v, 0));
+  $('kcTodasResumo').textContent = !lista.length ? '' :
+    `${plural(lista.length, 'compra')} · ${brl(total)} no total` + (futuro > 0 ? ` · ainda vão cair ${brl(futuro)} em faturas` : '');
+  const shared = isShared();
+  let mesAtual = '';
+  $('kcTodas').innerHTML = lista.length ? lista.map(c => {
+    const k = findCartao(c.cartao_id), pode = podeCompra(c), m = c.data.slice(0, 7);
+    const cab = m !== mesAtual ? `<div class="kc-mes-tit">${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}</div>` : '';
+    mesAtual = m;
+    const resto = aCair(c);
+    const parc = c.ajuste ? `saldo anterior · fatura ${mesCurtoAno(c.fatura)}`
+      : c.parcelas > 1 ? `${c.parcelas}x de ${brl(valorParcela(c, 1))}` + (iniDe(c) > 1 ? ` (desde a ${iniDe(c)}ª)` : '') + (resto.n ? ` · faltam ${resto.n}` : ' · quitada')
+      : 'à vista';
+    const meta = [c.ajuste ? '' : `${c.data.slice(8, 10)}/${c.data.slice(5, 7)}/${c.data.slice(2, 4)}`, k ? `${esc(iconeCartao(k))} ${esc(k.nome)}` : '',
+      c.ajuste ? '' : esc(rotuloCat(c.categoria)), shared ? esc(quem(c.user_id)) : ''].filter(Boolean).join(' · ');
+    return cab + `<div class="kc-compra${pode ? ' pode' : ''}"${pode ? ` data-kc-compra="${esc(c.id)}" role="button" tabindex="0"` : ''}>
+      <span class="kc-ic">${c.ajuste ? '🧾' : esc(iconeCat(c.categoria) || '🏷️')}</span>
+      <span style="min-width:0;"><span class="kc-d" style="display:block;">${esc(c.descricao)}</span><span class="by" style="margin:0;">${meta}</span></span>
+      <span class="kc-v" style="text-align:right;">− ${brl(Number(c.valor))}<span class="kc-sub">${esc(parc)}</span></span>
+      <span class="kc-acao">${pode ? `<button class="btn btn-ghost btn-icon" type="button" data-kc-edit="${esc(c.id)}" style="color:var(--muted);" aria-label="Editar ${esc(c.descricao)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="btn btn-ghost btn-icon" type="button" data-kc-del="${esc(c.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(c.descricao)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</span>
+    </div>`;
+  }).join('') : `<p style="font-size:14px;color:var(--muted);margin:0;">${q ? 'Nenhuma compra encontrada.' : 'Nenhuma compra no cartão ainda.'}</p>`;
+}
+$('kcVista').addEventListener('click', e => {
+  const b = e.target.closest('[data-kc-vista]'); if (!b) return;
+  state.kcVista = b.dataset.kcVista; renderCartoes();
+});
+$('kcBusca').addEventListener('input', () => renderTodasCompras());
+
+async function cliqueCompras(e){
   const del = e.target.closest('[data-kc-del]');
   if (del){
     const c = (state.compras || []).find(x => x.id === del.dataset.kcDel); if (!c) return;
@@ -2797,6 +2847,12 @@ $('kcCompras').addEventListener('click', async e => {
   if (ed){ const c = (state.compras || []).find(x => x.id === ed.dataset.kcEdit); return c && c.ajuste ? openAjuste(c.cartao_id, c.fatura, c) : openCompra(ed.dataset.kcEdit); }
   const r = e.target.closest('[data-kc-compra]');
   if (r){ const c = (state.compras || []).find(x => x.id === r.dataset.kcCompra); if (c && c.ajuste) openAjuste(c.cartao_id, c.fatura, c); else openCompra(r.dataset.kcCompra); }
+}
+$('kcCompras').addEventListener('click', cliqueCompras);
+$('kcTodas').addEventListener('click', cliqueCompras);
+$('kcTodas').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const r = e.target.closest('[data-kc-compra]'); if (r && !e.target.closest('button')){ e.preventDefault(); cliqueCompras(e); }
 });
 $('kcCompras').addEventListener('keydown', e => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -3199,6 +3255,45 @@ $('drClose').onclick = closeMenu;
 $('drawer').addEventListener('click', e => { if (e.target.id === 'drawer' || e.target.closest('.drawer-item')) closeMenu(); });
 $('drPerfil').addEventListener('click', () => openPerfil());
 $('drCategorias').addEventListener('click', () => openCategorias());
+// Menu → Meus controles: todos num lugar só, com configurar / sair / excluir
+function openMeusControles(){
+  const lista = state.controles || [];
+  openDlg2('Menu', 'Meus controles', `
+    <p class="hint" style="margin:0;">O "Meu controle" é só seu e não pode ser excluído. Os compartilhados você configura, deixa ou exclui (se for o dono).</p>
+    <div>${lista.map(c => `
+      <div class="mc-item">
+        <span style="min-width:0;"><b>${esc(c.nome)}</b><small>${c.pessoal ? 'Pessoal · só você vê' : `Compartilhado · ${plural(c.participantes, 'pessoa')}${c.sou_dono ? ' · você é o dono' : ''}`}</small></span>
+        <span class="mc-acoes">${c.pessoal ? '<span class="tag tag-neutral">Pessoal</span>' : `
+          <button class="btn btn-secondary btn-sm" type="button" data-mc-config="${esc(c.id)}">Configurar</button>
+          ${c.sou_dono ? `<button class="btn btn-danger btn-sm" type="button" data-mc-excluir="${esc(c.id)}">Excluir</button>`
+                       : `<button class="btn btn-ghost btn-sm" type="button" data-mc-sair="${esc(c.id)}">Sair</button>`}`}</span>
+      </div>`).join('')}</div>
+    <button class="btn btn-secondary" type="button" data-mc-novo style="min-height:44px;">+ Novo controle</button>`, { tipo: 'meuscontroles' });
+}
+$('drControles').addEventListener('click', () => { if (typeof closeDrawer === 'function') closeDrawer(); openMeusControles(); });
+async function irParaControle(id){
+  if (state.cid !== id){ $('ctrlSelect').value = id; $('ctrlSelect').dispatchEvent(new Event('change')); }
+  await loadMembers();
+}
+$('dlg2Body').addEventListener('click', async e => {
+  if (dlg2.tipo !== 'meuscontroles') return;
+  if (e.target.closest('[data-mc-novo]')){ closeDlg2(); $('ctrlNew').click(); return; }
+  const cf = e.target.closest('[data-mc-config]');
+  if (cf){ closeDlg2(); await irParaControle(cf.dataset.mcConfig); return openManage(); }
+  const ex = e.target.closest('[data-mc-excluir]'), sa = e.target.closest('[data-mc-sair]');
+  const b = ex || sa; if (!b) return;
+  const c = (state.controles || []).find(x => x.id === (ex ? ex.dataset.mcExcluir : sa.dataset.mcSair)); if (!c) return;
+  const ok = ex ? await confirmar(`Excluir o controle "${c.nome}"?\n\nTodos os lançamentos, contas, cartões e metas dele serão apagados para todo mundo. Não dá para desfazer.`)
+                : await confirmar(`Sair de "${c.nome}"?\n\nOs lançamentos que você fez continuam no controle.`);
+  if (!ok) return openMeusControles();
+  b.disabled = true;
+  const res = await sb.rpc(ex ? 'excluir_controle' : 'sair_controle', { cid: c.id });
+  if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+  if (state.cid === c.id){ state.cid = null; try { localStorage.removeItem(ctrlKey()); } catch(err){} }
+  toast(ex ? 'Controle excluído.' : `Você saiu de "${c.nome}".`);
+  await loadControles(); await loadMembers(); await refresh();
+  openMeusControles();
+});
 $('drDados').addEventListener('click', () => openDlg2('Privacidade', 'Seus dados', `
   <div class="dlg-sec">
     <p style="margin:0;font-size:15px;"><b>🔒 O Pra Onde Foi? não se conecta ao seu banco.</b></p>
@@ -3441,12 +3536,13 @@ async function openManage(){
     </div>` : `
     <p class="hint">Só o dono (${esc(displayName((state.members.find(p => p.eh_dono) || {}).login) || '—')}) pode convidar pessoas e mudar o nome.</p>`}
     ${modulosHtml(c)}
-    <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
+    <div class="dlg-sec ct-perigo">
+      <h3>Sair ou excluir</h3>
+      <p class="hint" style="margin:0;">Ao <b>sair</b>, os lançamentos que você fez continuam no controle para os outros.${dono ? ' Ao <b>excluir</b>, o controle e tudo dele (lançamentos, contas, cartões, metas) somem para todo mundo.' : ''}</p>
       <div class="row" style="flex-wrap:wrap;">
         <button class="btn btn-secondary" data-a="sair">Sair do controle</button>
         ${dono ? '<button class="btn btn-danger" data-a="excluir">Excluir controle</button>' : ''}
       </div>
-      <p class="hint">Ao sair, os lançamentos que você fez continuam no controle.</p>
     </div>`;
 }
 
@@ -3633,7 +3729,7 @@ const valoresOriginais = new Map();
 let valoresOcultos = false;
 try { valoresOcultos = localStorage.getItem('pof-ocultar') === '1'; } catch(e){}
 // resumos e listas (lançamentos, categorias, contas, metas, investimentos); os campos de digitar ficam de fora
-const areasValores = () => document.querySelectorAll('#viewApp .stats, #viewApp #budget, #rows, #cats, #billList, #metasGrid, #invList, #invDist, #kcFaturas, #kcCompras, #kcCats');
+const areasValores = () => document.querySelectorAll('#viewApp .stats, #viewApp #budget, #rows, #cats, #billList, #metasGrid, #invList, #invDist, #kcFaturas, #kcCompras, #kcCats, #kcTodas, #kcTodasResumo');
 function mascararValores(){
   areasValores().forEach(raiz => {
     const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT); let n;

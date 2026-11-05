@@ -822,6 +822,23 @@
 .feats-wrap{grid-area:feats;display:flex;flex-direction:column}
 .feats-wrap .auth-feats{grid-area:auto}
   .captcha-box{min-height:65px;display:flex;justify-content:center}
+  .kc-vista-row{display:flex}
+  .kc-mes-tit{margin:var(--space-4) 0 2px;font-size:13px;font-weight:700;color:var(--muted)}
+  .kc-mes-tit:first-child{margin-top:0}
+  .kc-compra .kc-sub{display:block;font-size:12px;color:var(--muted);text-align:right;font-weight:500}
+  .kc-nova-row{display:flex}
+  .kc-nova{min-height:48px;padding:0 22px;font-size:15px}
+  @media (max-width:700px){ .kc-nova{flex:1} }
+  .ct-perigo{border:1px solid rgba(var(--alerta-rgb,220,60,60),.35);border-radius:var(--r-cartao);padding:14px;display:flex;flex-direction:column;gap:10px}
+  .ct-perigo h3{color:var(--alerta);margin:0}
+  .mc-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--divider)}
+  .mc-item small{display:block;color:var(--muted);font-size:12px}
+  .mc-acoes{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+  @media (max-width:700px){
+    .kc-compra{grid-template-columns:34px minmax(0,1fr) auto;row-gap:2px}
+    .kc-compra .kc-acao{grid-column:2 / -1;justify-self:end;margin:-4px -6px -6px 0}
+    .kc-compra .kc-sub{max-width:150px;white-space:normal;line-height:1.3}
+  }
 </style>
 </head>
 <body>
@@ -959,7 +976,7 @@
     <select class="input ctrl-select" id="ctrlSelect" aria-label="Escolher controle"></select>
     <span class="note" id="ctrlInfo"></span>
     <span style="display:flex;flex-wrap:wrap;gap:var(--space-2);margin-left:auto;">
-      <button class="btn btn-secondary btn-sm" id="ctrlManage" type="button" hidden>Pessoas e convites</button>
+      <button class="btn btn-secondary btn-sm" id="ctrlManage" type="button" hidden><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configurar controle</button>
       <button class="btn btn-secondary btn-sm" id="ctrlShare" type="button" hidden>Compartilhar controle</button>
       <button class="btn btn-secondary btn-sm" id="ctrlNew" type="button">+ Novo controle</button>
       <button class="btn btn-ghost btn-sm" id="ctrlJoin" type="button">Entrar com código</button>
@@ -1092,12 +1109,14 @@
     </div>
   </section>
 
+  <div class="kc-nova-row">
+    <button class="btn btn-primary kc-nova" id="kcNova" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Lançar compra no cartão</button>
+  </div>
   <section class="blueprint" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4);">
     <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
       <h2 style="font-size:22px;text-transform:uppercase;" id="kcFatTit">Faturas</h2>
       <span style="display:flex;flex-wrap:wrap;gap:var(--space-2);">
         <button class="btn btn-secondary" id="kcMeus" type="button">Meus cartões</button>
-        <button class="btn btn-primary" id="kcNova" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Compra no cartão</button>
       </span>
     </div>
     <div class="chips" id="kcChips" role="group" aria-label="Escolher cartão"></div>
@@ -1105,6 +1124,22 @@
     <div id="kcVazio" hidden style="padding:var(--space-4) 0;color:var(--muted);font-size:14px;"></div>
   </section>
 
+  <div class="kc-vista-row" id="kcVistaRow">
+    <div class="seg" id="kcVista" role="group" aria-label="Ver compras">
+      <button type="button" data-kc-vista="mes" aria-pressed="true">Compras do mês</button>
+      <button type="button" data-kc-vista="todas" aria-pressed="false">Todas as compras</button>
+    </div>
+  </div>
+  <section id="kcTodasSec" hidden style="display:flex;flex-direction:column;gap:var(--space-3);min-width:0;">
+    <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--space-3);">
+      <div style="min-width:0;">
+        <h2 style="font-size:22px;text-transform:uppercase;">Todas as compras</h2>
+        <p class="by" id="kcTodasResumo" style="margin:4px 0 0;"></p>
+      </div>
+      <input class="input" id="kcBusca" type="search" placeholder="Buscar compra" autocomplete="off" style="max-width:300px;">
+    </div>
+    <div id="kcTodas"></div>
+  </section>
   <section id="kcDetalhe" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:var(--space-8);align-items:start;">
     <div class="span2" style="display:flex;flex-direction:column;gap:var(--space-3);min-width:0;">
       <h2 style="font-size:22px;text-transform:uppercase;" id="kcComTit">Compras do mês</h2>
@@ -1362,6 +1397,7 @@
       </div>
       <button class="drawer-item" id="drCodigo" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h2M11 10h2M15 10h2M7 14h10"/></svg>Entrar com código</button>
       <button class="drawer-item" id="drExcel" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>Baixar planilha Excel</button>
+      <button class="drawer-item" id="drControles" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Meus controles</button>
       <button class="drawer-item" id="drCategorias" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Minhas categorias</button>
       <button class="drawer-item" id="drPerfil" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Meu perfil</button>
       <button class="drawer-item" id="drDados" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>Seus dados e privacidade</button>
@@ -1388,6 +1424,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=74"></script>
+<script src="app.js?v=76"></script>
 </body>
 </html>
