@@ -1,4 +1,9 @@
 // Pra Onde Foi? — tema (claro ou escuro). Roda antes da página aparecer, para não piscar.
+// aberto por http:// (sem cadeado)? vai para o https:// antes de mostrar qualquer coisa
+if (location.protocol === 'http:' && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)){
+  document.documentElement.style.visibility = 'hidden';
+  location.replace('https://' + location.host + location.pathname + location.search + location.hash);
+}
 // o app não pode ser aberto dentro de outro site (proteção contra clique disfarçado)
 if (window.top !== window.self){
   document.documentElement.style.visibility = 'hidden';

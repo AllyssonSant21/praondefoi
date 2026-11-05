@@ -24,6 +24,7 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   14. `supabase-uso.sql` — painel de uso no portal admin: último acesso e quantidade de lançamentos por conta (sem valores).
   15. `supabase-categorias.sql` — categorias personalizadas por controle (ex.: Pet, Academia), com emoji; renomear atualiza os lançamentos.
   16. `supabase-cartoes.sql` — cartões de crédito (só apelido, banco, fechamento, vencimento e limite; nunca número, CVV ou senha), compras parceladas e pagamento da fatura.
+  17. `supabase-cartoes2.sql` — cartões, parte 2: parcelado que já estava rolando antes do app e "saldo anterior" da fatura.
 - **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os 15 scripts na ordem; ative pg_net e pg_cron antes e rode uma vez só.
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.
 - **Marca:** pasta `logo/` (SVG e PNG).
