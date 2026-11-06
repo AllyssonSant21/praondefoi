@@ -2542,7 +2542,7 @@ const ultimoDia = (y, m) => new Date(y, m + 1, 0).getDate();
 const podeCartao = k => !!k && ((currentUser && k.criado_por === currentUser.id) || !!(current() || {}).sou_dono);
 const podeCompra = c => !!c && ((currentUser && c.user_id === currentUser.id) || !!(current() || {}).sou_dono);
 const mesCurtoAno = mk => `${MES_CURTO[Number(mk.slice(5, 7)) - 1].toLowerCase()}/${mk.slice(2, 4)}`;
-Object.assign(state, { cartoes: [], compras: [], pagFat: [], cartOk: true, kcSel: '' });
+Object.assign(state, { cartoes: [], compras: [], pagFat: [], cartOk: true, kcSel: '', kcVista: 'mes' });
 
 // em qual fatura (mês do vencimento) cai uma compra (igual à conta do banco de dados)
 function faturaDaCompra(k, iso){
@@ -2580,11 +2580,23 @@ function parcelasDoMes(kid, mk){
   const out = [];
   (state.compras || []).forEach(c => {
     if (kid && c.cartao_id !== kid) return;
-    const i = mdiff(c.data.slice(0, 7) + '-01', mk), j = iniDe(c) - 1 + i;
-    if (i < 0 || j >= c.parcelas) return;
-    out.push({ c, i, n: j + 1, valor: valorParcela(c, j) });
+    // a data é a da compra (1ª parcela); as parcelas já pagas antes do app ficam de fora
+    const j = mdiff(c.data.slice(0, 7) + '-01', mk);
+    if (j < iniDe(c) - 1 || j >= c.parcelas) return;
+    out.push({ c, i: j, n: j + 1, valor: valorParcela(c, j) });
   });
   return out.sort((a, b) => (a.i > 0) - (b.i > 0) || b.c.data.localeCompare(a.c.data) || a.c.descricao.localeCompare(b.c.descricao));
+}
+// primeira fatura que ainda não venceu (igual ao banco): a do mês, se o vencimento não passou; senão a do mês seguinte
+function faturaPendente(k){
+  const h = new Date(); h.setHours(0, 0, 0, 0);
+  const venc = new Date(h.getFullYear(), h.getMonth(), Math.min(k.vence, ultimoDia(h.getFullYear(), h.getMonth())));
+  return mkey(h.getFullYear(), h.getMonth() + (h <= venc ? 0 : 1));
+}
+// quantas parcelas de uma compra já venceram (pela data da compra e a data de hoje)
+function pagasPelaData(k, iso, n){
+  const f0 = faturaDaCompra(k, iso);
+  return Math.max(0, Math.min(n, mdiff(f0, faturaPendente(k))));
 }
 // fatura onde cai cada parcela
 const faturaDaParcela = (c, n) => mkey(Number(c.fatura.slice(0, 4)), Number(c.fatura.slice(5, 7)) - 1 + n - iniDe(c));
@@ -2643,6 +2655,7 @@ async function loadCartoes(){
 
 /* ---------- aba Cartões ---------- */
 function renderCartoes(){
+  renderTodasCompras();
   if (!$('tabCartoes')) return;
   const mk = mkey(state.y, state.m), mkProx = mkey(state.y, state.m + 1);
   const ativos = cartoesAtivos();
@@ -2707,7 +2720,7 @@ function renderCartoes(){
     : 'Nenhuma compra nas faturas deste mês.';
   $('kcFaturas').innerHTML = visiveis.map(i => fatHtml(i, true)).join('');
 
-  $('kcDetalhe').hidden = !(state.cartoes || []).length;
+  $('kcDetalhe').hidden = !(state.cartoes || []).length || state.kcVista === 'todas';
   const shared = isShared();
   $('kcCompras').innerHTML = parcelas.length ? parcelas.map(p => {
     const c = p.c, k = findCartao(c.cartao_id), pode = podeCompra(c);
@@ -2781,7 +2794,56 @@ $('kcChips').addEventListener('click', e => {
   const b = e.target.closest('[data-kc-sel]'); if (!b) return;
   state.kcSel = b.dataset.kcSel; renderCartoes();
 });
-$('kcCompras').addEventListener('click', async e => {
+// "Todas as compras": cada compra uma vez (não as parcelas), da mais nova para a mais antiga
+function renderTodasCompras(){
+  if (!$('kcTodasSec')) return;
+  const todas = state.kcVista === 'todas' && state.cartOk && (state.cartoes || []).length > 0;
+  $('kcVistaRow').hidden = !state.cartOk || !(state.cartoes || []).length;
+  document.querySelectorAll('[data-kc-vista]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.kcVista === (todas ? 'todas' : 'mes'))));
+  $('kcTodasSec').hidden = !todas;
+  if (todas) $('kcDetalhe').hidden = true;
+  if (!todas) return;
+  const hoje = mkey(new Date().getFullYear(), new Date().getMonth());
+  const q = semAcento($('kcBusca').value.trim());
+  const lista = (state.compras || []).filter(c => {
+    if (state.kcSel && c.cartao_id !== state.kcSel) return false;
+    if (!q) return true;
+    const k = findCartao(c.cartao_id);
+    return semAcento(`${c.descricao} ${c.categoria} ${k ? k.nome : ''}`).includes(q);
+  }).sort((a, b) => b.data.localeCompare(a.data) || a.descricao.localeCompare(b.descricao));
+  // quanto ainda vai cair: parcelas em faturas deste mês em diante
+  const aCair = c => { let v = 0, n = 0; for (let j = iniDe(c) - 1; j < c.parcelas; j++) if (faturaDaParcela(c, j + 1) >= hoje){ v += valorParcela(c, j); n++; } return { v: r2(v), n }; };
+  const total = r2(lista.reduce((s, c) => s + Number(c.valor), 0));
+  const futuro = r2(lista.reduce((s, c) => s + aCair(c).v, 0));
+  $('kcTodasResumo').textContent = !lista.length ? '' :
+    `${plural(lista.length, 'compra')} · ${brl(total)} no total` + (futuro > 0 ? ` · ainda vão cair ${brl(futuro)} em faturas` : '');
+  const shared = isShared();
+  let mesAtual = '';
+  $('kcTodas').innerHTML = lista.length ? lista.map(c => {
+    const k = findCartao(c.cartao_id), pode = podeCompra(c), m = c.data.slice(0, 7);
+    const cab = m !== mesAtual ? `<div class="kc-mes-tit">${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}</div>` : '';
+    mesAtual = m;
+    const resto = aCair(c);
+    const parc = c.ajuste ? `saldo anterior · fatura ${mesCurtoAno(c.fatura)}`
+      : c.parcelas > 1 ? `${c.parcelas}x de ${brl(valorParcela(c, 1))}` + (iniDe(c) > 1 ? ` (desde a ${iniDe(c)}ª)` : '') + (resto.n ? ` · faltam ${resto.n}` : ' · quitada')
+      : 'à vista';
+    const meta = [c.ajuste ? '' : `${c.data.slice(8, 10)}/${c.data.slice(5, 7)}/${c.data.slice(2, 4)}`, k ? `${esc(iconeCartao(k))} ${esc(k.nome)}` : '',
+      c.ajuste ? '' : esc(rotuloCat(c.categoria)), shared ? esc(quem(c.user_id)) : ''].filter(Boolean).join(' · ');
+    return cab + `<div class="kc-compra${pode ? ' pode' : ''}"${pode ? ` data-kc-compra="${esc(c.id)}" role="button" tabindex="0"` : ''}>
+      <span class="kc-ic">${c.ajuste ? '🧾' : esc(iconeCat(c.categoria) || '🏷️')}</span>
+      <span style="min-width:0;"><span class="kc-d" style="display:block;">${esc(c.descricao)}</span><span class="by" style="margin:0;">${meta}</span></span>
+      <span class="kc-v" style="text-align:right;">− ${brl(Number(c.valor))}<span class="kc-sub">${esc(parc)}</span></span>
+      <span class="kc-acao">${pode ? `<button class="btn btn-ghost btn-icon" type="button" data-kc-edit="${esc(c.id)}" style="color:var(--muted);" aria-label="Editar ${esc(c.descricao)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="btn btn-ghost btn-icon" type="button" data-kc-del="${esc(c.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(c.descricao)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</span>
+    </div>`;
+  }).join('') : `<p style="font-size:14px;color:var(--muted);margin:0;">${q ? 'Nenhuma compra encontrada.' : 'Nenhuma compra no cartão ainda.'}</p>`;
+}
+$('kcVista').addEventListener('click', e => {
+  const b = e.target.closest('[data-kc-vista]'); if (!b) return;
+  state.kcVista = b.dataset.kcVista; renderCartoes();
+});
+$('kcBusca').addEventListener('input', () => renderTodasCompras());
+
+async function cliqueCompras(e){
   const del = e.target.closest('[data-kc-del]');
   if (del){
     const c = (state.compras || []).find(x => x.id === del.dataset.kcDel); if (!c) return;
@@ -2796,6 +2858,12 @@ $('kcCompras').addEventListener('click', async e => {
   if (ed){ const c = (state.compras || []).find(x => x.id === ed.dataset.kcEdit); return c && c.ajuste ? openAjuste(c.cartao_id, c.fatura, c) : openCompra(ed.dataset.kcEdit); }
   const r = e.target.closest('[data-kc-compra]');
   if (r){ const c = (state.compras || []).find(x => x.id === r.dataset.kcCompra); if (c && c.ajuste) openAjuste(c.cartao_id, c.fatura, c); else openCompra(r.dataset.kcCompra); }
+}
+$('kcCompras').addEventListener('click', cliqueCompras);
+$('kcTodas').addEventListener('click', cliqueCompras);
+$('kcTodas').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const r = e.target.closest('[data-kc-compra]'); if (r && !e.target.closest('button')){ e.preventDefault(); cliqueCompras(e); }
 });
 $('kcCompras').addEventListener('keydown', e => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -2832,10 +2900,14 @@ function aplicarPagCom(){
 function kcHintForm(){
   const k = findCartao($('pagCom').value), h = $('kcHint');
   if (!k){ h.hidden = true; return; }
-  const f = faturaDaCompra(k, $('date').value || todayISO()), n = Number($('parc').value) || 1;
+  const iso = $('date').value || todayISO(), n = Number($('parc').value) || 1;
+  const f0 = faturaDaCompra(k, iso), pagas = pagasPelaData(k, iso, n);
   const v = parseAmount($('amount').value);
-  h.textContent = `💳 Vai para a fatura de ${mlabel(f)} do ${k.nome}` +
-    (n > 1 ? `, em ${n}x${v > 0 ? ' de ' + brl(Math.floor(cents(v) / n) / 100) : ''} até ${mlabel(mkey(Number(f.slice(0, 4)), Number(f.slice(5, 7)) - 1 + n - 1))}` : '') +
+  const soma = (m, x) => mkey(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1 + x);
+  if (pagas >= n){ h.textContent = `💳 Essa compra já foi toda paga (a última parcela caiu em ${mlabel(soma(f0, n - 1))}). Não precisa lançar.`; h.hidden = false; return; }
+  const f = soma(f0, pagas), faltam = n - pagas;
+  h.textContent = `💳 ${pagas ? `${pagas} ${pagas === 1 ? 'parcela já passou' : 'parcelas já passaram'}. ` : ''}Vai para a fatura de ${mlabel(f)} do ${k.nome}` +
+    (faltam > 1 ? `, em ${faltam}x${v > 0 ? ' de ' + brl(Math.floor(cents(v) / n) / 100) : ''} até ${mlabel(soma(f, faltam - 1))}` : '') +
     '. Não mexe no saldo agora: entra quando a fatura for paga.';
   h.hidden = false;
 }
@@ -2922,9 +2994,9 @@ function openCompra(id){
       <div class="field"><label for="kpValor">Valor total (R$)</label><input class="input" id="kpValor" inputmode="decimal" placeholder="0,00" value="${c ? num(Number(c.valor)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
       <div class="field"><label for="kpParc">Parcelas</label><select class="input" id="kpParc">${opcoesParc(c ? c.parcelas : 1)}</select></div>
     </div>
-    ${state.cart2 ? `<div class="field" id="kpIniWrap"${c && c.parcelas > 1 ? '' : ' hidden'}><label for="kpIni">Já está em qual parcela?</label>
-      <select class="input" id="kpIni">${opcoesIni(c ? c.parcelas : 1, c ? iniDe(c) : 1)}</select>
-      <span class="hint" style="margin:0;">Compra de antes do app? Escolha a parcela que cai na próxima fatura. As anteriores não entram.</span></div>` : ''}
+    ${state.cart2 ? `<div class="field" id="kpIniWrap"${c && c.parcelas > 1 ? '' : ' hidden'}><label for="kpIni">Parcelas já pagas</label>
+      <select class="input" id="kpIni">${opcoesIni(c ? c.parcelas : 1, c ? iniDe(c) - 1 : 0)}</select>
+      <span class="hint" style="margin:0;">Compra antiga? Coloque a data em que você comprou: o app já conta as parcelas que venceram. Adiantou alguma? Ajuste aqui.</span></div>` : ''}
     <div class="kc-dias">
       <div class="field"><label for="kpCat">Categoria</label><select class="input" id="kpCat">${opcoesCat('exp', c ? c.categoria : null, false)}</select></div>
       <div class="field"><label for="kpData">Data da compra</label><input class="input" id="kpData" type="date" value="${c ? c.data : todayISO()}"></div>
@@ -2933,25 +3005,36 @@ function openCompra(id){
     <span class="hint" id="kpErro" style="color:var(--alerta);" hidden></span>
     <button class="btn btn-primary" type="button" data-kc-salvarcompra style="min-height:44px;">${c ? 'Salvar' : 'Lançar no cartão'}</button>
     ${c ? '<button class="btn btn-ghost" type="button" data-kc-excluircompra style="color:var(--alerta);">Excluir compra (todas as parcelas)</button>' : ''}`,
-    { tipo: 'kccompra', c });
+    { tipo: 'kccompra', c, pagasManual: !!c });
   kpInfo();
   if (!c) setTimeout(() => $('kpDesc').focus(), 0);
 }
-const opcoesIni = (n, atual) => Array.from({ length: n }, (_, i) => i + 1)
-  .map(i => `<option value="${i}"${i === atual ? ' selected' : ''}>${i === 1 ? 'Começando agora (1ª)' : `${i}ª de ${n}`}</option>`).join('');
+const opcoesIni = (n, atual) => Array.from({ length: n }, (_, i) => i)
+  .map(i => `<option value="${i}"${i === atual ? ' selected' : ''}>${i === 0 ? 'Nenhuma' : `${i} de ${n}`}</option>`).join('');
 function kpInfo(){
   const k = findCartao($('kpCartao').value); if (!k){ $('kpInfo').textContent = ''; return; }
-  const n = Number($('kpParc').value) || 1, v = parseAmount($('kpValor').value);
-  // "já está em qual parcela": acompanha o número de parcelas
+  const n = Number($('kpParc').value) || 1, v = parseAmount($('kpValor').value), iso = $('kpData').value || todayISO();
+  const auto = pagasPelaData(k, iso, n);
+  // "parcelas já pagas": acompanha o número de parcelas e a data, até a pessoa mexer nele
   if ($('kpIni')){
-    const atual = Math.min(Number($('kpIni').value) || 1, n);
+    let atual = dlg2.pagasManual ? Math.min(Number($('kpIni').value) || 0, n - 1) : Math.min(auto, n - 1);
     if ($('kpIni').options.length !== n) $('kpIni').innerHTML = opcoesIni(n, atual);
+    $('kpIni').value = String(atual);
     $('kpIniWrap').hidden = n < 2;
   }
-  const ini = $('kpIni') && n > 1 ? Number($('kpIni').value) || 1 : 1, faltam = n - ini + 1;
-  const f = faturaDaCompra(k, $('kpData').value || todayISO());
-  $('kpInfo').textContent = (ini > 1 ? `A ${ini}ª parcela vai para a fatura de ${mlabel(f)}` : `Vai para a fatura de ${mlabel(f)}`) +
-    (faltam > 1 ? ` e termina em ${mlabel(mkey(Number(f.slice(0, 4)), Number(f.slice(5, 7)) - 1 + faltam - 1))}${v > 0 ? ` (${faltam}x de ${brl(Math.floor(cents(v) / n) / 100)})` : ''}` : '') + '.';
+  const f0 = faturaDaCompra(k, iso);
+  const pagas = $('kpIni') && n > 1 ? Number($('kpIni').value) || 0 : 0;
+  const parcela = Math.floor(cents(v) / n) / 100;
+  const somaMes = (m, x) => mkey(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1 + x);
+  if (auto >= n && !(dlg2.pagasManual && pagas < n)){
+    $('kpInfo').textContent = `Essa compra já foi toda paga: a última parcela caiu na fatura de ${mlabel(somaMes(f0, n - 1))}. Não precisa lançar.`;
+    return;
+  }
+  const primeira = somaMes(f0, pagas), faltam = n - pagas;
+  $('kpInfo').textContent = (n === 1 ? `Vai para a fatura de ${mlabel(primeira)}.`
+    : (pagas ? `${pagas} ${pagas === 1 ? 'parcela já passou' : 'parcelas já passaram'} e fica${pagas === 1 ? '' : 'm'} de fora. ` : '') +
+      `${faltam === 1 ? 'A última parcela cai' : `As ${faltam} parcelas caem`} de ${mlabel(primeira)}${faltam > 1 ? ` a ${mlabel(somaMes(primeira, faltam - 1))}` : ''}` +
+      (v > 0 ? ` (${brl(parcela)} cada).` : '.'));
 }
 function openAjuste(kid, mk, c){
   const k = findCartao(kid); if (!k) return;
@@ -3093,7 +3176,8 @@ $('dlg2Body').addEventListener('click', async e => {
       const n = Number($('kpParc').value) || 1;
       const args = { p_id: ctx.c ? ctx.c.id : null, p_cartao: $('kpCartao').value, p_desc: desc,
         p_cat: $('kpCat').value, p_valor: v, p_parcelas: n, p_data: $('kpData').value || todayISO() };
-      if (state.cart2) args.p_parcela_ini = $('kpIni') && n > 1 ? Number($('kpIni').value) || 1 : 1;
+      if (state.cart2 && ctx.pagasManual) args.p_parcela_ini = $('kpIni') && n > 1 ? (Number($('kpIni').value) || 0) + 1 : 1;
+      else if (state.cart2) args.p_parcela_ini = null;
       const { data: f, error } = await sb.rpc('salvar_compra', args);
       sv.disabled = false;
       if (error) return erro(rpcMsg(error));
@@ -3137,7 +3221,11 @@ $('dlg2Body').addEventListener('click', async e => {
     }
   }
 });
-$('dlg2Body').addEventListener('change', e => { if (dlg2.tipo === 'kccompra' && ['kpCartao', 'kpParc', 'kpData', 'kpIni'].includes(e.target.id)) kpInfo(); });
+$('dlg2Body').addEventListener('change', e => {
+  if (dlg2.tipo !== 'kccompra') return;
+  if (e.target.id === 'kpIni') dlg2.pagasManual = true;
+  if (['kpCartao', 'kpParc', 'kpData', 'kpIni'].includes(e.target.id)) kpInfo();
+});
 $('dlg2Body').addEventListener('input', e => {
   if (dlg2.tipo === 'kccompra' && e.target.id === 'kpValor') kpInfo();
   if (dlg2.tipo === 'kcform' && e.target.id === 'kfNome') dlg2.auto = null;   // a pessoa escreveu o próprio apelido
@@ -3198,6 +3286,45 @@ $('drClose').onclick = closeMenu;
 $('drawer').addEventListener('click', e => { if (e.target.id === 'drawer' || e.target.closest('.drawer-item')) closeMenu(); });
 $('drPerfil').addEventListener('click', () => openPerfil());
 $('drCategorias').addEventListener('click', () => openCategorias());
+// Menu → Meus controles: todos num lugar só, com configurar / sair / excluir
+function openMeusControles(){
+  const lista = state.controles || [];
+  openDlg2('Menu', 'Meus controles', `
+    <p class="hint" style="margin:0;">O "Meu controle" é só seu e não pode ser excluído. Os compartilhados você configura, deixa ou exclui (se for o dono).</p>
+    <div>${lista.map(c => `
+      <div class="mc-item">
+        <span style="min-width:0;"><b>${esc(c.nome)}</b><small>${c.pessoal ? 'Pessoal · só você vê' : `Compartilhado · ${plural(c.participantes, 'pessoa')}${c.sou_dono ? ' · você é o dono' : ''}`}</small></span>
+        <span class="mc-acoes">${c.pessoal ? '<span class="tag tag-neutral">Pessoal</span>' : `
+          <button class="btn btn-secondary btn-sm" type="button" data-mc-config="${esc(c.id)}">Configurar</button>
+          ${c.sou_dono ? `<button class="btn btn-danger btn-sm" type="button" data-mc-excluir="${esc(c.id)}">Excluir</button>`
+                       : `<button class="btn btn-ghost btn-sm" type="button" data-mc-sair="${esc(c.id)}">Sair</button>`}`}</span>
+      </div>`).join('')}</div>
+    <button class="btn btn-secondary" type="button" data-mc-novo style="min-height:44px;">+ Novo controle</button>`, { tipo: 'meuscontroles' });
+}
+$('drControles').addEventListener('click', () => { if (typeof closeDrawer === 'function') closeDrawer(); openMeusControles(); });
+async function irParaControle(id){
+  if (state.cid !== id){ $('ctrlSelect').value = id; $('ctrlSelect').dispatchEvent(new Event('change')); }
+  await loadMembers();
+}
+$('dlg2Body').addEventListener('click', async e => {
+  if (dlg2.tipo !== 'meuscontroles') return;
+  if (e.target.closest('[data-mc-novo]')){ closeDlg2(); $('ctrlNew').click(); return; }
+  const cf = e.target.closest('[data-mc-config]');
+  if (cf){ closeDlg2(); await irParaControle(cf.dataset.mcConfig); return openManage(); }
+  const ex = e.target.closest('[data-mc-excluir]'), sa = e.target.closest('[data-mc-sair]');
+  const b = ex || sa; if (!b) return;
+  const c = (state.controles || []).find(x => x.id === (ex ? ex.dataset.mcExcluir : sa.dataset.mcSair)); if (!c) return;
+  const ok = ex ? await confirmar(`Excluir o controle "${c.nome}"?\n\nTodos os lançamentos, contas, cartões e metas dele serão apagados para todo mundo. Não dá para desfazer.`)
+                : await confirmar(`Sair de "${c.nome}"?\n\nOs lançamentos que você fez continuam no controle.`);
+  if (!ok) return openMeusControles();
+  b.disabled = true;
+  const res = await sb.rpc(ex ? 'excluir_controle' : 'sair_controle', { cid: c.id });
+  if (res.error){ b.disabled = false; return toast(rpcMsg(res.error)); }
+  if (state.cid === c.id){ state.cid = null; try { localStorage.removeItem(ctrlKey()); } catch(err){} }
+  toast(ex ? 'Controle excluído.' : `Você saiu de "${c.nome}".`);
+  await loadControles(); await loadMembers(); await refresh();
+  openMeusControles();
+});
 $('drDados').addEventListener('click', () => openDlg2('Privacidade', 'Seus dados', `
   <div class="dlg-sec">
     <p style="margin:0;font-size:15px;"><b>🔒 O Pra Onde Foi? não se conecta ao seu banco.</b></p>
@@ -3440,12 +3567,13 @@ async function openManage(){
     </div>` : `
     <p class="hint">Só o dono (${esc(displayName((state.members.find(p => p.eh_dono) || {}).login) || '—')}) pode convidar pessoas e mudar o nome.</p>`}
     ${modulosHtml(c)}
-    <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
+    <div class="dlg-sec ct-perigo">
+      <h3>Sair ou excluir</h3>
+      <p class="hint" style="margin:0;">Ao <b>sair</b>, os lançamentos que você fez continuam no controle para os outros.${dono ? ' Ao <b>excluir</b>, o controle e tudo dele (lançamentos, contas, cartões, metas) somem para todo mundo.' : ''}</p>
       <div class="row" style="flex-wrap:wrap;">
         <button class="btn btn-secondary" data-a="sair">Sair do controle</button>
         ${dono ? '<button class="btn btn-danger" data-a="excluir">Excluir controle</button>' : ''}
       </div>
-      <p class="hint">Ao sair, os lançamentos que você fez continuam no controle.</p>
     </div>`;
 }
 
@@ -3632,7 +3760,7 @@ const valoresOriginais = new Map();
 let valoresOcultos = false;
 try { valoresOcultos = localStorage.getItem('pof-ocultar') === '1'; } catch(e){}
 // resumos e listas (lançamentos, categorias, contas, metas, investimentos); os campos de digitar ficam de fora
-const areasValores = () => document.querySelectorAll('#viewApp .stats, #viewApp #budget, #rows, #cats, #billList, #metasGrid, #invList, #invDist, #kcFaturas, #kcCompras, #kcCats');
+const areasValores = () => document.querySelectorAll('#viewApp .stats, #viewApp #budget, #rows, #cats, #billList, #metasGrid, #invList, #invDist, #kcFaturas, #kcCompras, #kcCats, #kcTodas, #kcTodasResumo');
 function mascararValores(){
   areasValores().forEach(raiz => {
     const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT); let n;
