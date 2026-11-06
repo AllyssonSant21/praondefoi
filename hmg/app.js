@@ -37,6 +37,23 @@ function toLoginEmail(input){
 const isUsernameLogin = email => String(email || '').endsWith('@' + USER_DOMAIN);
 const displayName = email => isUsernameLogin(email) ? email.slice(0, -(USER_DOMAIN.length + 1)) : (email || '');
 
+/* ---------- campo de valor estilo app de banco ----------
+   Só se digita números: 1 → 0,01 · 10 → 0,10 · 100 → 1,00 · 10000 → 100,00 (sem precisar de vírgula).
+   Vale para todo campo com data-dinheiro, em qualquer aba ou janela. */
+const fmtDinheiro = c => (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function mascaraDinheiro(el){
+  const dig = el.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 11);
+  el.value = dig ? fmtDinheiro(Number(dig)) : '';
+  try { el.setSelectionRange(el.value.length, el.value.length); } catch(e){}
+}
+document.addEventListener('input', e => { if (e.target.matches && e.target.matches('input[data-dinheiro]')) mascaraDinheiro(e.target); }, true);
+// valor que já vem preenchido (editar): mostra com ponto de milhar e cursor no fim ao tocar
+document.addEventListener('focusin', e => {
+  const el = e.target;
+  if (!el.matches || !el.matches('input[data-dinheiro]') || !el.value) return;
+  const v = parseAmount(el.value); if (isFinite(v)) el.value = fmtDinheiro(Math.round(v * 100));
+  setTimeout(() => { try { el.setSelectionRange(el.value.length, el.value.length); } catch(err){} }, 0);
+});
 function parseAmount(s){
   s = String(s || '').replace(/[^\d.,]/g,'');
   if (s.includes(',')) s = s.replace(/\./g,'').replace(',','.');
@@ -809,7 +826,7 @@ async function openLancEdit(id){
     <div class="seg" id="leTipo" role="group" aria-label="Tipo" style="align-self:flex-start;">${tipoBtn('exp','Saída')}${tipoBtn('inc','Entrada')}</div>
     <div class="field"><label for="leDesc">Descrição</label><input class="input" id="leDesc" maxlength="200" autocomplete="off" value="${esc(ent.desc)}"></div>
     <div class="grid2">
-      <div class="field"><label for="leValor">Valor (R$)</label><input class="input" id="leValor" inputmode="decimal" value="${num(ent.amount)}" style="font-variant-numeric:tabular-nums;"></div>
+      <div class="field"><label for="leValor">Valor (R$)</label><input class="input" id="leValor" inputmode="numeric" data-dinheiro value="${num(ent.amount)}" style="font-variant-numeric:tabular-nums;"></div>
       <div class="field"><label for="leCat">Categoria</label><select class="input" id="leCat"></select></div>
     </div>
     <div class="field"><label for="leData">Data</label><input class="input" id="leData" type="date" value="${esc(ent.date)}"></div>
@@ -1365,7 +1382,7 @@ function openPay(id){
     <div class="dlg-sec" style="gap:var(--space-3);">
       <div class="field">
         <label for="payVal">Quanto você está pagando (R$)</label>
-        <input class="input" id="payVal" inputmode="decimal" value="${num(sugere)}" style="font-variant-numeric:tabular-nums;">
+        <input class="input" id="payVal" inputmode="numeric" data-dinheiro value="${num(sugere)}" style="font-variant-numeric:tabular-nums;">
       </div>
       ${minhaFalta > 0 && minhaFalta < i.falta ? `
       <div class="row" style="flex-wrap:wrap;">
@@ -1455,7 +1472,7 @@ function openBillForm(c){
       <div class="grid2">
         <div class="field">
           <label for="bfValor" id="bfValorLbl">Valor (R$)</label>
-          <input class="input" id="bfValor" inputmode="decimal" placeholder="0,00" value="${c ? num(Number(c.valor)) : ''}">
+          <input class="input" id="bfValor" inputmode="numeric" data-dinheiro placeholder="0,00" value="${c ? num(Number(c.valor)) : ''}">
         </div>
         <div class="field">
           <label for="bfDia">Vence todo dia</label>
@@ -1504,7 +1521,7 @@ function openBillForm(c){
           <div class="person" style="word-break:normal;">
             <label class="chk" style="min-width:0;"><input type="checkbox" data-pu="${esc(p.user_id)}"${!c || !partes.length || peso(p.user_id) ? ' checked' : ''}> <span style="overflow:hidden;text-overflow:ellipsis;">${esc(quem(p.user_id))}</span></label>
             <span class="by" data-ps="${esc(p.user_id)}" style="margin:0;white-space:nowrap;"></span>
-            <input class="input" data-pv="${esc(p.user_id)}" inputmode="decimal" placeholder="0,00" value="${peso(p.user_id) && bf.modo === 'valores' ? num(peso(p.user_id)) : ''}" style="width:120px;flex:none;">
+            <input class="input" data-pv="${esc(p.user_id)}" inputmode="numeric" data-dinheiro placeholder="0,00" value="${peso(p.user_id) && bf.modo === 'valores' ? num(peso(p.user_id)) : ''}" style="width:120px;flex:none;">
           </div>`).join('')}
           <p class="hint" id="bfDivHint"></p>
         </div>
@@ -1895,7 +1912,7 @@ function openMetaForm(m, modelo){
       <div class="grid2">
         <div class="field">
           <label for="mfAlvo">Objetivo (R$)</label>
-          <input class="input" id="mfAlvo" inputmode="decimal" placeholder="0,00" value="${m ? num(Number(m.alvo)) : ''}">
+          <input class="input" id="mfAlvo" inputmode="numeric" data-dinheiro placeholder="0,00" value="${m ? num(Number(m.alvo)) : ''}">
         </div>
         <div class="field">
           <label for="mfPrazo">Até quando <span style="color:var(--muted);font-weight:400;">(opcional)</span></label>
@@ -1929,7 +1946,7 @@ function openMetaMov(id, tipo){
     </div>
     <div class="field">
       <label for="mmValor">${g ? 'Quanto você está guardando (R$)' : 'Quanto vai retirar (R$)'}</label>
-      <input class="input" id="mmValor" inputmode="decimal" value="${sugere > 0 ? num(sugere) : ''}" placeholder="0,00">
+      <input class="input" id="mmValor" inputmode="numeric" data-dinheiro value="${sugere > 0 ? num(sugere) : ''}" placeholder="0,00">
     </div>
     <div class="field">
       <label for="mmData">Data</label>
@@ -2350,9 +2367,9 @@ function openInvForm(tipo){
       </div>
       <div class="grid2">
         <div class="field"><label for="ifQtd">Quantidade</label><input class="input" id="ifQtd" inputmode="decimal" placeholder="Ex.: 10"></div>
-        <div class="field"><label for="ifPreco">Preço pago (R$ por unidade)</label><input class="input" id="ifPreco" inputmode="decimal" placeholder="0,00"></div>
+        <div class="field"><label for="ifPreco">Preço pago (R$ por unidade)</label><input class="input" id="ifPreco" inputmode="numeric" data-dinheiro placeholder="0,00"></div>
       </div>
-      <div class="field"><label for="ifCot">Cotação de hoje (R$) <span style="color:var(--muted);font-weight:400;">(opcional)</span></label><input class="input" id="ifCot" inputmode="decimal" placeholder="0,00"></div>
+      <div class="field"><label for="ifCot">Cotação de hoje (R$) <span style="color:var(--muted);font-weight:400;">(opcional)</span></label><input class="input" id="ifCot" inputmode="numeric" data-dinheiro placeholder="0,00"></div>
       <p class="hint" style="margin:-6px 0 0;">Por enquanto a cotação é informada por você. A atualização automática pela bolsa vem numa próxima versão.</p>` : `
       <div class="field"><label for="ifNome">Nome</label><input class="input" id="ifNome" maxlength="60" placeholder="${PH[tipo] || ''}" value="${tipo === 'poupanca' ? 'Poupança' : ''}"></div>`}
       ${idxs.length > 1 ? `
@@ -2367,11 +2384,11 @@ function openInvForm(tipo){
       ${ix === 'selic' ? '<p class="hint" style="margin:-6px 0 0;">A Selic o app já busca sozinho no Banco Central. Aqui vai só o extra que aparece na compra (ex.: Selic + 0,05%). Se não souber, deixe 0.</p>' : ''}` : ''}
       ${ix !== 'cotacao' ? `
       <div class="grid2">
-        <div class="field"><label for="ifValor">Valor aplicado (R$)</label><input class="input" id="ifValor" inputmode="decimal" placeholder="0,00"></div>
+        <div class="field"><label for="ifValor">Valor aplicado (R$)</label><input class="input" id="ifValor" inputmode="numeric" data-dinheiro placeholder="0,00"></div>
         <div class="field"><label for="ifData">Data da aplicação</label><input class="input" id="ifData" type="date" value="${todayISO()}"></div>
       </div>` : `
       <div class="field"><label for="ifData">Data da compra</label><input class="input" id="ifData" type="date" value="${todayISO()}"></div>`}
-      ${ix === 'manual' ? `<div class="field"><label for="ifAtual">Quanto vale hoje (R$) <span style="color:var(--muted);font-weight:400;">(opcional)</span></label><input class="input" id="ifAtual" inputmode="decimal" placeholder="0,00"></div>` : ''}
+      ${ix === 'manual' ? `<div class="field"><label for="ifAtual">Quanto vale hoje (R$) <span style="color:var(--muted);font-weight:400;">(opcional)</span></label><input class="input" id="ifAtual" inputmode="numeric" data-dinheiro placeholder="0,00"></div>` : ''}
       <label class="chk"><input type="checkbox" id="ifLancar"> Lançar também como saída em Lançamentos</label>
       <button class="btn btn-primary" type="submit" id="ifSalvar" style="min-height:44px;">Adicionar investimento</button>
     </form>`}`, { tipo: 'invForm', invTipo: tipo });
@@ -2423,9 +2440,9 @@ function openInvMov(id, tipo){
     ${cot ? `
     <div class="grid2">
       <div class="field"><label for="imQtd">Quantidade</label><input class="input" id="imQtd" inputmode="decimal" placeholder="Ex.: 10"></div>
-      <div class="field"><label for="imPreco">Preço por unidade (R$)</label><input class="input" id="imPreco" inputmode="decimal" placeholder="0,00" value="${inv.cotacao ? num(Number(inv.cotacao)) : ''}"></div>
+      <div class="field"><label for="imPreco">Preço por unidade (R$)</label><input class="input" id="imPreco" inputmode="numeric" data-dinheiro placeholder="0,00" value="${inv.cotacao ? num(Number(inv.cotacao)) : ''}"></div>
     </div>` : `
-    <div class="field"><label for="imValor">${tipo === 'saldo' ? 'Quanto vale hoje (R$)' : 'Valor (R$)'}</label><input class="input" id="imValor" inputmode="decimal" placeholder="0,00"></div>`}
+    <div class="field"><label for="imValor">${tipo === 'saldo' ? 'Quanto vale hoje (R$)' : 'Valor (R$)'}</label><input class="input" id="imValor" inputmode="numeric" data-dinheiro placeholder="0,00"></div>`}
     <div class="field"><label for="imData">Data</label><input class="input" id="imData" type="date" value="${todayISO()}"></div>
     ${tipo !== 'saldo' ? `<label class="chk"><input type="checkbox" id="imLancar"> Lançar também ${tipo === 'aporte' ? 'como saída' : 'como entrada'} em Lançamentos</label>` : ''}
     <button class="btn btn-primary" type="button" data-act="ivConfirmar" style="min-height:44px;">Confirmar</button>`,
@@ -2960,7 +2977,7 @@ function janelaCartao(k){
         <div class="field"><label for="kfFecha">Fatura fecha</label><select class="input" id="kfFecha">${opcoesDia(k ? k.fecha : 3)}</select></div>
         <div class="field"><label for="kfVence">Fatura vence</label><select class="input" id="kfVence">${opcoesDia(k ? k.vence : 10)}</select></div>
       </div>
-      <div class="field"><label for="kfLim">Limite (opcional)</label><input class="input" id="kfLim" inputmode="decimal" placeholder="Ex.: 5.000,00" value="${k && k.limite ? num(Number(k.limite)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
+      <div class="field"><label for="kfLim">Limite (opcional)</label><input class="input" id="kfLim" inputmode="numeric" data-dinheiro placeholder="Ex.: 5.000,00" value="${k && k.limite ? num(Number(k.limite)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
       <span class="hint" style="margin:0;">Compras feitas no dia do fechamento ou depois vão para a fatura seguinte. As datas estão no app do banco, em "Fatura".</span>
       <span class="hint" id="kfErro" style="color:var(--alerta);" hidden></span>
       <button class="btn btn-primary" type="button" data-kc-salvar style="min-height:44px;">${k ? 'Salvar' : 'Cadastrar cartão'}</button>`,
@@ -2992,7 +3009,7 @@ function openCompra(id){
     <div class="field"><label for="kpCartao">Cartão</label><select class="input" id="kpCartao">${opts}</select></div>
     <div class="field"><label for="kpDesc">Descrição</label><input class="input" id="kpDesc" maxlength="200" autocomplete="off" placeholder="Ex.: Geladeira, iFood" value="${c ? esc(c.descricao) : ''}"></div>
     <div class="kc-dias">
-      <div class="field"><label for="kpValor">Valor total (R$)</label><input class="input" id="kpValor" inputmode="decimal" placeholder="0,00" value="${c ? num(Number(c.valor)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
+      <div class="field"><label for="kpValor">Valor total (R$)</label><input class="input" id="kpValor" inputmode="numeric" data-dinheiro placeholder="0,00" value="${c ? num(Number(c.valor)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
       <div class="field"><label for="kpParc">Parcelas</label><select class="input" id="kpParc">${opcoesParc(c ? c.parcelas : 1)}</select></div>
     </div>
     ${state.cart2 ? `<div class="field" id="kpIniWrap"${c && c.parcelas > 1 ? '' : ' hidden'}><label for="kpIni">Parcelas já pagas</label>
@@ -3048,7 +3065,7 @@ function openAjuste(kid, mk, c){
       <div class="kv"><span>Total da fatura agora</span><b>${brl(i.total)}</b></div>
       <div class="kv"><span>Vencimento</span><b>${ddmm(i.vence)}</b></div>
     </div>
-    <div class="field"><label for="kaValor">Saldo anterior (R$)</label><input class="input" id="kaValor" inputmode="decimal" placeholder="Ex.: 800,00" value="${c ? num(Number(c.valor)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
+    <div class="field"><label for="kaValor">Saldo anterior (R$)</label><input class="input" id="kaValor" inputmode="numeric" data-dinheiro placeholder="Ex.: 800,00" value="${c ? num(Number(c.valor)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
     <div class="field"><label for="kaDesc">Descrição (opcional)</label><input class="input" id="kaDesc" maxlength="200" autocomplete="off" placeholder="Saldo anterior da fatura" value="${c && c.descricao !== 'Saldo anterior da fatura' ? esc(c.descricao) : ''}"></div>
     <span class="hint" id="kaErro" style="color:var(--alerta);" hidden></span>
     <button class="btn btn-primary" type="button" data-kc-salvarajuste style="min-height:44px;">${c ? 'Salvar' : 'Adicionar à fatura'}</button>
@@ -3068,7 +3085,7 @@ function openPagarFatura(kid, mk){
       <div class="kv"><span>Vencimento</span><b>${ddmm(i.vence)}</b></div>
     </div>
     ${i.falta > 0 ? `<div class="dlg-sec" style="gap:var(--space-3);">
-      <div class="field"><label for="kpgVal">Quanto você está pagando (R$)</label><input class="input" id="kpgVal" inputmode="decimal" value="${num(i.falta)}" style="font-variant-numeric:tabular-nums;"></div>
+      <div class="field"><label for="kpgVal">Quanto você está pagando (R$)</label><input class="input" id="kpgVal" inputmode="numeric" data-dinheiro value="${num(i.falta)}" style="font-variant-numeric:tabular-nums;"></div>
       <div class="field"><label for="kpgData">Data do pagamento</label><input class="input" id="kpgData" type="date" value="${todayISO()}"></div>
       <span class="hint" style="margin:0;">Entra como saída em Lançamentos (💳 Cartão de crédito) e conta no saldo deste mês.</span>
       <span class="hint" id="kpgErro" style="color:var(--alerta);" hidden></span>
