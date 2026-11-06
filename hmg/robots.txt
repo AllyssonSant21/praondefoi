@@ -1,0 +1,9 @@
+# Pra Onde Foi? — o que os buscadores podem mostrar
+User-agent: *
+Allow: /
+Disallow: /hmg/
+Disallow: /emails/
+Disallow: /vendor/
+Disallow: /*.sql$
+
+Sitemap: https://praondefoiapp.com.br/sitemap.xml
