@@ -2581,11 +2581,23 @@ function parcelasDoMes(kid, mk){
   const out = [];
   (state.compras || []).forEach(c => {
     if (kid && c.cartao_id !== kid) return;
-    const i = mdiff(c.data.slice(0, 7) + '-01', mk), j = iniDe(c) - 1 + i;
-    if (i < 0 || j >= c.parcelas) return;
-    out.push({ c, i, n: j + 1, valor: valorParcela(c, j) });
+    // a data é a da compra (1ª parcela); as parcelas já pagas antes do app ficam de fora
+    const j = mdiff(c.data.slice(0, 7) + '-01', mk);
+    if (j < iniDe(c) - 1 || j >= c.parcelas) return;
+    out.push({ c, i: j, n: j + 1, valor: valorParcela(c, j) });
   });
   return out.sort((a, b) => (a.i > 0) - (b.i > 0) || b.c.data.localeCompare(a.c.data) || a.c.descricao.localeCompare(b.c.descricao));
+}
+// primeira fatura que ainda não venceu (igual ao banco): a do mês, se o vencimento não passou; senão a do mês seguinte
+function faturaPendente(k){
+  const h = new Date(); h.setHours(0, 0, 0, 0);
+  const venc = new Date(h.getFullYear(), h.getMonth(), Math.min(k.vence, ultimoDia(h.getFullYear(), h.getMonth())));
+  return mkey(h.getFullYear(), h.getMonth() + (h <= venc ? 0 : 1));
+}
+// quantas parcelas de uma compra já venceram (pela data da compra e a data de hoje)
+function pagasPelaData(k, iso, n){
+  const f0 = faturaDaCompra(k, iso);
+  return Math.max(0, Math.min(n, mdiff(f0, faturaPendente(k))));
 }
 // fatura onde cai cada parcela
 const faturaDaParcela = (c, n) => mkey(Number(c.fatura.slice(0, 4)), Number(c.fatura.slice(5, 7)) - 1 + n - iniDe(c));
@@ -2889,10 +2901,14 @@ function aplicarPagCom(){
 function kcHintForm(){
   const k = findCartao($('pagCom').value), h = $('kcHint');
   if (!k){ h.hidden = true; return; }
-  const f = faturaDaCompra(k, $('date').value || todayISO()), n = Number($('parc').value) || 1;
+  const iso = $('date').value || todayISO(), n = Number($('parc').value) || 1;
+  const f0 = faturaDaCompra(k, iso), pagas = pagasPelaData(k, iso, n);
   const v = parseAmount($('amount').value);
-  h.textContent = `💳 Vai para a fatura de ${mlabel(f)} do ${k.nome}` +
-    (n > 1 ? `, em ${n}x${v > 0 ? ' de ' + brl(Math.floor(cents(v) / n) / 100) : ''} até ${mlabel(mkey(Number(f.slice(0, 4)), Number(f.slice(5, 7)) - 1 + n - 1))}` : '') +
+  const soma = (m, x) => mkey(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1 + x);
+  if (pagas >= n){ h.textContent = `💳 Essa compra já foi toda paga (a última parcela caiu em ${mlabel(soma(f0, n - 1))}). Não precisa lançar.`; h.hidden = false; return; }
+  const f = soma(f0, pagas), faltam = n - pagas;
+  h.textContent = `💳 ${pagas ? `${pagas} ${pagas === 1 ? 'parcela já passou' : 'parcelas já passaram'}. ` : ''}Vai para a fatura de ${mlabel(f)} do ${k.nome}` +
+    (faltam > 1 ? `, em ${faltam}x${v > 0 ? ' de ' + brl(Math.floor(cents(v) / n) / 100) : ''} até ${mlabel(soma(f, faltam - 1))}` : '') +
     '. Não mexe no saldo agora: entra quando a fatura for paga.';
   h.hidden = false;
 }
@@ -2979,9 +2995,9 @@ function openCompra(id){
       <div class="field"><label for="kpValor">Valor total (R$)</label><input class="input" id="kpValor" inputmode="decimal" placeholder="0,00" value="${c ? num(Number(c.valor)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
       <div class="field"><label for="kpParc">Parcelas</label><select class="input" id="kpParc">${opcoesParc(c ? c.parcelas : 1)}</select></div>
     </div>
-    ${state.cart2 ? `<div class="field" id="kpIniWrap"${c && c.parcelas > 1 ? '' : ' hidden'}><label for="kpIni">Já está em qual parcela?</label>
-      <select class="input" id="kpIni">${opcoesIni(c ? c.parcelas : 1, c ? iniDe(c) : 1)}</select>
-      <span class="hint" style="margin:0;">Compra de antes do app? Escolha a parcela que cai na próxima fatura. As anteriores não entram.</span></div>` : ''}
+    ${state.cart2 ? `<div class="field" id="kpIniWrap"${c && c.parcelas > 1 ? '' : ' hidden'}><label for="kpIni">Parcelas já pagas</label>
+      <select class="input" id="kpIni">${opcoesIni(c ? c.parcelas : 1, c ? iniDe(c) - 1 : 0)}</select>
+      <span class="hint" style="margin:0;">Compra antiga? Coloque a data em que você comprou: o app já conta as parcelas que venceram. Adiantou alguma? Ajuste aqui.</span></div>` : ''}
     <div class="kc-dias">
       <div class="field"><label for="kpCat">Categoria</label><select class="input" id="kpCat">${opcoesCat('exp', c ? c.categoria : null, false)}</select></div>
       <div class="field"><label for="kpData">Data da compra</label><input class="input" id="kpData" type="date" value="${c ? c.data : todayISO()}"></div>
@@ -2990,25 +3006,36 @@ function openCompra(id){
     <span class="hint" id="kpErro" style="color:var(--alerta);" hidden></span>
     <button class="btn btn-primary" type="button" data-kc-salvarcompra style="min-height:44px;">${c ? 'Salvar' : 'Lançar no cartão'}</button>
     ${c ? '<button class="btn btn-ghost" type="button" data-kc-excluircompra style="color:var(--alerta);">Excluir compra (todas as parcelas)</button>' : ''}`,
-    { tipo: 'kccompra', c });
+    { tipo: 'kccompra', c, pagasManual: !!c });
   kpInfo();
   if (!c) setTimeout(() => $('kpDesc').focus(), 0);
 }
-const opcoesIni = (n, atual) => Array.from({ length: n }, (_, i) => i + 1)
-  .map(i => `<option value="${i}"${i === atual ? ' selected' : ''}>${i === 1 ? 'Começando agora (1ª)' : `${i}ª de ${n}`}</option>`).join('');
+const opcoesIni = (n, atual) => Array.from({ length: n }, (_, i) => i)
+  .map(i => `<option value="${i}"${i === atual ? ' selected' : ''}>${i === 0 ? 'Nenhuma' : `${i} de ${n}`}</option>`).join('');
 function kpInfo(){
   const k = findCartao($('kpCartao').value); if (!k){ $('kpInfo').textContent = ''; return; }
-  const n = Number($('kpParc').value) || 1, v = parseAmount($('kpValor').value);
-  // "já está em qual parcela": acompanha o número de parcelas
+  const n = Number($('kpParc').value) || 1, v = parseAmount($('kpValor').value), iso = $('kpData').value || todayISO();
+  const auto = pagasPelaData(k, iso, n);
+  // "parcelas já pagas": acompanha o número de parcelas e a data, até a pessoa mexer nele
   if ($('kpIni')){
-    const atual = Math.min(Number($('kpIni').value) || 1, n);
+    let atual = dlg2.pagasManual ? Math.min(Number($('kpIni').value) || 0, n - 1) : Math.min(auto, n - 1);
     if ($('kpIni').options.length !== n) $('kpIni').innerHTML = opcoesIni(n, atual);
+    $('kpIni').value = String(atual);
     $('kpIniWrap').hidden = n < 2;
   }
-  const ini = $('kpIni') && n > 1 ? Number($('kpIni').value) || 1 : 1, faltam = n - ini + 1;
-  const f = faturaDaCompra(k, $('kpData').value || todayISO());
-  $('kpInfo').textContent = (ini > 1 ? `A ${ini}ª parcela vai para a fatura de ${mlabel(f)}` : `Vai para a fatura de ${mlabel(f)}`) +
-    (faltam > 1 ? ` e termina em ${mlabel(mkey(Number(f.slice(0, 4)), Number(f.slice(5, 7)) - 1 + faltam - 1))}${v > 0 ? ` (${faltam}x de ${brl(Math.floor(cents(v) / n) / 100)})` : ''}` : '') + '.';
+  const f0 = faturaDaCompra(k, iso);
+  const pagas = $('kpIni') && n > 1 ? Number($('kpIni').value) || 0 : 0;
+  const parcela = Math.floor(cents(v) / n) / 100;
+  const somaMes = (m, x) => mkey(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1 + x);
+  if (auto >= n && !(dlg2.pagasManual && pagas < n)){
+    $('kpInfo').textContent = `Essa compra já foi toda paga: a última parcela caiu na fatura de ${mlabel(somaMes(f0, n - 1))}. Não precisa lançar.`;
+    return;
+  }
+  const primeira = somaMes(f0, pagas), faltam = n - pagas;
+  $('kpInfo').textContent = (n === 1 ? `Vai para a fatura de ${mlabel(primeira)}.`
+    : (pagas ? `${pagas} ${pagas === 1 ? 'parcela já passou' : 'parcelas já passaram'} e fica${pagas === 1 ? '' : 'm'} de fora. ` : '') +
+      `${faltam === 1 ? 'A última parcela cai' : `As ${faltam} parcelas caem`} de ${mlabel(primeira)}${faltam > 1 ? ` a ${mlabel(somaMes(primeira, faltam - 1))}` : ''}` +
+      (v > 0 ? ` (${brl(parcela)} cada).` : '.'));
 }
 function openAjuste(kid, mk, c){
   const k = findCartao(kid); if (!k) return;
@@ -3150,7 +3177,8 @@ $('dlg2Body').addEventListener('click', async e => {
       const n = Number($('kpParc').value) || 1;
       const args = { p_id: ctx.c ? ctx.c.id : null, p_cartao: $('kpCartao').value, p_desc: desc,
         p_cat: $('kpCat').value, p_valor: v, p_parcelas: n, p_data: $('kpData').value || todayISO() };
-      if (state.cart2) args.p_parcela_ini = $('kpIni') && n > 1 ? Number($('kpIni').value) || 1 : 1;
+      if (state.cart2 && ctx.pagasManual) args.p_parcela_ini = $('kpIni') && n > 1 ? (Number($('kpIni').value) || 0) + 1 : 1;
+      else if (state.cart2) args.p_parcela_ini = null;
       const { data: f, error } = await sb.rpc('salvar_compra', args);
       sv.disabled = false;
       if (error) return erro(rpcMsg(error));
@@ -3194,7 +3222,11 @@ $('dlg2Body').addEventListener('click', async e => {
     }
   }
 });
-$('dlg2Body').addEventListener('change', e => { if (dlg2.tipo === 'kccompra' && ['kpCartao', 'kpParc', 'kpData', 'kpIni'].includes(e.target.id)) kpInfo(); });
+$('dlg2Body').addEventListener('change', e => {
+  if (dlg2.tipo !== 'kccompra') return;
+  if (e.target.id === 'kpIni') dlg2.pagasManual = true;
+  if (['kpCartao', 'kpParc', 'kpData', 'kpIni'].includes(e.target.id)) kpInfo();
+});
 $('dlg2Body').addEventListener('input', e => {
   if (dlg2.tipo === 'kccompra' && e.target.id === 'kpValor') kpInfo();
   if (dlg2.tipo === 'kcform' && e.target.id === 'kfNome') dlg2.auto = null;   // a pessoa escreveu o próprio apelido
