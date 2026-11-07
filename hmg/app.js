@@ -3440,6 +3440,10 @@ async function openPerfil(){
       <p class="hint" style="margin:-6px 0 0;">Os avisos por e-mail começam a sair quando o domínio do app estiver pronto.</p>
       <button class="btn btn-primary" type="submit" id="pfSalvar" style="min-height:44px;">Salvar</button>
     </form>
+    <div class="dlg-sec" id="pfBot" style="border-top:1px solid var(--divider);padding-top:14px;" hidden>
+      <h3>Bot do WhatsApp <span class="tag tag-neutral">teste</span></h3>
+      <div id="pfBotCorpo"><p class="hint" style="margin:0;">Carregando…</p></div>
+    </div>
     <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
       <h3>Formas de entrar</h3>
       <div class="person"><span>Usuário e senha</span>${temSenha ? '<span class="tag tag-neutral">Ativo</span>' : '<span class="by" style="margin:0;">não usa</span>'}</div>
@@ -3455,7 +3459,43 @@ async function openPerfil(){
         <button class="btn btn-danger btn-sm" type="button" data-act="pfExcluir">Excluir minha conta</button>
       </div>
     </div>`, { tipo: 'perfil' });
+  renderBotWa();
 }
+
+/* ---------- bot do WhatsApp: ligar o número por um código ---------- */
+const WA_BOT = '';   // número do bot (só dígitos, com 55). Vazio: não mostra o botão "Abrir WhatsApp"
+async function renderBotWa(codigo){
+  const sec = $('pfBot'), corpo = $('pfBotCorpo');
+  if (!sec || !corpo) return;
+  const { data, error } = await sb.rpc('whatsapp_meu');
+  if (error){ sec.hidden = true; return; }          // banco ainda sem o bot
+  sec.hidden = false;
+  const v = (data || [])[0], atual = current();
+  if (v){
+    const outro = atual && atual.id !== v.controle_id;
+    corpo.innerHTML = `
+      <p class="hint" style="margin:0 0 10px;">Ligado ao WhatsApp com final <b>${esc(v.final)}</b>. O bot lança em <b>${esc(v.controle_nome || 'Meu controle')}</b>.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${outro ? `<button class="btn btn-secondary btn-sm" type="button" data-act="pfBotCtl">Lançar em "${esc(atual.nome)}"</button>` : ''}
+        <button class="btn btn-ghost btn-sm" type="button" data-act="pfBotDesligar">Desligar WhatsApp</button>
+      </div>`;
+    return;
+  }
+  if (codigo){
+    const link = WA_BOT ? `<a class="btn btn-primary btn-sm" href="https://wa.me/${WA_BOT}?text=${codigo}" target="_blank" rel="noopener">Abrir WhatsApp</a>` : '';
+    corpo.innerHTML = `
+      <p class="hint" style="margin:0 0 8px;">Mande este código para o bot pelo seu WhatsApp. Ele vale 15 minutos.</p>
+      <div style="font-size:2rem;font-weight:700;letter-spacing:.18em;font-variant-numeric:tabular-nums;margin:4px 0 10px;">${codigo.slice(0,3)} ${codigo.slice(3)}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">${link}
+        <button class="btn btn-secondary btn-sm" type="button" data-act="pfBotPronto">Já mandei</button>
+      </div>`;
+    return;
+  }
+  corpo.innerHTML = `
+    <p class="hint" style="margin:0 0 10px;">Lance gastos mandando mensagem, tipo <b>mercado 50</b> ou <b>uber 23,90 ontem</b>. O bot lança em <b>${esc(atual ? atual.nome : 'Meu controle')}</b> (o controle aberto agora).</p>
+    <button class="btn btn-secondary btn-sm" type="button" data-act="pfBotLigar">Ligar WhatsApp</button>`;
+}
+
 
 $('dlg2Body').addEventListener('change', async e => {
   if (e.target.id !== 'pfFile' || !e.target.files || !e.target.files[0]) return;
@@ -3480,6 +3520,27 @@ $('dlg2Body').addEventListener('click', async e => {
     profile.foto = null; renderMe(); await loadMembers(); render(); openPerfil();
   }
   if (b.dataset.act === 'pfBaixar'){ $('export').click(); return; }
+  if (b.dataset.act === 'pfBotLigar'){
+    b.disabled = true;
+    const { data, error } = await sb.rpc('whatsapp_gerar_codigo', { cid: state.cid });
+    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+    return renderBotWa(String(data));
+  }
+  if (b.dataset.act === 'pfBotPronto'){ await renderBotWa(); return; }
+  if (b.dataset.act === 'pfBotCtl'){
+    b.disabled = true;
+    const { error } = await sb.rpc('whatsapp_definir_controle', { cid: state.cid });
+    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+    toast('Pronto, o bot vai lançar neste controle.', true);
+    return renderBotWa();
+  }
+  if (b.dataset.act === 'pfBotDesligar'){
+    b.disabled = true;
+    const { error } = await sb.rpc('whatsapp_desligar');
+    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+    toast('WhatsApp desligado da sua conta.', true);
+    return renderBotWa();
+  }
   if (b.dataset.act === 'pfExcluir'){
     const t = await pedirTexto('Excluir minha conta',
       'Isso apaga de vez o seu perfil, a sua foto e o "Meu controle" com tudo dentro. Nos controles que você divide, eles passam para outra pessoa e os seus lançamentos ficam lá sem o seu nome. Não dá para desfazer.\n\nSe quiser, baixe seus dados antes.',
