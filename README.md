@@ -15,7 +15,7 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   5. `supabase-perfil.sql` — perfil (nome, foto, e-mail de aviso) e login com Google.
   6. `supabase-seguranca.sql` — e-mails mascarados, admin vê só o necessário, convite sem revelar usuários.
   7. `supabase-advisor.sql` — ajustes apontados pelo Security Advisor.
-  8. `supabase-metas.sql` — Metas (viagem, reserva de emergência…). Versão de teste em /hmg/.
+  8. `supabase-metas.sql` — Metas (viagem, reserva de emergência…). Versão de teste em /teste-0uiprw76/.
   9. `supabase-investimentos.sql` — Investimentos e taxas do Banco Central (ative pg_net e pg_cron antes).
   10. `supabase-modulos.sql` — o dono escolhe o que cada controle compartilha (rodar por último).
   11. `supabase-seguranca2.sql` — revisão de segurança: códigos de convite de 8 caracteres, saldo de meta protegido e gravação só pelas funções (rodar por último).
@@ -26,6 +26,7 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   16. `supabase-cartoes.sql` — cartões de crédito (só apelido, banco, fechamento, vencimento e limite; nunca número, CVV ou senha), compras parceladas e pagamento da fatura.
   17. `supabase-cartoes2.sql` — cartões, parte 2: parcelado que já estava rolando antes do app e "saldo anterior" da fatura.
   18. `supabase-cartoes3.sql` — cartões, parte 3: compra antiga com a data de verdade (as parcelas que já venceram ficam de fora sozinhas).
+  - `supabase-hmg-convidados.sql` — **só no HMG**: só e-mails da lista conseguem criar conta lá.
   19. `supabase-whatsapp.sql` — bot do WhatsApp (por enquanto só no HMG): ligar o número por um código e as funções que o bot usa. O código do bot fica em `supabase/functions/whatsapp-bot/`.
 - **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os 15 scripts na ordem; ative pg_net e pg_cron antes e rode uma vez só.
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.

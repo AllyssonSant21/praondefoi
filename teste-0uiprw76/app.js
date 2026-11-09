@@ -244,6 +244,10 @@ $('authForm').addEventListener('submit', async e => {
       senhaCerta(email);
     } else if (authMode === 'criar'){
       const { data, error } = await sb.auth.signUp({ email, password: pass, options: { emailRedirectTo: REDIRECT, ...cap } });
+      if (error && /database error saving new user|convidad/i.test(error.message || '')){
+        authMsg('Este ambiente é só para testes de pessoas convidadas.', 'err');
+        return;
+      }
       if (error) throw error;
       if (!data.session){
         setAuthMode('entrar');
