@@ -15,7 +15,7 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   5. `supabase-perfil.sql` — perfil (nome, foto, e-mail de aviso) e login com Google.
   6. `supabase-seguranca.sql` — e-mails mascarados, admin vê só o necessário, convite sem revelar usuários.
   7. `supabase-advisor.sql` — ajustes apontados pelo Security Advisor.
-  8. `supabase-metas.sql` — Metas (viagem, reserva de emergência…). Versão de teste em /teste-0uiprw76/.
+  8. `supabase-metas.sql` — Metas (viagem, reserva de emergência…). Versão de teste em /hmgbase/.
   9. `supabase-investimentos.sql` — Investimentos e taxas do Banco Central (ative pg_net e pg_cron antes).
   10. `supabase-modulos.sql` — o dono escolhe o que cada controle compartilha (rodar por último).
   11. `supabase-seguranca2.sql` — revisão de segurança: códigos de convite de 8 caracteres, saldo de meta protegido e gravação só pelas funções (rodar por último).
