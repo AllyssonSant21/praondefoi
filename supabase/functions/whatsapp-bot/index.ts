@@ -60,8 +60,15 @@ export function fusoDoNumero(wa: string): string {
   if (ddd === '68') return 'America/Rio_Branco';
   return 'America/Sao_Paulo';
 }
+const OFFSETS: Record<string, number> = { 'America/Sao_Paulo': -3, 'America/Cuiaba': -4, 'America/Rio_Branco': -5 };
 export function hojeEm(fuso: string, agora = new Date()): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: fuso, year: 'numeric', month: '2-digit', day: '2-digit' }).format(agora);
+  const f = (fuso || '').trim() || 'America/Sao_Paulo';
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: f, year: 'numeric', month: '2-digit', day: '2-digit' }).format(agora);
+  } catch {
+    // fuso que o servidor não reconhece: usa a diferença fixa (o Brasil não tem horário de verão)
+    return new Date(agora.getTime() + (OFFSETS[f] ?? -3) * 3600e3).toISOString().slice(0, 10);
+  }
 }
 const somaDias = (iso: string, d: number) => { const x = new Date(iso + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + d); return x.toISOString().slice(0, 10); };
 export const dataBonita = (iso: string, hoje: string) =>
@@ -227,7 +234,7 @@ function textoResumo(r: any, periodo: string): string {
 
 // ------------------------------------------------------------------ Supabase
 
-const env = (k: string) => (globalThis as any).Deno?.env.get(k) ?? '';
+const env = (k: string) => String((globalThis as any).Deno?.env.get(k) ?? '').trim();   // trim: evita Enter/espaço colado no segredo
 
 async function rpc(nome: string, args: Record<string, unknown>) {
   const key = env('SUPABASE_SERVICE_ROLE_KEY');
