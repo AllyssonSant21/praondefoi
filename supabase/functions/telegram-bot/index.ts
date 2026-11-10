@@ -82,7 +82,7 @@ const SOMEM = ['add', 'adiciona', 'adicionar', 'adicione', 'lanca', 'lancar', 'l
   'todo mes', 'mensal', 'fixa', 'fixo', 'so esse mes', 'so este mes', 'unica', 'avulsa', 'me pagou', 'me pagaram', 'me deu', 'me deram'];
 // conectores que só caem do começo/fim ("gastei 50 no mercado" → "mercado"; "lanche no shopping" fica)
 const PONTAS = new Set(['de', 'do', 'da', 'dos', 'das', 'no', 'na', 'nos', 'nas', 'em', 'com', 'o', 'a', 'os', 'as', 'um', 'uma', 'uns', 'umas',
-  'pra', 'pro', 'para', 'por', 'e', 'todo', 'toda', 'meu', 'minha', 'meus', 'minhas', 'que', 'ja', 'mais', 'de novo', 'dia', 'mes', 'conta']);
+  'pra', 'pro', 'para', 'por', 'e', 'todo', 'toda', 'vai', 'ira', 'meu', 'minha', 'meus', 'minhas', 'que', 'ja', 'mais', 'de novo', 'dia', 'mes', 'conta']);
 const FORMA_PAGTO = /(^| )(no|na|com|pelo|pela|via|em|de)? ?(cartao( de credito| de debito)?|credito|debito|pix|dinheiro|especie|vale refeicao|vale alimentacao|vr|va)( |$)/g;
 
 // números por extenso: "cinquenta" → 50, "cento e vinte" → 120, "dois mil e quinhentos" → 2500
@@ -206,7 +206,7 @@ function limparDescricao(s: string): string {
   let t = ' ' + s.replace(/[,.;:!?()"']+/g, ' ').replace(/\s+/g, ' ').trim() + ' ';
   t = t.replace(FORMA_PAGTO, ' ');
   for (const w of SOMEM) t = t.replace(new RegExp(` ${esc(w)}(?= )`, 'g'), ' ');
-  let p = t.trim().split(' ').filter(Boolean);
+  let p = t.trim().split(' ').filter(w => w && /[a-z0-9]/.test(w));
   while (p.length && PONTAS.has(p[0])) p.shift();
   while (p.length && PONTAS.has(p[p.length - 1])) p.pop();
   return p.join(' ');
@@ -234,8 +234,10 @@ function acharCategoria(base: string, tipo: 'exp' | 'inc', cats: { nome: string;
 }
 
 // entende UMA frase
+const juntarData = (t: string) => t.replace(/(\d)\s*\/\s*(\d)/g, '$1/$2');
+
 function entenderUma(texto: string, hoje: string, cats: { nome: string; tipo: string }[]): Comando {
-  const t = extensoParaNumero(norm(texto));
+  const t = juntarData(extensoParaNumero(norm(texto)));
   if (!t) return { tipo: 'nao_entendi' };
 
   // conta a pagar? ("conta de luz 180 vence dia 20", "aluguel 1500 todo dia 5")
@@ -334,7 +336,7 @@ export function entender(texto: string, hoje: string, cats: { nome: string; tipo
       else pedacos.push(crus[i]);
     }
     for (let i = 0; i < pedacos.length; i++) pedacos[i] = pedacos[i].trim();
-    const temValor = (s: string) => /\d/.test(extensoParaNumero(norm(s)).replace(/ dia \d{1,2}|\d{1,2}\/\d{1,2}/g, ''));
+    const temValor = (s: string) => /\d/.test(juntarData(extensoParaNumero(norm(s))).replace(/(dia )?\d{1,2}\/\d{1,2}(\/\d{2,4})?|dia \d{1,2}/g, ''));
     return pedacos.length > 1 && pedacos.every(temValor) ? pedacos : [p];
   });
   if (partes.length > 1) {
@@ -345,7 +347,19 @@ export function entender(texto: string, hoje: string, cats: { nome: string; tipo
 }
 
 // resposta de um número solto à pergunta "quanto foi?" / "que dia vence?"
+// a resposta não fala de outra coisa? (só valor, data, vencimento…) → completa a pergunta
+function semAssunto(resposta: string): boolean {
+  let t = ' ' + juntarData(extensoParaNumero(norm(resposta))).replace(/[,.;:!?()"']+/g, ' ') + ' ';
+  t = t.replace(/(r\$\s*)?\d[\d.,]*(\/\d{1,2}(\/\d{2,4})?)?\s*(mil|k|x)?/g, ' ');
+  return limparDescricao(t).replace(/(^| )(dia|de|do|em|no)( |$)/g, ' ').trim() === '';
+}
+
 export function completarPendente(p: { texto: string; falta: string }, resposta: string): string | null {
+  if (/\d/.test(extensoParaNumero(norm(resposta))) && semAssunto(resposta) && !/^\d{6}$/.test(norm(resposta).replace(/\D/g, ''))) {
+    const r0 = extensoParaNumero(norm(resposta)).trim();
+    if (p.falta === 'dia' && /^(dia\s*)?\d{1,2}$/.test(r0)) return `${p.texto} dia ${r0.replace(/\D/g, '')}`;
+    return `${p.texto} ${resposta}`;
+  }
   const r = extensoParaNumero(norm(resposta)).replace(/^(foi|deu|e|sao|custou|vence|dia|no dia|todo dia)\s+/, '').trim();
   if (p.falta === 'valor' && /^(r\$\s*)?[\d.,]+\s*(k|mil|reais|real|conto|contos|pila|pilas)?$/.test(r)) return `${p.texto} ${r}`;
   if (p.falta === 'dia' && /^(dia\s*)?\d{1,2}$/.test(r)) { const d = Number(r.replace(/\D/g, '')); if (d >= 1 && d <= 31) return `${p.texto} dia ${d}`; }
