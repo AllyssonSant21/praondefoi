@@ -3445,7 +3445,7 @@ async function openPerfil(){
       <button class="btn btn-primary" type="submit" id="pfSalvar" style="min-height:44px;">Salvar</button>
     </form>
     <div class="dlg-sec" id="pfBot" style="border-top:1px solid var(--divider);padding-top:14px;" hidden>
-      <h3>Bot do WhatsApp <span class="tag tag-neutral">teste</span></h3>
+      <h3>Bot do WhatsApp e Telegram <span class="tag tag-neutral">teste</span></h3>
       <div id="pfBotCorpo"><p class="hint" style="margin:0;">Carregando…</p></div>
     </div>
     <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
@@ -3466,8 +3466,9 @@ async function openPerfil(){
   renderBotWa();
 }
 
-/* ---------- bot do WhatsApp: ligar o número por um código ---------- */
-const WA_BOT = '';   // número do bot (só dígitos, com 55). Vazio: não mostra o botão "Abrir WhatsApp"
+/* ---------- bot (WhatsApp ou Telegram): ligar a conta por um código ---------- */
+const WA_BOT = '';   // número do bot no WhatsApp (só dígitos, com 55). Vazio: não mostra o botão
+const TG_BOT = '';   // usuário do bot no Telegram (sem @). Vazio: não mostra o botão
 async function renderBotWa(codigo){
   const sec = $('pfBot'), corpo = $('pfBotCorpo');
   if (!sec || !corpo) return;
@@ -3477,28 +3478,31 @@ async function renderBotWa(codigo){
   const v = (data || [])[0], atual = current();
   if (v){
     const outro = atual && atual.id !== v.controle_id;
+    const onde = v.canal === 'telegram' ? 'ao seu <b>Telegram</b>' : `ao WhatsApp com final <b>${esc(v.final || '')}</b>`;
     corpo.innerHTML = `
-      <p class="hint" style="margin:0 0 10px;">Ligado ao WhatsApp com final <b>${esc(v.final)}</b>. O bot lança em <b>${esc(v.controle_nome || 'Meu controle')}</b>.</p>
+      <p class="hint" style="margin:0 0 10px;">Ligado ${onde}. O bot lança em <b>${esc(v.controle_nome || 'Meu controle')}</b>.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         ${outro ? `<button class="btn btn-secondary btn-sm" type="button" data-act="pfBotCtl">Lançar em "${esc(atual.nome)}"</button>` : ''}
-        <button class="btn btn-ghost btn-sm" type="button" data-act="pfBotDesligar">Desligar WhatsApp</button>
+        <button class="btn btn-ghost btn-sm" type="button" data-act="pfBotDesligar">Desligar bot</button>
       </div>`;
     return;
   }
   if (codigo){
-    const link = WA_BOT ? `<a class="btn btn-primary btn-sm" href="https://wa.me/${WA_BOT}?text=${codigo}" target="_blank" rel="noopener">Abrir WhatsApp</a>` : '';
+    const links = (TG_BOT ? `<a class="btn btn-primary btn-sm" href="https://t.me/${TG_BOT}?start=${codigo}" target="_blank" rel="noopener">Abrir no Telegram</a>` : '')
+                + (WA_BOT ? `<a class="btn btn-primary btn-sm" href="https://wa.me/${WA_BOT}?text=${codigo}" target="_blank" rel="noopener">Abrir no WhatsApp</a>` : '');
     corpo.innerHTML = `
-      <p class="hint" style="margin:0 0 8px;">Mande este código para o bot pelo seu WhatsApp. Ele vale 15 minutos.</p>
+      <p class="hint" style="margin:0 0 8px;">Mande este código para o bot${TG_BOT ? ` (<b>@${esc(TG_BOT)}</b> no Telegram)` : ''}. Ele vale 15 minutos.</p>
       <div style="font-size:2rem;font-weight:700;letter-spacing:.18em;font-variant-numeric:tabular-nums;margin:4px 0 10px;">${codigo.slice(0,3)} ${codigo.slice(3)}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">${link}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">${links}
         <button class="btn btn-secondary btn-sm" type="button" data-act="pfBotPronto">Já mandei</button>
       </div>`;
     return;
   }
   corpo.innerHTML = `
     <p class="hint" style="margin:0 0 10px;">Lance gastos mandando mensagem, tipo <b>mercado 50</b> ou <b>uber 23,90 ontem</b>. O bot lança em <b>${esc(atual ? atual.nome : 'Meu controle')}</b> (o controle aberto agora).</p>
-    <button class="btn btn-secondary btn-sm" type="button" data-act="pfBotLigar">Ligar WhatsApp</button>`;
+    <button class="btn btn-secondary btn-sm" type="button" data-act="pfBotLigar">Ligar bot</button>`;
 }
+
 
 
 $('dlg2Body').addEventListener('change', async e => {
@@ -3542,7 +3546,7 @@ $('dlg2Body').addEventListener('click', async e => {
     b.disabled = true;
     const { error } = await sb.rpc('whatsapp_desligar');
     if (error){ b.disabled = false; return toast(rpcMsg(error)); }
-    toast('WhatsApp desligado da sua conta.', true);
+    toast('Bot desligado da sua conta.', true);
     return renderBotWa();
   }
   if (b.dataset.act === 'pfExcluir'){

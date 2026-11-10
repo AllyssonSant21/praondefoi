@@ -1,5 +1,5 @@
 // =====================================================================
-//  Pra Onde Foi? · BOT DO WHATSAPP (função do Supabase)
+//  Pra Onde Foi? · BOT DO WHATSAPP (função do Supabase · gerada por _fonte/montar.py)
 //  Recebe as mensagens da Meta, entende o texto e lança no app.
 //
 //  Segredos (Supabase → Edge Functions → Secrets), colados por você:
@@ -186,12 +186,12 @@ export const AJUDA = [
   '',
   'Errou? Mande *desfazer* e eu apago o último lançamento.',
 ].join('\n');
-const SEM_VINCULO = [
+const semVinculo = (canal: string) => [
   '👋 Oi! Este é o bot do *Pra Onde Foi?*',
   '',
-  'Para eu lançar no seu app, ligue este número à sua conta:',
+  `Para eu lançar no seu app, ligue este ${canal} à sua conta:`,
   '1. Abra o app → *Menu* → *Meu perfil*',
-  '2. Em *WhatsApp*, toque em *Ligar WhatsApp*',
+  '2. Em *Bot*, toque em *Ligar bot*',
   '3. Mande aqui o código de 6 números que aparecer',
 ].join('\n');
 const NAO_ENTENDI = [
@@ -225,7 +225,7 @@ function textoResumo(r: any, periodo: string): string {
   return linhas.join('\n');
 }
 
-// ------------------------------------------------------------------ Supabase e Meta
+// ------------------------------------------------------------------ Supabase
 
 const env = (k: string) => (globalThis as any).Deno?.env.get(k) ?? '';
 
@@ -239,7 +239,66 @@ async function rpc(nome: string, args: Record<string, unknown>) {
   return corpo ? JSON.parse(corpo) : null;
 }
 
-async function enviar(para: string, texto: string) {
+// ------------------------------------------------------------------ uma mensagem (qualquer canal)
+
+export type Canal = {
+  nome: string;                          // 'WhatsApp' ou 'Telegram' (aparece nas respostas)
+  id: string;                            // quem mandou: número do WhatsApp ou 'tg' + id do Telegram
+  msgId: string;                         // id único da mensagem (evita lançar 2x)
+  texto: string | null;                  // null = não é texto (áudio, foto…)
+  fuso: string;
+  enviar: (texto: string) => Promise<void>;
+};
+
+export async function tratar(c: Canal) {
+  const reg = await rpc('bot_registrar_msg', { p_id: c.msgId, p_wa: c.id });
+  if (reg === 'repetida' || reg === 'limite') return;   // limite: não responde (evita conversa em loop)
+  if (c.texto == null) return c.enviar('Por enquanto eu só entendo mensagens de texto ✍️\nEx.: *mercado 50*');
+
+  // comandos com barra (Telegram): "/start 123456" vira o código; "/ajuda" vira "ajuda"
+  let texto = c.texto.slice(0, 500).trim().replace(/^\/(\w+)(@\w+)?/, (_m, cmd) => cmd.toLowerCase() === 'start' ? '' : cmd).trim();
+  if (!texto) texto = 'ajuda';
+
+  const hoje = hojeEm(c.fuso);
+  const ctx = await rpc('bot_contexto', { p_wa: c.id });
+  const cmd = entender(texto, hoje, ctx?.categorias || []);
+
+  if (cmd.tipo === 'codigo') {
+    const r = await rpc('bot_vincular', { p_wa: c.id, p_msg: c.msgId, p_codigo: cmd.codigo });
+    if (r?.ok) return c.enviar(`🎉 Pronto${r.nome ? ', ' + r.nome.split(' ')[0] : ''}! Este ${c.nome} está ligado à sua conta.\nVou lançar em *${r.controle_nome}*.\n\n` + AJUDA.split('\n').slice(2).join('\n'));
+    if (r?.erro === 'bloqueado') return c.enviar('⏳ Muitas tentativas com código errado. Espere 1 hora e gere um código novo no app.');
+    return c.enviar('❌ Esse código não vale (errado ou passou dos 15 minutos). Gere outro no app: *Menu* → *Meu perfil* → *Ligar bot*.');
+  }
+  if (!ctx) return c.enviar(semVinculo(c.nome));
+  if (!ctx.aprovado) return c.enviar('Sua conta ainda não está liberada no app. Assim que for aprovada, é só mandar de novo 🙂');
+
+  switch (cmd.tipo) {
+    case 'ajuda': return c.enviar(AJUDA);
+    case 'nao_entendi': return c.enviar(NAO_ENTENDI);
+    case 'desligar':
+      return c.enviar(`Para desligar este ${c.nome} da sua conta, abra o app → *Menu* → *Meu perfil* → *Desligar bot*.`);
+    case 'desfazer': {
+      const r = await rpc('bot_desfazer', { p_wa: c.id });
+      if (r?.erro) return c.enviar('Não achei nada lançado por aqui para desfazer.');
+      return c.enviar(`🗑️ Apaguei: ${r.descricao} · ${brl(Number(r.valor))}`);
+    }
+    case 'resumo': {
+      const r = await rpc('bot_resumo', { p_wa: c.id, p_de: cmd.de, p_ate: cmd.ate });
+      if (r?.erro) return c.enviar('Não consegui ver o resumo agora. Tente de novo daqui a pouco.');
+      return c.enviar(textoResumo(r, cmd.periodo));
+    }
+    case 'lancar': {
+      const l = cmd.lanc;
+      const r = await rpc('bot_lancar', { p_wa: c.id, p_tipo: l.tipo, p_desc: l.descricao, p_cat: l.categoria, p_valor: l.valor, p_data: l.data });
+      if (r?.erro) return c.enviar('Não consegui lançar agora 😕 Tente de novo daqui a pouco.');
+      return c.enviar(textoLancado(l, r.controle_nome, hoje));
+    }
+  }
+}
+
+// ------------------------------------------------------------------ Meta
+
+async function enviarWa(para: string, texto: string) {
   const mandar = (to: string) => fetch(`${env('WA_GRAPH') || GRAPH_PADRAO}/${env('WA_PHONE_ID')}/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${env('WA_TOKEN')}`, 'Content-Type': 'application/json' },
@@ -267,53 +326,6 @@ async function assinaturaOk(corpo: string, cabecalho: string | null): Promise<bo
   return dif === 0;
 }
 
-// ------------------------------------------------------------------ uma mensagem
-
-async function tratar(msg: any) {
-  const wa: string = String(msg.from || '');
-  if (!/^\d{8,15}$/.test(wa)) return;
-  const reg = await rpc('bot_registrar_msg', { p_id: String(msg.id), p_wa: wa });
-  if (reg === 'repetida') return;
-  if (reg === 'limite') return;      // não responde (evita conversa em loop)
-  if (msg.type !== 'text') return enviar(wa, 'Por enquanto eu só entendo mensagens de texto ✍️\nEx.: *mercado 50*');
-
-  const hoje = hojeEm(fusoDoNumero(wa));
-  const ctx = await rpc('bot_contexto', { p_wa: wa });
-  const cmd = entender(String(msg.text?.body || '').slice(0, 500), hoje, ctx?.categorias || []);
-
-  if (cmd.tipo === 'codigo') {
-    const r = await rpc('bot_vincular', { p_wa: wa, p_msg: String(msg.id), p_codigo: cmd.codigo });
-    if (r?.ok) return enviar(wa, `🎉 Pronto${r.nome ? ', ' + r.nome.split(' ')[0] : ''}! Este WhatsApp está ligado à sua conta.\nVou lançar em *${r.controle_nome}*.\n\n` + AJUDA.split('\n').slice(2).join('\n'));
-    if (r?.erro === 'bloqueado') return enviar(wa, '⏳ Muitas tentativas com código errado. Espere 1 hora e gere um código novo no app.');
-    return enviar(wa, '❌ Esse código não vale (errado ou passou dos 15 minutos). Gere outro no app: *Menu* → *Meu perfil* → *Ligar WhatsApp*.');
-  }
-  if (!ctx) return enviar(wa, SEM_VINCULO);
-  if (!ctx.aprovado) return enviar(wa, 'Sua conta ainda não está liberada no app. Assim que for aprovada, é só mandar de novo 🙂');
-
-  switch (cmd.tipo) {
-    case 'ajuda': return enviar(wa, AJUDA);
-    case 'nao_entendi': return enviar(wa, NAO_ENTENDI);
-    case 'desligar':
-      return enviar(wa, 'Para desligar este WhatsApp da sua conta, abra o app → *Menu* → *Meu perfil* → *Desligar WhatsApp*.');
-    case 'desfazer': {
-      const r = await rpc('bot_desfazer', { p_wa: wa });
-      if (r?.erro) return enviar(wa, 'Não achei nada lançado por aqui para desfazer.');
-      return enviar(wa, `🗑️ Apaguei: ${r.descricao} · ${brl(Number(r.valor))}`);
-    }
-    case 'resumo': {
-      const r = await rpc('bot_resumo', { p_wa: wa, p_de: cmd.de, p_ate: cmd.ate });
-      if (r?.erro) return enviar(wa, 'Não consegui ver o resumo agora. Tente de novo daqui a pouco.');
-      return enviar(wa, textoResumo(r, cmd.periodo));
-    }
-    case 'lancar': {
-      const l = cmd.lanc;
-      const r = await rpc('bot_lancar', { p_wa: wa, p_tipo: l.tipo, p_desc: l.descricao, p_cat: l.categoria, p_valor: l.valor, p_data: l.data });
-      if (r?.erro) return enviar(wa, 'Não consegui lançar agora 😕 Tente de novo daqui a pouco.');
-      return enviar(wa, textoLancado(l, r.controle_nome, hoje));
-    }
-  }
-}
-
 // ------------------------------------------------------------------ servidor
 
 const Deno_ = (globalThis as any).Deno;
@@ -338,7 +350,13 @@ if (Deno_?.serve) Deno_.serve(async (req: Request) => {
     for (const e of dados.entry || []) for (const c of e.changes || []) {
       if (c.field !== 'messages') continue;
       for (const m of c.value?.messages || []) {
-        try { await tratar(m); } catch (err) { console.error('mensagem', err); }
+        const wa = String(m.from || '');
+        if (!/^\d{8,15}$/.test(wa)) continue;
+        try {
+          await tratar({ nome: 'WhatsApp', id: wa, msgId: String(m.id), fuso: fusoDoNumero(wa),
+                         texto: m.type === 'text' ? String(m.text?.body || '') : null,
+                         enviar: (t: string) => enviarWa(wa, t) });
+        } catch (err) { console.error('mensagem', err); }
       }
     }
   } catch (err) { console.error('webhook', err); }

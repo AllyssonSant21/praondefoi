@@ -28,6 +28,7 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   18. `supabase-cartoes3.sql` — cartões, parte 3: compra antiga com a data de verdade (as parcelas que já venceram ficam de fora sozinhas).
   - `supabase-hmg-convidados.sql` — **só no HMG**: só e-mails da lista conseguem criar conta lá.
   19. `supabase-whatsapp.sql` — bot do WhatsApp (por enquanto só no HMG): ligar o número por um código e as funções que o bot usa. O código do bot fica em `supabase/functions/whatsapp-bot/`.
+  20. `supabase-bot-telegram.sql` — o mesmo bot também no Telegram (por enquanto só no HMG). Código em `supabase/functions/telegram-bot/`; a fonte comum dos dois bots fica em `supabase/functions/_fonte/` (rodar `montar.py` depois de mudar).
 - **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os 15 scripts na ordem; ative pg_net e pg_cron antes e rode uma vez só.
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.
 - **Marca:** pasta `logo/` (SVG e PNG).
