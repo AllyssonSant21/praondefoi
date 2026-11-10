@@ -155,8 +155,10 @@ const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julh
 export const nomeMes = (iso: string) => MESES[Number(iso.slice(5, 7)) - 1];
 const DIAS_SEMANA: [RegExp, number][] = [[/domingo/, 0], [/segunda/, 1], [/terca/, 2], [/quarta/, 3], [/quinta/, 4], [/sexta/, 5], [/sabado/, 6]];
 
-export type Lanc = { tipo: 'exp' | 'inc'; valor: number; data: string; categoria: string; descricao: string };
-export type Conta = { nome: string; categoria: string; valor: number; dia: number; tipo: 'fixa' | 'unica' | 'parcelada'; parcelas: number | null };
+export type Lanc = { tipo: 'exp' | 'inc'; valor: number; data: string; categoria: string; descricao: string; duvida?: string | null };
+export type Dic = { termo: string; tipo: string; categoria: string }[];
+export const CATS_PADRAO = { exp: ['Mercado', 'Moradia', 'Contas', 'Transporte', 'Saúde', 'Lazer', 'Educação', 'Outros'], inc: ['Salário', 'Renda extra', 'Outros'] };
+export type Conta = { nome: string; categoria: string; valor: number; dia: number; tipo: 'fixa' | 'unica' | 'parcelada'; parcelas: number | null; duvida?: string | null };
 export type Comando =
   | { tipo: 'ajuda' } | { tipo: 'desfazer' } | { tipo: 'desligar' } | { tipo: 'cancelar' }
   | { tipo: 'codigo'; codigo: string }
@@ -165,6 +167,10 @@ export type Comando =
   | { tipo: 'conta'; conta: Conta }
   | { tipo: 'pagar'; busca: string; rotulo: string; valor: number | null; data: string; lanc: Lanc | null }
   | { tipo: 'perguntar'; falta: 'valor' | 'dia'; texto: string; rotulo: string }
+  | { tipo: 'sim' } | { tipo: 'nao' }
+  | { tipo: 'editar_ultimo'; valor: number | null; desc: string | null; cat: string | null; data: string | null }
+  | { tipo: 'editar_conta'; alvo: string; nome: string | null; valor: number | null; dia: number | null }
+  | { tipo: 'editar_ajuda' }
   | { tipo: 'nao_entendi' };
 
 // tira data do texto e devolve [texto sem a data, data iso]
@@ -223,7 +229,11 @@ function descricaoOriginal(texto: string, descNorm: string): string {
   return i === alvo.length ? out.join(' ') : descNorm;
 }
 
-function acharCategoria(base: string, tipo: 'exp' | 'inc', cats: { nome: string; tipo: string }[]): string {
+function acharCategoria(base: string, tipo: 'exp' | 'inc', cats: { nome: string; tipo: string }[], dic: Dic = []): string {
+  // 1º o que a pessoa já ensinou (a palavra mais longa ganha)
+  let ensinada = '', tamE = 0;
+  for (const d of dic) if (d.tipo === tipo && d.termo.length > tamE && temPalavra(base, d.termo)) { ensinada = d.categoria; tamE = d.termo.length; }
+  if (ensinada) return ensinada;
   for (const c of cats) if ((c.tipo === tipo || c.tipo === 'ambos') && temPalavra(base, norm(c.nome))) return c.nome;
   // a regra com a palavra mais longa ganha ("conta de luz" > "conta de"; "seguro do carro" > "seguro")
   let melhor = '', tam = 0;
@@ -236,7 +246,7 @@ function acharCategoria(base: string, tipo: 'exp' | 'inc', cats: { nome: string;
 // entende UMA frase
 const juntarData = (t: string) => t.replace(/(\d)\s*\/\s*(\d)/g, '$1/$2');
 
-function entenderUma(texto: string, hoje: string, cats: { nome: string; tipo: string }[]): Comando {
+function entenderUma(texto: string, hoje: string, cats: { nome: string; tipo: string }[], dic: Dic = []): Comando {
   const t = juntarData(extensoParaNumero(norm(texto)));
   if (!t) return { tipo: 'nao_entendi' };
 
@@ -274,7 +284,8 @@ function entenderUma(texto: string, hoje: string, cats: { nome: string; tipo: st
   const tipo: 'exp' | 'inc' = sinal ? (sinal[1] === '+' ? 'inc' : 'exp')
     : /(^| )(saida|despesa|gastei|paguei|comprei)( |$)/.test(t) ? 'exp'
     : PALAVRAS_ENTRADA.some(w => temPalavra(t, w)) ? 'inc' : 'exp';
-  const categoria = acharCategoria(base, tipo, cats);
+  const categoria = acharCategoria(base, tipo, cats, dic);
+  const ensinou = dic.some(d => d.tipo === tipo && temPalavra(base, d.termo));
   const descNorm = limparDescricao(base.replace(/^[+-]/, ''));
   const descricao = cap(descricaoOriginal(texto, descNorm) || '').slice(0, 60);
 
@@ -285,10 +296,17 @@ function entenderUma(texto: string, hoje: string, cats: { nome: string; tipo: st
     if (!diaVenc) return { tipo: 'perguntar', falta: 'dia', texto, rotulo: nome };
     const tipoConta = parcelas && parcelas >= 2 ? 'parcelada' : /(^| )(so esse mes|so este mes|unica|uma vez|avulsa)( |$)/.test(t) ? 'unica' : 'fixa';
     return { tipo: 'conta', conta: { nome, categoria: categoria === 'Outros' ? 'Contas' : categoria, valor: escolhido.valor,
-      dia: diaVenc, tipo: tipoConta, parcelas: tipoConta === 'parcelada' ? parcelas : null } };
+      dia: diaVenc, tipo: tipoConta, parcelas: tipoConta === 'parcelada' ? parcelas : null,
+      duvida: /\d/.test(nome) || nome.split(' ').length > 5 ? 'nome' : null } };
   }
 
-  const lanc: Lanc | null = escolhido ? { tipo, valor: escolhido.valor, data, categoria, descricao: descricao || categoria } : null;
+  // dúvida: categoria desconhecida, valor alto, vários números sem saber qual é o valor, descrição longa
+  const duvida = !escolhido ? null
+    : categoria === 'Outros' && !ensinou && descNorm ? 'categoria'
+    : achados.length > 1 && !achados.some(a => a.forte) ? 'valor'
+    : tipo === 'exp' && escolhido.valor >= 5000 ? 'valor'
+    : descNorm.split(' ').length > 5 ? 'descricao' : null;
+  const lanc: Lanc | null = escolhido ? { tipo, valor: escolhido.valor, data, categoria, descricao: descricao || categoria, duvida } : null;
   if (ehPagamento && descNorm) return { tipo: 'pagar', busca: descNorm, rotulo: descricao || descNorm, valor: escolhido?.valor ?? null, data, lanc };
   if (lanc) return { tipo: 'lancar', lancs: [lanc] };
   // sem valor: se deu para entender do que se trata, pergunta quanto foi
@@ -299,15 +317,19 @@ function entenderUma(texto: string, hoje: string, cats: { nome: string; tipo: st
 }
 
 // entende a mensagem toda. cats = categorias próprias do controle (têm prioridade)
-export function entender(texto: string, hoje: string, cats: { nome: string; tipo: string }[] = []): Comando {
+export function entender(texto: string, hoje: string, cats: { nome: string; tipo: string }[] = [], dic: Dic = []): Comando {
   const t = norm(texto);
   if (!t) return { tipo: 'nao_entendi' };
   const cod = t.replace(/[\s.-]/g, '').match(/^(?:pof)?(\d{6})$/);
   if (cod) return { tipo: 'codigo', codigo: cod[1] };
   if (/^(ajuda|menu|oi+|ola|opa|eai|e ai|eae|salve|bom dia|boa tarde|boa noite|comandos|help|\?|como funciona|como usa|o que voce faz|start|inicio)[!?. ]*$/.test(t)) return { tipo: 'ajuda' };
   if (/^(desfazer|desfaz|desfaca|apagar|apaga|apague|excluir|exclui|exclua|deletar|deleta|remover|remove|errei|errado|corrigir|apaga o ultimo|apagar o ultimo|desfazer o ultimo|apaga esse|apaga isso|nao era isso)[!. ]*$/.test(t)) return { tipo: 'desfazer' };
-  if (/^(cancelar|cancela|deixa|deixa pra la|esquece|esqueca|nada|nao)[!. ]*$/.test(t)) return { tipo: 'cancelar' };
+  if (/^(cancelar|cancela|deixa|deixa pra la|esquece|esqueca|nada)[!. ]*$/.test(t)) return { tipo: 'cancelar' };
   if (/^(desligar|desconectar|sair|parar)[!. ]*$/.test(t)) return { tipo: 'desligar' };
+  if (/^(sim|s|ss|isso|isso mesmo|pode|pode ser|ok|okay|blz|beleza|confirma|confirmo|certo|correto|ta certo|exato|uhum|aham|yes|👍)[!. ]*$/.test(t)) return { tipo: 'sim' };
+  if (/^(nao|n|nn|errado|ta errado|negativo|no)[!. ]*$/.test(t)) return { tipo: 'nao' };
+  const ed = entenderEdicao(texto, t, hoje, cats, dic);
+  if (ed) return ed;
 
   // perguntas de resumo (sem valor na frase)
   if (/(quanto|resumo|saldo|gastos?|total|extrato|balanco|como (estou|to|ta|esta)|sobrou|relatorio)/.test(t) && !/\d/.test(extensoParaNumero(t))) {
@@ -340,10 +362,66 @@ export function entender(texto: string, hoje: string, cats: { nome: string; tipo
     return pedacos.length > 1 && pedacos.every(temValor) ? pedacos : [p];
   });
   if (partes.length > 1) {
-    const cmds = partes.map(p => entenderUma(p, hoje, cats));
+    const cmds = partes.map(p => entenderUma(p, hoje, cats, dic));
     if (cmds.every(c => c.tipo === 'lancar')) return { tipo: 'lancar', lancs: cmds.flatMap(c => (c as { lancs: Lanc[] }).lancs) };
   }
-  return entenderUma(texto, hoje, cats);
+  return entenderUma(texto, hoje, cats, dic);
+}
+
+// "era 45", "era farmácia", "era ontem", "era saúde" → o que mudar no último lançamento
+function interpretarCorrecao(xOrig: string, hoje: string, cats: { nome: string; tipo: string }[], dic: Dic):
+  { valor: number | null; desc: string | null; cat: string | null; data: string | null } | null {
+  const x = juntarData(extensoParaNumero(norm(xOrig))).replace(/^(o |a |de |do |da |pra |para |no |na )+/, '').replace(/[.!]+$/, '').trim();
+  if (!x) return null;
+  const v = lerValor(x.replace(/\s*(reais|real|conto|contos|pila|pilas)$/, ''));
+  if (v != null && !/[a-z]{3}/.test(x.replace(/reais|real|conto|contos|pila|pilas/, ''))) return { valor: v, desc: null, cat: null, data: null };
+  const nomes = [...CATS_PADRAO.exp, ...CATS_PADRAO.inc, ...cats.map(c => c.nome)];
+  const cat = nomes.find(n => norm(n) === x.replace(/^categoria /, ''));
+  if (cat) return { valor: null, desc: null, cat, data: null };
+  const [semData, data] = tirarData(' ' + x + ' ', hoje);
+  if (semData.trim() === '' && data !== hoje || /^(hoje|hj)$/.test(x)) return { valor: null, desc: null, cat: null, data };
+  const descNorm = limparDescricao(x);
+  if (!descNorm) return null;
+  const desc = cap(descricaoOriginal(xOrig, descNorm) || descNorm).slice(0, 60);
+  const c2 = acharCategoria(descNorm, 'exp', cats, dic);
+  return { valor: null, desc, cat: c2 === 'Outros' ? null : c2, data: null };
+}
+
+// comandos de edição. Nunca viram lançamento novo.
+function entenderEdicao(texto: string, t: string, hoje: string, cats: { nome: string; tipo: string }[], dic: Dic): Comando | null {
+  const tt = juntarData(extensoParaNumero(t)).replace(/[:;]/g, ' ').replace(/\s+/g, ' ').trim();
+  const depoisDe = (rx: RegExp) => { const m = texto.match(rx); return m ? m[m.length - 1].trim() : ''; };
+  // "era 45", "o último era farmácia", "na verdade era 30", "não era 50, era 45"
+  const era = tt.match(/^(?:(?:na verdade|pera|opa|ops|nao era isso|nao foi isso|errei|nao era [^,]*|nao foi [^,]*)[,.!]? )?(?:(?:o|a) ultim[oa] |esse |isso |o valor |a categoria |a descricao |o nome )?(?:era|e pra ser|era pra ser|na verdade e|na verdade era) (.+)$/);
+  const ehEdicao = /^(alterar|altera|altere|mudar|muda|mude|trocar|troca|troque|editar|edita|edite|corrigir|corrige|corrija|renomear|renomeia|renomeie|atualizar|atualiza|atualize|ajustar|ajusta)( |$)/.test(tt);
+  if (era && !ehEdicao) {
+    const orig = depoisDe(/(?:^|\s)(?:era|e pra ser|era pra ser|na verdade é|na verdade e|na verdade era)\s+(.+)$/i) || era[1];
+    const c = interpretarCorrecao(orig, hoje, cats, dic);
+    return c ? { tipo: 'editar_ultimo', ...c } : { tipo: 'editar_ajuda' };
+  }
+  if (!ehEdicao) return null;
+  const r = tt.replace(/^\S+ /, '');
+  // último lançamento: "corrigir último para 45", "mudar o último pra farmácia", "corrigir último: era farmácia"
+  if (/(^| )(ultim[oa]|lancamento|isso|esse)( |$)/.test(r)) {
+    const alvoTxt = depoisDe(/(?:\s(?:para|pra|por|era)\s|:\s*)(.+)$/i);
+    const c = alvoTxt ? interpretarCorrecao(alvoTxt.replace(/^era\s+/i, ''), hoje, cats, dic) : null;
+    return c ? { tipo: 'editar_ultimo', ...c } : { tipo: 'editar_ajuda' };
+  }
+  // conta: nome, valor, vencimento
+  const novoOrig = depoisDe(/\s(?:para|pra|por|como)\s+(.+)$/i);
+  const m = r.match(/^(?:o |a )?(nome|valor|vencimento|dia de vencimento|dia|data de vencimento)? ?(?:da |do |de |das |dos )?(?:conta |boleto )?(?:da |do |de )?(.+?) (?:para|pra|por|como) (.+)$/);
+  if (!m) return { tipo: 'editar_ajuda' };
+  const campo = m[1] || '', alvo = limparDescricao(m[2]) || m[2], novo = m[3].trim();
+  const dia = novo.match(/^(?:o )?(?:dia )?(\d{1,2})$/);
+  const valor = lerValor(novo.replace(/^r\$\s*/, '').replace(/\s*(reais|real|conto|contos)$/, ''));
+  if (/venc|dia|data/.test(campo) || (!campo && /^dia \d/.test(novo))) {
+    return dia && Number(dia[1]) >= 1 && Number(dia[1]) <= 31 ? { tipo: 'editar_conta', alvo, nome: null, valor: null, dia: Number(dia[1]) } : { tipo: 'editar_ajuda' };
+  }
+  if (campo === 'valor' || (!campo && valor != null)) {
+    return valor != null ? { tipo: 'editar_conta', alvo, nome: null, valor, dia: null } : { tipo: 'editar_ajuda' };
+  }
+  const nome = cap(novoOrig.replace(/^(a |o )?(conta )?(de |da |do )?/i, '').trim() || novo).slice(0, 60);
+  return { tipo: 'editar_conta', alvo, nome: /^conta /i.test(novoOrig) ? cap(novoOrig).slice(0, 60) : nome, valor: null, dia: null };
 }
 
 // resposta de um número solto à pergunta "quanto foi?" / "que dia vence?"
@@ -476,6 +554,11 @@ export type Canal = {
   enviar: (texto: string) => Promise<void>;
 };
 
+// texto curto do que o bot entendeu (para confirmar)
+function resumoLanc(ls: Lanc[], hoje: string) {
+  return ls.map(l => `${ICONES[l.categoria] || '📌'} ${l.descricao} · *${brl(l.valor)}* · ${l.categoria}${l.tipo === 'inc' ? ' (entrada)' : ''} · ${dataBonita(l.data, hoje)}`).join('\n');
+}
+
 export async function tratar(c: Canal) {
   const reg = await rpc('bot_registrar_msg', { p_id: c.msgId, p_wa: c.id });
   if (reg === 'repetida' || reg === 'limite') return;   // limite: não responde (evita conversa em loop)
@@ -487,16 +570,59 @@ export async function tratar(c: Canal) {
 
   const hoje = hojeEm(c.fuso);
   const ctx = await rpc('bot_contexto', { p_wa: c.id });
+  const cats = ctx?.categorias || [], dic: Dic = ctx?.dicionario || [];
+  const aprender = env('BOT_APRENDER') === '1';
+  const anotar = (t: string | null | undefined, motivo: string) => aprender && t ? rpc('bot_anotar', { p_wa: c.id, p_texto: t, p_motivo: motivo }).catch(() => {}) : Promise.resolve();
+  const guardar = (t: string) => rpc('bot_guardar_texto', { p_wa: c.id, p_texto: t }).catch(() => {});
 
-  // resposta a uma pergunta do bot ("Quanto foi?" → "180")
+  const lancar = async (ls: Lanc[], origem: string) => {
+    for (const l of ls) {
+      const r = await rpc('bot_lancar', { p_wa: c.id, p_tipo: l.tipo, p_desc: l.descricao, p_cat: l.categoria, p_valor: l.valor, p_data: l.data });
+      if (r?.erro) return c.enviar('Não consegui lançar agora 😕 Tente de novo daqui a pouco.');
+    }
+    await guardar(origem);
+    return c.enviar(textoLancado(ls, ctx.controle_nome, hoje));
+  };
+  const criarConta = async (k: Conta, origem: string) => {
+    if (!ctx.tem_contas) return c.enviar(`O controle *${ctx.controle_nome}* não usa Contas a pagar. Se já pagou, mande sem "vence" que eu lanço como gasto.`);
+    const r = await rpc('bot_criar_conta', { p_wa: c.id, p_nome: k.nome, p_cat: k.categoria, p_valor: k.valor, p_dia: k.dia, p_tipo: k.tipo, p_parcelas: k.parcelas });
+    if (r?.erro) return c.enviar('Não consegui criar a conta agora 😕 Tente de novo daqui a pouco.');
+    await guardar(origem);
+    const quando = k.tipo === 'fixa' ? `todo dia *${k.dia}*` : k.tipo === 'parcelada' ? `dia *${k.dia}*, em ${k.parcelas}x` : `dia *${k.dia}* de ${nomeMes(r.inicio)}`;
+    return c.enviar([`🗓️ Conta a pagar criada em *${r.controle_nome}*`, `${ICONES[k.categoria] || '💡'} ${k.nome} · *${brl(k.valor)}*`,
+      `Vence ${quando}${k.tipo === 'fixa' ? ` (a partir de ${nomeMes(r.inicio)})` : ''}`, '', 'Quando pagar, mande *paguei ' + k.nome.toLowerCase() + '*.', 'Errou? Mande *desfazer*.'].join('\n'));
+  };
+
+  // resposta a uma pergunta do bot ("Quanto foi?" → "180"; "Confirma?" → "sim" / "não" / "saúde")
   if (ctx?.pendente) {
-    const junto = completarPendente(ctx.pendente, texto);
+    const p = ctx.pendente;
     await rpc('bot_pendente', { p_wa: c.id, p_pendente: null });
-    if (junto) texto = junto;
-    else if (entender(texto, hoje).tipo === 'cancelar') return c.enviar('Beleza, deixei pra lá 👍');
+    if (p.falta === 'confirmar') {
+      const resp = entender(texto, hoje, cats, dic);
+      const nomes = [...CATS_PADRAO.exp, ...CATS_PADRAO.inc, ...cats.map((x: any) => x.nome)];
+      const catResp = nomes.find(n => norm(n) === norm(texto).replace(/^(e |eh |é |categoria |era |na verdade )+/, ''));
+      if (resp.tipo === 'sim' || catResp) {
+        if (p.cmd.tipo === 'lancar') {
+          const ls: Lanc[] = p.cmd.lancs.map((l: Lanc) => l.duvida === 'categoria' && catResp ? { ...l, categoria: catResp } : l);
+          // aprende a categoria das descrições que estavam em dúvida
+          for (const l of ls) if (l.duvida === 'categoria') await rpc('bot_aprender', { p_wa: c.id, p_termo: norm(l.descricao), p_tipo: l.tipo, p_cat: l.categoria });
+          return lancar(ls, p.texto);
+        }
+        if (p.cmd.tipo === 'conta') return criarConta(p.cmd.conta, p.texto);
+      }
+      if (resp.tipo === 'nao' || resp.tipo === 'cancelar') {
+        await anotar(p.texto, 'recusado');
+        return c.enviar('Beleza, não lancei. Me manda de novo do seu jeito, tipo *farmácia 30* ou *luz 180 vence dia 20* 🙂');
+      }
+      // mandou outra coisa: segue com a mensagem nova
+    } else {
+      const junto = completarPendente(p, texto);
+      if (junto) texto = junto;
+      else if (entender(texto, hoje).tipo === 'cancelar') return c.enviar('Beleza, deixei pra lá 👍');
+    }
   }
 
-  const cmd = entender(texto, hoje, ctx?.categorias || []);
+  const cmd = entender(texto, hoje, cats, dic);
 
   if (cmd.tipo === 'codigo') {
     const r = await rpc('bot_vincular', { p_wa: c.id, p_msg: c.msgId, p_codigo: cmd.codigo });
@@ -507,17 +633,9 @@ export async function tratar(c: Canal) {
   if (!ctx) return c.enviar(semVinculo(c.nome));
   if (!ctx.aprovado) return c.enviar('Sua conta ainda não está liberada no app. Assim que for aprovada, é só mandar de novo 🙂');
 
-  const lancar = async (ls: Lanc[]) => {
-    for (const l of ls) {
-      const r = await rpc('bot_lancar', { p_wa: c.id, p_tipo: l.tipo, p_desc: l.descricao, p_cat: l.categoria, p_valor: l.valor, p_data: l.data });
-      if (r?.erro) return c.enviar('Não consegui lançar agora 😕 Tente de novo daqui a pouco.');
-    }
-    return c.enviar(textoLancado(ls, ctx.controle_nome, hoje));
-  };
-
   switch (cmd.tipo) {
     case 'ajuda': return c.enviar(AJUDA);
-    case 'nao_entendi': return c.enviar(NAO_ENTENDI);
+    case 'nao_entendi': await anotar(texto, 'nao_entendi'); return c.enviar(NAO_ENTENDI);
     case 'cancelar': return c.enviar('Beleza 👍 Se quiser desfazer o último lançamento, mande *desfazer*.');
     case 'desligar':
       return c.enviar(`Para desligar este ${c.nome} da sua conta, abra o app → *Menu* → *Meu perfil* → *Desligar bot*.`);
@@ -525,6 +643,7 @@ export async function tratar(c: Canal) {
       const r = await rpc('bot_desfazer', { p_wa: c.id });
       if (r?.erro === 'conta_com_pagamento') return c.enviar('Essa conta já tem pagamento. Para apagar, use o app em *Contas a pagar*.');
       if (r?.erro) return c.enviar('Não achei nada feito por aqui para desfazer.');
+      await anotar(ctx.ultimo_texto, 'desfeito');
       const oque = r.tipo === 'conta' ? 'a conta a pagar' : r.tipo === 'pag' ? 'o pagamento de' : '';
       return c.enviar(`🗑️ Desfeito: ${oque ? oque + ' ' : ''}${r.descricao} · ${brl(Number(r.valor))}`);
     }
@@ -540,13 +659,12 @@ export async function tratar(c: Canal) {
         : `📅 Que dia vence *${cmd.rotulo.toLowerCase()}*? Mande só o dia (ex.: 20).`);
     }
     case 'conta': {
-      const k = cmd.conta;
-      if (!ctx.tem_contas) return c.enviar(`O controle *${ctx.controle_nome}* não usa Contas a pagar. Se já pagou, mande sem "vence" que eu lanço como gasto.`);
-      const r = await rpc('bot_criar_conta', { p_wa: c.id, p_nome: k.nome, p_cat: k.categoria, p_valor: k.valor, p_dia: k.dia, p_tipo: k.tipo, p_parcelas: k.parcelas });
-      if (r?.erro) return c.enviar('Não consegui criar a conta agora 😕 Tente de novo daqui a pouco.');
-      const quando = k.tipo === 'fixa' ? `todo dia *${k.dia}*` : k.tipo === 'parcelada' ? `dia *${k.dia}*, em ${k.parcelas}x` : `dia *${k.dia}* de ${nomeMes(r.inicio)}`;
-      return c.enviar([`🗓️ Conta a pagar criada em *${r.controle_nome}*`, `${ICONES[k.categoria] || '💡'} ${k.nome} · *${brl(k.valor)}*`,
-        `Vence ${quando}${k.tipo === 'fixa' ? ` (a partir de ${nomeMes(r.inicio)})` : ''}`, '', 'Quando pagar, mande *paguei ' + k.nome.toLowerCase() + '*.', 'Errou? Mande *desfazer*.'].join('\n'));
+      if (cmd.conta.duvida) {
+        await rpc('bot_pendente', { p_wa: c.id, p_pendente: { falta: 'confirmar', texto, cmd } });
+        const k = cmd.conta;
+        return c.enviar(`🤔 Entendi assim:\n🗓️ Conta a pagar *${k.nome}* · *${brl(k.valor)}* · vence dia ${k.dia}\n\nTá certo? Responda *sim* ou *não*.`);
+      }
+      return criarConta(cmd.conta, texto);
     }
     case 'pagar': {
       const abertas = ctx.tem_contas ? (await rpc('bot_contas_abertas', { p_wa: c.id })) || [] : [];
@@ -557,17 +675,55 @@ export async function tratar(c: Canal) {
         if (r?.erro === 'maior') return c.enviar(`Esse valor é maior do que falta pagar de *${k.nome}* (${brl(Number(r.falta))}).`);
         if (r?.erro) return c.enviar('Não consegui marcar como paga agora 😕 Tente de novo daqui a pouco.');
         const resta = Number(r.falta) > 0 ? `\nAinda falta ${brl(Number(r.falta))} dessa conta.` : '';
+        await guardar(texto);
         return c.enviar(`✅ Paguei *${r.nome}* de ${nomeMes(r.mes)} · *${brl(Number(r.valor))}*\nJá saiu em Lançamentos.${resta}\n\nErrou? Mande *desfazer*.`);
       }
       if (achou.length > 1) {
         return c.enviar(['Achei mais de uma conta parecida:', ...achou.slice(0, 5).map(k => `• ${k.nome} (${nomeMes(k.mes)}) · falta ${brl(Number(k.falta))}`),
           '', 'Mande de novo com o nome certinho, tipo *paguei ' + norm(achou[0].nome) + '*.'].join('\n'));
       }
-      if (cmd.lanc) return lancar([cmd.lanc]);   // não é conta cadastrada: lança como gasto
+      if (cmd.lanc) return lancar([cmd.lanc], texto);   // não é conta cadastrada: lança como gasto
       await rpc('bot_pendente', { p_wa: c.id, p_pendente: { texto, falta: 'valor' } });
       return c.enviar(`💬 Não achei *${cmd.rotulo.toLowerCase()}* em Contas a pagar. Quanto foi? Eu lanço como gasto.`);
     }
-    case 'lancar': return lancar(cmd.lancs);
+    case 'lancar': {
+      if (cmd.lancs.some(l => l.duvida)) {
+        await rpc('bot_pendente', { p_wa: c.id, p_pendente: { falta: 'confirmar', texto, cmd } });
+        const soCategoria = cmd.lancs.every(l => !l.duvida || l.duvida === 'categoria');
+        return c.enviar(`🤔 Entendi assim:\n${resumoLanc(cmd.lancs, hoje)}\n\nTá certo? Responda *sim* ou *não*.` +
+          (soCategoria ? '\nSe a categoria for outra, mande o nome dela (ex.: *saúde*) que eu já lanço e aprendo pra próxima.' : ''));
+      }
+      return lancar(cmd.lancs, texto);
+    }
+    case 'sim': return c.enviar('👍 Pode mandar o próximo. Ex.: *mercado 50*');
+    case 'nao': return c.enviar('Beleza 👍 Se quiser desfazer o último, mande *desfazer*.');
+    case 'editar_ajuda':
+      return c.enviar(['✏️ Para corrigir, dá pra mandar assim:', '', '*Último lançamento:*', '• o último era 45', '• era farmácia', '• era ontem',
+        '', '*Contas a pagar:*', '• mudar valor da luz para 210', '• mudar vencimento da luz para dia 15', '• renomear a conta luz para energia',
+        '', 'Ou mande *desfazer* e lance de novo.'].join('\n'));
+    case 'editar_ultimo': {
+      if (ctx.ultimo_tipo && ctx.ultimo_tipo !== 'lanc') return c.enviar('O último que fiz não foi um lançamento. Para conta a pagar, mande tipo *mudar valor da luz para 210*.');
+      const r = await rpc('bot_editar_ultimo', { p_wa: c.id, p_valor: cmd.valor, p_desc: cmd.desc, p_cat: cmd.cat, p_data: cmd.data });
+      if (r?.erro === 'nada') return c.enviar('Não achei o último lançamento feito por aqui. Corrija pelo app em *Lançamentos*.');
+      if (r?.erro) return c.enviar('Não consegui corrigir agora 😕 Tente de novo daqui a pouco.');
+      await anotar(ctx.ultimo_texto, 'corrigido'); await guardar('');
+      // aprende só quando a pessoa trocou a categoria da mesma descrição ("era saúde")
+      const aprendeu = !!(cmd.cat && !cmd.desc && r.antes_desc);
+      if (aprendeu) await rpc('bot_aprender', { p_wa: c.id, p_termo: norm(r.antes_desc), p_tipo: r.tipo, p_cat: cmd.cat });
+      return c.enviar(`✏️ Corrigido:\n${ICONES[r.categoria] || '📌'} ${r.descricao} · *${brl(Number(r.valor))}* · ${r.categoria} · ${dataBonita(r.data, hoje)}` +
+        (aprendeu ? `\n\nAprendi: da próxima vez *${norm(r.antes_desc)}* já vai em ${cmd.cat}.` : ''));
+    }
+    case 'editar_conta': {
+      const ativas = ctx.tem_contas ? (await rpc('bot_contas_ativas', { p_wa: c.id })) || [] : [];
+      const achou = acharConta(cmd.alvo, ativas);
+      if (!achou.length) return c.enviar(`Não achei a conta *${cmd.alvo}* em Contas a pagar. Confira o nome no app.`);
+      if (achou.length > 1) return c.enviar(['Achei mais de uma conta parecida:', ...achou.slice(0, 5).map((k: any) => `• ${k.nome}`), '', 'Mande de novo com o nome certinho.'].join('\n'));
+      const r = await rpc('bot_editar_conta', { p_wa: c.id, p_conta: achou[0].id, p_nome: cmd.nome, p_valor: cmd.valor, p_dia: cmd.dia });
+      if (r?.erro === 'nao_e_sua') return c.enviar('Só quem criou essa conta pode mudar ela.');
+      if (r?.erro) return c.enviar('Não consegui mudar a conta agora 😕 Tente de novo daqui a pouco.');
+      await anotar(ctx.ultimo_texto, 'corrigido'); await guardar('');
+      return c.enviar(`✏️ Conta atualizada:\n💡 ${r.nome} · *${brl(Number(r.valor))}* · vence todo dia ${r.dia}`);
+    }
   }
 }
 
