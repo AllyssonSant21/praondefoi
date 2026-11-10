@@ -53,6 +53,7 @@ const casos: [string, string][] = [
   ['blablabla', 'nao_entendi'],
   ['oi', 'ajuda'], ['bom dia', 'ajuda'], ['desfazer', 'desfazer'], ['cancela', 'cancelar'], ['sim', 'sim'], ['não', 'nao'],
   ['123456', 'codigo'],
+  ['Oi, Detetive Grana! 🕵️ Quero ativar meu bot. Código: 482 913', 'codigo'],
   // edição
   ['o último era 45', 'editar_ultimo valor=45'],
   ['era 45', 'editar_ultimo valor=45'],

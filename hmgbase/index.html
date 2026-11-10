@@ -126,6 +126,16 @@
   .table tbody tr:hover{background:rgba(var(--fg-rgb),.04)}
   .tag{display:inline-flex;align-items:center;font-size:11px;font-weight:600;letter-spacing:.02em;padding:3px 10px;border-radius:999px;white-space:nowrap}
   .tag-accent{background:var(--accent);color:var(--ink)}
+  /* ===== Detetive Grana ===== */
+  .bot-card{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--divider);border-radius:14px;background:var(--card);margin-bottom:12px}
+  .bot-card .bot-ic{font-size:26px;line-height:1}
+  .bot-card b{display:block;font-size:15px}
+  .bot-card span{display:block;font-size:13px;color:var(--muted)}
+  @media (max-width:560px){ .bot-card{flex-wrap:wrap} .bot-card #botCardAbrir{order:3;width:100%;min-height:40px} }
+  .bot-canal{border:1px solid var(--divider);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+  .bot-canal h4{margin:0;font-size:15px}
+  .bot-canal .btn{min-height:44px;justify-content:center}
+  #dlg2Body a.btn{text-decoration:none}
   .tag-neutral{background:rgba(var(--fg-rgb),.10);color:var(--text)}
   .tag-red{background:rgba(var(--red-rgb),.18);color:var(--alerta)}
 
@@ -1004,6 +1014,15 @@
 
 
 <div id="tabLanc" style="display:contents">
+  <div class="bot-card" id="botCard" hidden>
+    <span class="bot-ic" aria-hidden="true">🕵️</span>
+    <div style="min-width:0;flex:1;">
+      <b>Detetive Grana</b>
+      <span>Lance seus gastos mandando mensagem no WhatsApp ou Telegram.</span>
+    </div>
+    <button class="btn btn-primary btn-sm" type="button" id="botCardAbrir">Conhecer</button>
+    <button class="btn btn-ghost btn-icon" type="button" id="botCardFechar" aria-label="Fechar aviso"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
   <section class="stats resumo">
     <div class="stat stat-bal" id="balCard">
       <span class="kicker">Saldo do mês</span>
@@ -1413,6 +1432,7 @@
       <button class="drawer-item" id="drControles" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Meus controles</button>
       <button class="drawer-item" id="drCategorias" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Minhas categorias</button>
       <button class="drawer-item" id="drPerfil" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Meu perfil</button>
+      <button class="drawer-item" id="drBot" type="button" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg>Detetive Grana <span class="tag tag-neutral" style="margin-left:auto;">teste</span></button>
       <button class="drawer-item" id="drDados" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>Seus dados e privacidade</button>
       <button class="drawer-item" data-changepass type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/></svg>Trocar senha</button>
       <button class="drawer-item sair" data-logout type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>Sair</button>
@@ -1437,6 +1457,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=83"></script>
+<script src="app.js?v=84"></script>
 </body>
 </html>

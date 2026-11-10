@@ -381,6 +381,7 @@ async function handleSession(session, force){
   show('viewApp');
   render();
   startRealtime();
+  checarBot();
 }
 
 /* ======================= CONTROLES ======================= */
@@ -1359,7 +1360,7 @@ function openDlg2(kicker, title, html, ctx){
   $('dlg2').hidden = false;
   dlg2 = ctx || {};
 }
-function closeDlg2(){ $('dlg2').hidden = true; dlg2 = {}; }
+function closeDlg2(){ $('dlg2').hidden = true; dlg2 = {}; if (typeof pararEspera === 'function') pararEspera(); }
 $('dlg2Close').onclick = closeDlg2;
 // com uma janela aberta, a tela de trás não rola junto
 const travaFundo = () => document.documentElement.classList.toggle('travado', !$('dlg').hidden || !$('dlg2').hidden || !$('drawer').hidden || !$('dlgConf').hidden);
@@ -3445,8 +3446,9 @@ async function openPerfil(){
       <button class="btn btn-primary" type="submit" id="pfSalvar" style="min-height:44px;">Salvar</button>
     </form>
     <div class="dlg-sec" id="pfBot" style="border-top:1px solid var(--divider);padding-top:14px;" hidden>
-      <h3>Bot do WhatsApp e Telegram <span class="tag tag-neutral">teste</span></h3>
-      <div id="pfBotCorpo"><p class="hint" style="margin:0;">Carregando…</p></div>
+      <h3>🕵️ Detetive Grana <span class="tag tag-neutral">teste</span></h3>
+      <p class="hint" style="margin:0 0 10px;">Lance gastos mandando mensagem no WhatsApp ou Telegram.</p>
+      <button class="btn btn-secondary btn-sm" type="button" data-act="pfBotAbrir">Abrir Detetive Grana</button>
     </div>
     <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
       <h3>Formas de entrar</h3>
@@ -3463,44 +3465,104 @@ async function openPerfil(){
         <button class="btn btn-danger btn-sm" type="button" data-act="pfExcluir">Excluir minha conta</button>
       </div>
     </div>`, { tipo: 'perfil' });
-  renderBotWa();
+  if (botDisponivel) $('pfBot').hidden = false;
 }
 
-/* ---------- bot (WhatsApp ou Telegram): ligar a conta por um código ---------- */
-const WA_BOT = '';   // número do bot no WhatsApp (só dígitos, com 55). Vazio: não mostra o botão
-const TG_BOT = 'praondefoi_teste_bot';   // usuário do bot no Telegram (sem @). Vazio: não mostra o botão
-async function renderBotWa(codigo){
-  const sec = $('pfBot'), corpo = $('pfBotCorpo');
-  if (!sec || !corpo) return;
+/* ---------- Detetive Grana (bot do WhatsApp e do Telegram) ---------- */
+const WA_BOT = '';   // número do bot no WhatsApp (só dígitos, com 55). Vazio: mostra "em breve"
+const TG_BOT = 'praondefoi_teste_bot';   // usuário do bot no Telegram (sem @). Vazio: mostra "em breve"
+let botDisponivel = false, botCodigo = '', botEspera = null;
+const botCardKey = () => `pof-botcard-${currentUser ? currentUser.id : ''}`;
+const fmtCel = t => { const d = String(t || '').replace(/\D/g, '').replace(/^55/, ''); return d.length >= 10 ? `(${d.slice(0,2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : d; };
+const msgWa = cod => `Oi, Detetive Grana! 🕵️ Quero ativar meu bot. Código: ${cod.slice(0,3)} ${cod.slice(3)}`;
+
+// mostra o item do menu e o cartão da tela inicial (só se o banco tem o bot)
+async function checarBot(){
   const { data, error } = await sb.rpc('whatsapp_meu');
-  if (error){ sec.hidden = true; return; }          // banco ainda sem o bot
-  sec.hidden = false;
+  botDisponivel = !error;
+  $('drBot').hidden = !botDisponivel;
+  let fechado = false; try { fechado = localStorage.getItem(botCardKey()) === '1'; } catch {}
+  $('botCard').hidden = !botDisponivel || fechado || (data || []).length > 0;
+}
+$('drBot').addEventListener('click', () => { if (typeof closeDrawer === 'function') closeDrawer(); openBot(); });
+$('botCardAbrir').addEventListener('click', () => openBot());
+$('botCardFechar').addEventListener('click', () => { $('botCard').hidden = true; try { localStorage.setItem(botCardKey(), '1'); } catch {} });
+
+function pararEspera(){ if (botEspera){ clearInterval(botEspera); botEspera = null; } }
+async function openBot(){
+  pararEspera();
+  openDlg2('Assistente', 'Detetive Grana', '<p class="hint" style="margin:0;">Carregando…</p>', { tipo: 'bot' });
+  await renderBot();
+}
+async function renderBot(){
+  if (dlg2.tipo !== 'bot') return pararEspera();
+  const { data, error } = await sb.rpc('whatsapp_meu');
+  if (error){ $('dlg2Body').innerHTML = '<p class="hint" style="margin:0;">O Detetive Grana ainda não está disponível.</p>'; return; }
   const v = (data || [])[0], atual = current();
   if (v){
+    pararEspera(); botCodigo = '';
+    $('botCard').hidden = true;
+    const tg = v.canal === 'telegram';
+    const abrir = tg ? (TG_BOT ? `https://t.me/${TG_BOT}` : '') : (WA_BOT ? `https://wa.me/${WA_BOT}` : '');
     const outro = atual && atual.id !== v.controle_id;
-    const onde = v.canal === 'telegram' ? 'ao seu <b>Telegram</b>' : `ao WhatsApp com final <b>${esc(v.final || '')}</b>`;
-    corpo.innerHTML = `
-      <p class="hint" style="margin:0 0 10px;">Ligado ${onde}. O bot lança em <b>${esc(v.controle_nome || 'Meu controle')}</b>.</p>
+    $('dlg2Body').innerHTML = `
+      <p style="margin:0;font-size:15px;">✅ Conectado ${tg ? 'ao seu <b>Telegram</b>' : `ao WhatsApp com final <b>${esc(v.final || '')}</b>`}.</p>
+      <p class="hint" style="margin:0;">O Detetive anota tudo em <b>${esc(v.controle_nome || 'Meu controle')}</b>. Mande <b>ajuda</b> pra ele quando quiser ver o que ele sabe fazer.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        ${outro ? `<button class="btn btn-secondary btn-sm" type="button" data-act="pfBotCtl">Lançar em "${esc(atual.nome)}"</button>` : ''}
-        <button class="btn btn-ghost btn-sm" type="button" data-act="pfBotDesligar">Desligar bot</button>
+        ${abrir ? `<a class="btn btn-primary btn-sm" href="${abrir}" target="_blank" rel="noopener">Abrir conversa</a>` : ''}
+        ${outro ? `<button class="btn btn-secondary btn-sm" type="button" data-act="botCtl">Anotar em "${esc(atual.nome)}"</button>` : ''}
+        <button class="btn btn-ghost btn-sm" type="button" data-act="botDesligar">Desligar</button>
       </div>`;
     return;
   }
-  if (codigo){
-    const links = (TG_BOT ? `<a class="btn btn-primary btn-sm" href="https://t.me/${TG_BOT}?start=${codigo}" target="_blank" rel="noopener">Abrir no Telegram</a>` : '')
-                + (WA_BOT ? `<a class="btn btn-primary btn-sm" href="https://wa.me/${WA_BOT}?text=${codigo}" target="_blank" rel="noopener">Abrir no WhatsApp</a>` : '');
-    corpo.innerHTML = `
-      <p class="hint" style="margin:0 0 8px;">Mande este código para o bot${TG_BOT ? ` (<b>@${esc(TG_BOT)}</b> no Telegram)` : ''}. Ele vale 15 minutos.</p>
-      <div style="font-size:2rem;font-weight:700;letter-spacing:.18em;font-variant-numeric:tabular-nums;margin:4px 0 10px;">${codigo.slice(0,3)} ${codigo.slice(3)}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">${links}
-        <button class="btn btn-secondary btn-sm" type="button" data-act="pfBotPronto">Já mandei</button>
-      </div>`;
-    return;
+  if (!botCodigo){
+    const g = await sb.rpc('whatsapp_gerar_codigo', { cid: state.cid });
+    if (g.error){ $('dlg2Body').innerHTML = `<p class="hint" style="margin:0;">${esc(rpcMsg(g.error))}</p>`; return; }
+    botCodigo = String(g.data);
   }
-  corpo.innerHTML = `
-    <p class="hint" style="margin:0 0 10px;">Lance gastos mandando mensagem, tipo <b>mercado 50</b> ou <b>uber 23,90 ontem</b>. O bot lança em <b>${esc(atual ? atual.nome : 'Meu controle')}</b> (o controle aberto agora).</p>
-    <button class="btn btn-secondary btn-sm" type="button" data-act="pfBotLigar">Ligar bot</button>`;
+  const cod = botCodigo;
+  $('dlg2Body').innerHTML = `
+    <p style="margin:0;font-size:15px;">🕵️ Mande seus gastos por mensagem, do seu jeito (<b>mercado 50</b>, <b>uber 23,90 ontem</b>), e o Detetive anota em <b>${esc(atual ? atual.nome : 'Meu controle')}</b>.</p>
+    <p class="hint" style="margin:0;">Ele ainda está aprendendo 🌱 Se errar, é só corrigir na conversa.</p>
+    <div class="bot-canal">
+      <h4>Telegram</h4>
+      ${TG_BOT ? `<p class="hint" style="margin:0;">Toque no botão e depois em <b>Iniciar</b>. Pronto.</p>
+      <a class="btn btn-primary" href="https://t.me/${TG_BOT}?start=${cod}" target="_blank" rel="noopener">Conectar Telegram</a>`
+      : '<p class="hint" style="margin:0;">Em breve.</p>'}
+    </div>
+    <div class="bot-canal">
+      <h4>WhatsApp</h4>
+      ${WA_BOT ? `<p class="hint" style="margin:0;">Digite o seu celular, toque no botão e só envie a mensagem que aparecer pronta.</p>
+      <input class="input" id="botCel" type="tel" inputmode="tel" autocomplete="tel" placeholder="(65) 99999-9999">
+      <a class="btn btn-primary" id="botWa" href="#" aria-disabled="true" style="opacity:.5;pointer-events:none;" target="_blank" rel="noopener">Abrir conversa no WhatsApp</a>
+      <p class="hint" style="margin:0;font-size:12px;">O celular só serve pra ligar o Detetive à sua conta. Ninguém vê, e ele some quando você desligar.</p>`
+      : '<p class="hint" style="margin:0;">Em breve. Enquanto isso, use pelo Telegram.</p>'}
+    </div>
+    <p class="hint" style="margin:0;font-size:12px;">Depois de enviar, volte aqui: esta tela atualiza sozinha.</p>`;
+  if (WA_BOT){
+    let t = null;
+    $('botCel').addEventListener('input', () => {
+      const a = $('botWa'); a.style.opacity = '.5'; a.style.pointerEvents = 'none'; a.setAttribute('aria-disabled', 'true');
+      clearTimeout(t);
+      const dig = $('botCel').value.replace(/\D/g, '');
+      if (dig.length < 10) return;
+      t = setTimeout(async () => {
+        const r = await sb.rpc('whatsapp_definir_telefone', { p_tel: $('botCel').value });
+        if (r.error) return toast(rpcMsg(r.error));
+        a.href = `https://wa.me/${WA_BOT}?text=${encodeURIComponent(msgWa(cod))}`;
+        a.style.opacity = ''; a.style.pointerEvents = ''; a.removeAttribute('aria-disabled');
+      }, 500);
+    });
+  }
+  // fica conferindo se a pessoa já mandou a mensagem (até 5 minutos)
+  if (!botEspera){
+    let n = 0;
+    botEspera = setInterval(async () => {
+      if (dlg2.tipo !== 'bot' || $('dlg2').hidden || ++n > 100) return pararEspera();
+      const { data } = await sb.rpc('whatsapp_meu');
+      if ((data || []).length){ pararEspera(); toast('🕵️ Detetive Grana conectado!', true); renderBot(); }
+    }, 3000);
+  }
 }
 
 
@@ -3520,7 +3582,7 @@ $('dlg2Body').addEventListener('change', async e => {
 });
 
 $('dlg2Body').addEventListener('click', async e => {
-  const b = e.target.closest('[data-act^="pf"]');
+  const b = e.target.closest('[data-act^="pf"], [data-act^="bot"]');
   if (!b) return;
   if (b.dataset.act === 'pfRemover'){
     const { error } = await sb.rpc('salvar_foto', { p_foto: null });
@@ -3528,26 +3590,21 @@ $('dlg2Body').addEventListener('click', async e => {
     profile.foto = null; renderMe(); await loadMembers(); render(); openPerfil();
   }
   if (b.dataset.act === 'pfBaixar'){ $('export').click(); return; }
-  if (b.dataset.act === 'pfBotLigar'){
-    b.disabled = true;
-    const { data, error } = await sb.rpc('whatsapp_gerar_codigo', { cid: state.cid });
-    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
-    return renderBotWa(String(data));
-  }
-  if (b.dataset.act === 'pfBotPronto'){ await renderBotWa(); return; }
-  if (b.dataset.act === 'pfBotCtl'){
+  if (b.dataset.act === 'pfBotAbrir'){ openBot(); return; }
+  if (b.dataset.act === 'botCtl'){
     b.disabled = true;
     const { error } = await sb.rpc('whatsapp_definir_controle', { cid: state.cid });
     if (error){ b.disabled = false; return toast(rpcMsg(error)); }
-    toast('Pronto, o bot vai lançar neste controle.', true);
-    return renderBotWa();
+    toast('Pronto, o Detetive vai anotar neste controle.', true);
+    return renderBot();
   }
-  if (b.dataset.act === 'pfBotDesligar'){
+  if (b.dataset.act === 'botDesligar'){
     b.disabled = true;
     const { error } = await sb.rpc('whatsapp_desligar');
     if (error){ b.disabled = false; return toast(rpcMsg(error)); }
-    toast('Bot desligado da sua conta.', true);
-    return renderBotWa();
+    toast('Detetive Grana desligado da sua conta.', true);
+    botCodigo = '';
+    return renderBot();
   }
   if (b.dataset.act === 'pfExcluir'){
     const t = await pedirTexto('Excluir minha conta',

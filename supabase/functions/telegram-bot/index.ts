@@ -320,8 +320,8 @@ function entenderUma(texto: string, hoje: string, cats: { nome: string; tipo: st
 export function entender(texto: string, hoje: string, cats: { nome: string; tipo: string }[] = [], dic: Dic = []): Comando {
   const t = norm(texto);
   if (!t) return { tipo: 'nao_entendi' };
-  const cod = t.replace(/[\s.-]/g, '').match(/^(?:pof)?(\d{6})$/);
-  if (cod) return { tipo: 'codigo', codigo: cod[1] };
+  const cod = t.replace(/[\s.-]/g, '').match(/^(?:pof)?(\d{6})$/) || t.match(/codigo:?\s*(\d{3}\s?\d{3})(?!\d)/);
+  if (cod) return { tipo: 'codigo', codigo: cod[1].replace(/\s/g, '') };
   if (/^(ajuda|menu|oi+|ola|opa|eai|e ai|eae|salve|bom dia|boa tarde|boa noite|comandos|help|\?|como funciona|como usa|o que voce faz|start|inicio)[!?. ]*$/.test(t)) return { tipo: 'ajuda' };
   if (/^(desfazer|desfaz|desfaca|apagar|apaga|apague|excluir|exclui|exclua|deletar|deleta|remover|remove|errei|errado|corrigir|apaga o ultimo|apagar o ultimo|desfazer o ultimo|apaga esse|apaga isso|nao era isso)[!. ]*$/.test(t)) return { tipo: 'desfazer' };
   if (/^(cancelar|cancela|deixa|deixa pra la|esquece|esqueca|nada)[!. ]*$/.test(t)) return { tipo: 'cancelar' };
@@ -448,15 +448,15 @@ export function completarPendente(p: { texto: string; falta: string }, resposta:
 
 const ICONES: Record<string, string> = { Mercado: '🛒', Moradia: '🏠', Contas: '💡', Transporte: '🚗', 'Saúde': '💊', Lazer: '🎉', 'Educação': '📚', 'Salário': '💰', 'Renda extra': '💸', Outros: '📌' };
 export const AJUDA = [
-  '👋 Oi! Eu sou o bot do *Pra Onde Foi?*',
+  '🕵️ *Detetive Grana* na área! Sou o assistente do *Pra Onde Foi?* e minha missão é descobrir pra onde vai o seu dinheiro.',
   '',
-  '*Para lançar um gasto*, é só escrever do seu jeito:',
+  '*Me conta onde você gastou*, do seu jeito:',
   '• mercado 50',
   '• uber 23,90 ontem',
   '• gastei 32,50 na farmácia sexta',
   '• pão 8, leite 6 e café 15',
   '',
-  '*Para lançar uma entrada:*',
+  '*Dinheiro que entrou:*',
   '• recebi salário 3500',
   '• + 200 freela',
   '',
@@ -464,40 +464,48 @@ export const AJUDA = [
   '• conta de luz 180 vence dia 20',
   '• paguei a luz',
   '',
-  '*Para consultar:*',
+  '*Relatórios do caso:*',
   '• quanto gastei hoje',
   '• resumo da semana',
   '• saldo do mês',
   '',
-  'Errou? Mande *desfazer* e eu desfaço o último.',
+  'Ainda estou aprendendo 🌱 Se eu errar, me corrige (tipo *era 45* ou *era farmácia*) ou mande *desfazer*.',
 ].join('\n');
 const semVinculo = (canal: string) => [
-  '👋 Oi! Este é o bot do *Pra Onde Foi?*',
+  '🕵️ Oi! Eu sou o *Detetive Grana*, o assistente do *Pra Onde Foi?*',
   '',
-  `Para eu lançar no seu app, ligue este ${canal} à sua conta:`,
-  '1. Abra o app → *Menu* → *Meu perfil*',
-  '2. Em *Bot*, toque em *Ligar bot*',
-  '3. Mande aqui o código de 6 números que aparecer',
+  `Pra começar a investigação, ligue este ${canal} à sua conta:`,
+  '1. Abra o app → *Menu* → *Detetive Grana*',
+  `2. Toque em *Conectar ${canal}*`,
+  '3. É só enviar a mensagem que vai aparecer pronta 😉',
 ].join('\n');
 const NAO_ENTENDI = [
-  'Hmm, não entendi 🤔',
+  '🔍 Hmm, essa pista ficou confusa…',
   '',
-  'Tente assim: *mercado 50* ou *uber 23,90 ontem*.',
-  'Mande *ajuda* para ver tudo que eu sei fazer.',
+  'Tenta assim: *mercado 50* ou *uber 23,90 ontem*.',
+  'Mande *ajuda* pra ver tudo que eu sei fazer.',
+].join('\n');
+export const BOAS_VINDAS = (nome: string, controle: string) => [
+  `🕵️ Caso aberto${nome ? ', ' + nome : ''}! Agora é comigo.`,
+  `Vou anotar tudo em *${controle}*.`,
+  '',
+  'Me manda o primeiro gasto do seu jeito, tipo *mercado 50* ou *uber 23,90 ontem*.',
+  '',
+  'Ainda estou aprendendo 🌱 Se eu errar, me corrige que eu aprendo com você. Mande *ajuda* quando quiser.',
 ].join('\n');
 
 export function textoLancado(ls: Lanc[], controle: string, hoje: string): string {
   if (ls.length === 1) {
     const l = ls[0], ic = ICONES[l.categoria] || (l.tipo === 'inc' ? '💸' : '📌');
     return [
-      `✅ ${l.tipo === 'inc' ? 'Entrada lançada' : 'Lançado'} em *${controle}*`,
+      `✅ ${l.tipo === 'inc' ? 'Entrada anotada' : 'Caso registrado'} em *${controle}*`,
       `${ic} ${l.descricao} · *${brl(l.valor)}*`,
       (l.descricao === l.categoria ? '' : `🏷️ ${l.categoria} · `) + `📅 ${dataBonita(l.data, hoje)}`,
       '',
       'Errou? Mande *desfazer*.',
     ].join('\n');
   }
-  const linhas = [`✅ Lancei ${ls.length} em *${controle}*`, ''];
+  const linhas = [`✅ ${ls.length} pistas registradas em *${controle}*`, ''];
   for (const l of ls) linhas.push(`${ICONES[l.categoria] || '📌'} ${l.descricao} · *${brl(l.valor)}*${l.tipo === 'inc' ? ' (entrada)' : ''} · ${dataBonita(l.data, hoje)}`);
   linhas.push('', `Total: *${brl(ls.reduce((s, l) => s + (l.tipo === 'inc' ? -l.valor : l.valor), 0))}*`, '', 'Errou? Mande *desfazer* (apaga o último).');
   return linhas.join('\n');
@@ -505,12 +513,12 @@ export function textoLancado(ls: Lanc[], controle: string, hoje: string): string
 
 function textoResumo(r: any, periodo: string): string {
   const nome = { hoje: 'hoje', ontem: 'ontem', semana: 'nesta semana', mes: 'neste mês' }[periodo] || periodo;
-  if (!r.qtd) return `📊 Nada lançado ${nome} em *${r.controle_nome}*.`;
-  const linhas = [`📊 *${cap(nome)}* em *${r.controle_nome}*`, '', `💸 Saídas: *${brl(Number(r.saidas))}*`];
+  if (!r.qtd) return `📁 Nenhuma pista ${nome} em *${r.controle_nome}*. Tudo calmo por aqui 🕵️`;
+  const linhas = [`📁 *Relatório do caso: ${nome}* em *${r.controle_nome}*`, '', `💸 Saídas: *${brl(Number(r.saidas))}*`];
   if (Number(r.entradas) > 0) linhas.push(`💰 Entradas: *${brl(Number(r.entradas))}*`);
   if (periodo === 'mes' && Number(r.entradas) > 0) linhas.push(`🧮 Sobrou: *${brl(Number(r.entradas) - Number(r.saidas))}*`);
   if (r.top && r.top.length) {
-    linhas.push('', 'Onde mais gastou:');
+    linhas.push('', '🔍 O dinheiro foi parar mais em:');
     for (const c of r.top) linhas.push(`${ICONES[c.categoria] || '•'} ${c.categoria}: ${brl(Number(c.total))}`);
   }
   return linhas.join('\n');
@@ -589,7 +597,7 @@ export async function tratar(c: Canal) {
     if (r?.erro) return c.enviar('Não consegui criar a conta agora 😕 Tente de novo daqui a pouco.');
     await guardar(origem);
     const quando = k.tipo === 'fixa' ? `todo dia *${k.dia}*` : k.tipo === 'parcelada' ? `dia *${k.dia}*, em ${k.parcelas}x` : `dia *${k.dia}* de ${nomeMes(r.inicio)}`;
-    return c.enviar([`🗓️ Conta a pagar criada em *${r.controle_nome}*`, `${ICONES[k.categoria] || '💡'} ${k.nome} · *${brl(k.valor)}*`,
+    return c.enviar([`🗓️ Anotado! Conta a pagar em *${r.controle_nome}*`, `${ICONES[k.categoria] || '💡'} ${k.nome} · *${brl(k.valor)}*`,
       `Vence ${quando}${k.tipo === 'fixa' ? ` (a partir de ${nomeMes(r.inicio)})` : ''}`, '', 'Quando pagar, mande *paguei ' + k.nome.toLowerCase() + '*.', 'Errou? Mande *desfazer*.'].join('\n'));
   };
 
@@ -626,9 +634,10 @@ export async function tratar(c: Canal) {
 
   if (cmd.tipo === 'codigo') {
     const r = await rpc('bot_vincular', { p_wa: c.id, p_msg: c.msgId, p_codigo: cmd.codigo });
-    if (r?.ok) return c.enviar(`🎉 Pronto${r.nome ? ', ' + r.nome.split(' ')[0] : ''}! Este ${c.nome} está ligado à sua conta.\nVou lançar em *${r.controle_nome}*.\n\n` + AJUDA.split('\n').slice(2).join('\n'));
+    if (r?.ok) return c.enviar(BOAS_VINDAS(r.nome ? r.nome.split(' ')[0] : '', r.controle_nome));
+    if (r?.erro === 'outro_numero') return c.enviar('🕵️ Esse código foi pedido pra outro celular. Confira o número no app (*Menu* → *Detetive Grana*) e tente de novo.');
     if (r?.erro === 'bloqueado') return c.enviar('⏳ Muitas tentativas com código errado. Espere 1 hora e gere um código novo no app.');
-    return c.enviar('❌ Esse código não vale (errado ou passou dos 15 minutos). Gere outro no app: *Menu* → *Meu perfil* → *Ligar bot*.');
+    return c.enviar('❌ Esse código não vale (errado ou passou dos 15 minutos). Abra o app em *Menu* → *Detetive Grana* e toque em conectar de novo.');
   }
   if (!ctx) return c.enviar(semVinculo(c.nome));
   if (!ctx.aprovado) return c.enviar('Sua conta ainda não está liberada no app. Assim que for aprovada, é só mandar de novo 🙂');
@@ -638,7 +647,7 @@ export async function tratar(c: Canal) {
     case 'nao_entendi': await anotar(texto, 'nao_entendi'); return c.enviar(NAO_ENTENDI);
     case 'cancelar': return c.enviar('Beleza 👍 Se quiser desfazer o último lançamento, mande *desfazer*.');
     case 'desligar':
-      return c.enviar(`Para desligar este ${c.nome} da sua conta, abra o app → *Menu* → *Meu perfil* → *Desligar bot*.`);
+      return c.enviar(`Para desligar este ${c.nome} da sua conta, abra o app → *Menu* → *Detetive Grana* → *Desligar*.`);
     case 'desfazer': {
       const r = await rpc('bot_desfazer', { p_wa: c.id });
       if (r?.erro === 'conta_com_pagamento') return c.enviar('Essa conta já tem pagamento. Para apagar, use o app em *Contas a pagar*.');
@@ -710,7 +719,7 @@ export async function tratar(c: Canal) {
       // aprende só quando a pessoa trocou a categoria da mesma descrição ("era saúde")
       const aprendeu = !!(cmd.cat && !cmd.desc && r.antes_desc);
       if (aprendeu) await rpc('bot_aprender', { p_wa: c.id, p_termo: norm(r.antes_desc), p_tipo: r.tipo, p_cat: cmd.cat });
-      return c.enviar(`✏️ Corrigido:\n${ICONES[r.categoria] || '📌'} ${r.descricao} · *${brl(Number(r.valor))}* · ${r.categoria} · ${dataBonita(r.data, hoje)}` +
+      return c.enviar(`✏️ Pista corrigida!\n${ICONES[r.categoria] || '📌'} ${r.descricao} · *${brl(Number(r.valor))}* · ${r.categoria} · ${dataBonita(r.data, hoje)}` +
         (aprendeu ? `\n\nAprendi: da próxima vez *${norm(r.antes_desc)}* já vai em ${cmd.cat}.` : ''));
     }
     case 'editar_conta': {
@@ -722,7 +731,7 @@ export async function tratar(c: Canal) {
       if (r?.erro === 'nao_e_sua') return c.enviar('Só quem criou essa conta pode mudar ela.');
       if (r?.erro) return c.enviar('Não consegui mudar a conta agora 😕 Tente de novo daqui a pouco.');
       await anotar(ctx.ultimo_texto, 'corrigido'); await guardar('');
-      return c.enviar(`✏️ Conta atualizada:\n💡 ${r.nome} · *${brl(Number(r.valor))}* · vence todo dia ${r.dia}`);
+      return c.enviar(`✏️ Pista corrigida! Conta atualizada:\n💡 ${r.nome} · *${brl(Number(r.valor))}* · vence todo dia ${r.dia}`);
     }
   }
 }
