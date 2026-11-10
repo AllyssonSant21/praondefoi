@@ -3468,7 +3468,7 @@ async function openPerfil(){
 
 /* ---------- bot (WhatsApp ou Telegram): ligar a conta por um código ---------- */
 const WA_BOT = '';   // número do bot no WhatsApp (só dígitos, com 55). Vazio: não mostra o botão
-const TG_BOT = '';   // usuário do bot no Telegram (sem @). Vazio: não mostra o botão
+const TG_BOT = 'praondefoi_teste_bot';   // usuário do bot no Telegram (sem @). Vazio: não mostra o botão
 async function renderBotWa(codigo){
   const sec = $('pfBot'), corpo = $('pfBotCorpo');
   if (!sec || !corpo) return;
