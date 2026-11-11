@@ -831,6 +831,15 @@
   /* tela de entrar: lista de recursos (opção A) */
 .auth-feats.nova-lista{display:grid;grid-template-columns:1fr;gap:18px 28px;margin-top:4px}
 .nova-lista .feat-novo{grid-column:1/-1}
+/* título maior e chamativo */
+.auth-head .auth-title{font-family:"Archivo",system-ui,sans-serif !important;font-weight:900 !important;letter-spacing:-.035em;line-height:.82 !important;font-size:clamp(64px,19vw,84px)}
+@media (min-width:900px){ .auth-head .auth-title{font-size:clamp(96px,8.6vw,128px)} }
+.auth-head .auth-title .hl{color:var(--accent);-webkit-text-stroke:2px #1f1d1e;paint-order:stroke fill;display:inline-block;transform:rotate(8deg) translateY(-2px);margin-left:2px}
+/* bot centralizado, em destaque */
+.nova-lista .feat-novo{grid-column:1/-1;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:18px 20px;border-radius:18px;background:rgba(var(--accent-rgb),.14);border:1.5px solid rgba(var(--accent-rgb),.55)}
+.nova-lista .feat-novo .ic{width:48px;height:48px;background:var(--accent);color:#1f1d1e}
+.nova-lista .feat-novo b{font-size:17px}
+.nova-lista .feat-novo span:not(.ic){font-size:14px}
 .nova-lista .novo{font-style:normal;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--accent);color:#1f1d1e;border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:2px}
 @media (min-width:600px){.auth-feats.nova-lista{grid-template-columns:1fr 1fr}}
 .nova-lista li{display:flex;gap:14px;align-items:flex-start}
@@ -1459,6 +1468,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=86"></script>
+<script src="app.js?v=88"></script>
 </body>
 </html>
