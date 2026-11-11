@@ -32,6 +32,7 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   21. `supabase-bot2.sql` — bot, parte 2: pergunta o que faltou, cria e paga contas a pagar, desfazer de tudo.
   22. `supabase-bot3.sql` — bot, parte 3: corrigir pelo chat, confirmar na dúvida, aprender categorias por pessoa e guardar frases não entendidas (só com BOT_APRENDER=1). Testes do bot: `node --experimental-strip-types supabase/functions/_fonte/testes.ts`.
   23. `supabase-bot4.sql` — Detetive Grana: ligar o WhatsApp com um toque (celular opcional + código escondido na mensagem).
+  24. `supabase-fundador.sql` — contas fundadoras (não pagam mensalidade); botão no painel do administrador.
 - **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os 15 scripts na ordem; ative pg_net e pg_cron antes e rode uma vez só.
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.
 - **Marca:** pasta `logo/` (SVG e PNG).

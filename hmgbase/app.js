@@ -4070,7 +4070,7 @@ function renderAdmin(){
 
   const q = semAcento(adminBusca.trim());
   const acha = u => !q || semAcento(`${u.email} ${displayName(u.email)} ${u.nome || ''}`).includes(q);
-  const daAba = u => adminFilter === 'todos' || u.status === adminFilter;
+  const daAba = u => adminFilter === 'todos' || (adminFilter === 'fundador' ? u.fundador : u.status === adminFilter);
   const list = users.filter(u => daAba(u) && acha(u));
   $('usersEmpty').hidden = list.length > 0;
   $('usersTable').hidden = list.length === 0;
@@ -4086,13 +4086,14 @@ function renderAdmin(){
     else {
       if (u.status !== 'aprovado') actions += `<button class="btn btn-primary btn-sm" data-act="aprovado" data-id="${esc(u.id)}">${u.status === 'bloqueado' ? 'Desbloquear' : 'Aprovar'}</button>`;
       if (u.status !== 'bloqueado') actions += `<button class="btn btn-secondary btn-sm" data-act="bloqueado" data-id="${esc(u.id)}">${u.status === 'pendente' ? 'Recusar' : 'Bloquear'}</button>`;
+      if (u.status === 'aprovado') actions += `<button class="btn ${u.fundador ? 'btn-primary' : 'btn-secondary'} btn-sm" data-act="fundador" data-id="${esc(u.id)}" data-sim="${u.fundador ? '0' : '1'}" title="${u.fundador ? 'Tirar de fundador' : 'Marcar como fundador (não paga mensalidade)'}">${u.fundador ? '⭐ Fundador' : '☆ Fundador'}</button>`;
       actions += `<button class="btn btn-secondary btn-sm" data-act="senha" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Nova senha</button>`;
       actions += `<button class="btn btn-danger btn-sm" data-act="excluir" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Excluir</button>`;
     }
     return `<tr>
       <td style="word-break:break-all;">${esc(displayName(u.email))}${u.nome ? `<div class="by">${esc(u.nome)}</div>` : ''}</td>
       <td style="color:var(--muted);">${new Date(u.criado_em).toLocaleDateString('pt-BR')}</td>
-      <td>${me ? '<span class="tag tag-accent">Admin</span>' : STATUS_TAG[u.status]}</td>
+      <td>${me ? '<span class="tag tag-accent">Admin</span>' : STATUS_TAG[u.status]}${u.fundador ? ' <span class="tag tag-accent" title="Fundador: não paga mensalidade">⭐ Fundador</span>' : ''}</td>
       <td><div style="display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;">${actions}</div></td>
     </tr>`;
   }).join('');
@@ -4159,6 +4160,13 @@ document.querySelectorAll('#usoSeg button').forEach(b => b.addEventListener('cli
 $('usoResumo').addEventListener('click', e => { const b = e.target.closest('[data-uso]'); if (!b) return; usoFiltro = usoFiltro === b.dataset.uso ? 'todos' : b.dataset.uso; renderUso(); });
 
 $('adminRefresh').onclick = () => { loadUsers(); loadUso(); };
+$('adminFundadores').onclick = async () => {
+  if (!await confirmar('Marcar como fundadoras todas as contas que têm acesso hoje?\n\nElas ficam sem mensalidade quando a cobrança começar. Dá para desmarcar uma a uma depois.')) return;
+  const { data, error } = await sb.rpc('admin_marcar_fundadores');
+  if (error) return toast(rpcMsg(error));
+  toast(`⭐ ${data} conta${data === 1 ? '' : 's'} marcada${data === 1 ? '' : 's'} como fundadora${data === 1 ? '' : 's'}.`, true);
+  loadUsers();
+};
 document.querySelectorAll('#adminSeg button').forEach(b => b.addEventListener('click', () => { adminFilter = b.dataset.filter; renderAdmin(); }));
 $('adminBusca').addEventListener('input', e => { adminBusca = e.target.value; renderAdmin(); });
 $('adminBusca').addEventListener('keydown', e => { if (e.key === 'Escape'){ e.target.value = ''; adminBusca = ''; renderAdmin(); } });
@@ -4179,6 +4187,13 @@ $('userRows').addEventListener('click', async e => {
     if (error) return toast(rpcMsg(error));
     toast(`Senha de ${b.dataset.email} redefinida. Peça para a pessoa trocar em "Trocar senha" ao entrar.`, true);
     return;
+  }
+  if (act === 'fundador'){
+    b.disabled = true;
+    ({ error } = await sb.rpc('admin_definir_fundador', { alvo: id, sim: b.dataset.sim === '1' }));
+    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+    toast(b.dataset.sim === '1' ? '⭐ Marcado como fundador.' : 'Não é mais fundador.', true);
+    return loadUsers();
   }
   if (act === 'excluir'){
     if (!await confirmar(`Excluir a conta ${b.dataset.email}?\n\nA pessoa perde o acesso e o "Meu controle" dela é apagado. Nos controles compartilhados, os lançamentos que ela fez continuam lá. Não dá para desfazer.`)) return;
