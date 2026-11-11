@@ -1,0 +1,24 @@
+# Mantém os bancos acordados: o Supabase grátis pausa depois de 7 dias sem uso.
+# Roda todo dia e chama uma função que só responde "ok" (não lê nem grava dados).
+name: Despertador do Supabase
+on:
+  schedule:
+    - cron: '23 10 * * *'   # todo dia, 07:23 no horário de Brasília
+  workflow_dispatch:        # botão "Run workflow" para testar na hora
+jobs:
+  despertar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chamar HMG e prod
+        run: |
+          falhou=0
+          for alvo in "HMG ocasqtkfzddskvguuwkr sb_publishable_2w23PbGgEhhWTQYUAf-erw_af2TTyku" \
+                      "PROD syffvgczgukoickcprni sb_publishable_r8xTsMwtJbJ64IVZP5-RBw_S53BVlkr"; do
+            set -- $alvo
+            codigo=$(curl -s -o resposta.txt -w '%{http_code}' -X POST \
+              "https://$2.supabase.co/rest/v1/rpc/despertar" \
+              -H "apikey: $3" -H "Content-Type: application/json" -d '{}')
+            echo "$1: HTTP $codigo $(cat resposta.txt)"
+            [ "$codigo" = "200" ] || falhou=1
+          done
+          exit $falhou
