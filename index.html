@@ -127,6 +127,41 @@
   .tag{display:inline-flex;align-items:center;font-size:11px;font-weight:600;letter-spacing:.02em;padding:3px 10px;border-radius:999px;white-space:nowrap}
   .tag-accent{background:var(--accent);color:var(--ink)}
   /* ===== Detetive Grana ===== */
+  .cmp-linha{flex-wrap:wrap;gap:8px}
+  #btnImp{white-space:nowrap;gap:6px}
+  #btnImp .imp-seta{transition:transform .2s}#btnImp[aria-expanded="true"] .imp-seta{transform:rotate(180deg)}
+  .imp{flex-basis:100%;background:var(--surface);border:1px solid var(--divider);border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:16px;text-align:left}
+  .imp[hidden]{display:none}
+  .imp-top{display:flex;align-items:center;gap:10px}
+  .imp-top .ic{width:32px;height:32px;border-radius:9px;background:rgba(var(--accent-rgb),.18);color:var(--accent-text);display:grid;place-items:center;flex:none}
+  .imp-top b{font-size:15px;font-weight:700;color:var(--text)}
+  .imp-tag{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--accent-text);background:rgba(var(--accent-rgb),.22);border-radius:999px;padding:3px 10px}
+  .imp-corpo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:28px;align-items:start}
+  .imp-total .k{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+  .imp-total .v{display:block;font-size:32px;font-weight:700;color:var(--text);line-height:1.05;letter-spacing:-.01em}
+  .imp-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .imp-chips span{font-size:12.5px;color:var(--text);background:rgba(var(--fg-rgb),.05);border-radius:999px;padding:5px 11px}
+  .imp-chips b{font-weight:700}
+  .imp-cats{display:flex;flex-direction:column;gap:12px;padding-left:28px;border-left:1px solid var(--divider)}
+  .imp-cats .k{font-size:13px;color:var(--muted)}
+  .imp-row{display:flex;flex-direction:column;gap:5px}
+  .imp-row .l{display:flex;align-items:baseline;gap:8px;font-size:14px;color:var(--text)}
+  .imp-row .l small{color:var(--muted);font-size:12px}
+  .imp-row .l b{margin-left:auto;font-weight:600;white-space:nowrap}
+  .imp-row .bar{height:6px;border-radius:99px;background:rgba(var(--accent-rgb),.18);overflow:hidden}
+  .imp-row .bar i{display:block;height:100%;background:var(--marca-q);border-radius:99px}
+  .imp-aviso{display:flex;gap:8px;font-size:12.5px;line-height:1.45;color:var(--muted);border-top:1px solid var(--divider);padding-top:12px}
+  .imp-aviso svg{flex:none;margin-top:2px}
+  .imp-aviso button{all:unset;cursor:pointer;color:var(--accent-text);font-weight:600;text-decoration:underline}
+  .imp-como{font-size:12.5px;color:var(--muted);line-height:1.5;margin:0;background:rgba(var(--fg-rgb),.03);border-radius:10px;padding:10px 12px}
+  .imp-como table{width:100%;border-collapse:collapse;margin-top:6px}.imp-como td{padding:4px 0;border-bottom:1px solid var(--divider)}.imp-como tr:last-child td{border-bottom:0}.imp-como td:last-child{text-align:right;font-weight:600;color:var(--text)}
+  @media (max-width:700px){.imp{padding:16px}.imp-corpo{grid-template-columns:1fr;gap:16px}.imp-cats{padding-left:0;border-left:0;padding-top:14px;border-top:1px solid var(--divider)}.imp-total .v{font-size:28px}}
+  .off-bar{position:fixed;top:0;left:0;right:0;z-index:45;padding:calc(env(safe-area-inset-top) + 8px) 16px 8px;background:#0e1525;color:#f6f0df;font-size:13px;font-weight:500;line-height:1.35;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.2)}
+  .off-bar.enviando{background:#fed13d;color:#1f1d1e}
+  #viewApp:has(#offBar:not([hidden])){padding-top:40px}
+  body:has(#offBar:not([hidden])) .hmg-tag{display:none}
+  @media (max-width:700px){.pend-tag{margin:0 0 4px}}
+  .pend-tag{display:inline-block;font-size:11.5px;font-weight:600;color:#8a6a00;background:rgba(254,209,61,.22);border-radius:999px;padding:2px 8px;margin-right:4px;vertical-align:middle}
   .bot-fab{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom) + 78px);z-index:29;width:58px;height:58px;padding:0;border:0;border-radius:50%;background:none;cursor:pointer;box-shadow:0 8px 22px rgba(14,21,37,.38);-webkit-tap-highlight-color:transparent;transition:transform .15s}
   .bot-fab:active{transform:scale(.92)}
   .bot-fab:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
@@ -855,10 +890,8 @@
 @media (min-width:900px){ .auth-head .auth-title{font-size:clamp(96px,8.6vw,128px)} }
 .auth-head .auth-title .hl{color:var(--accent);-webkit-text-stroke:2px #1f1d1e;paint-order:stroke fill;display:inline-block;transform:rotate(8deg) translateY(-2px);margin-left:2px}
 /* bot centralizado, em destaque */
-.nova-lista .feat-novo{grid-column:1/-1;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:18px 20px;border-radius:18px;background:rgba(var(--accent-rgb),.14);border:1.5px solid rgba(var(--accent-rgb),.55)}
-.nova-lista .feat-novo .ic{width:48px;height:48px;background:var(--accent);color:#1f1d1e}
-.nova-lista .feat-novo b{font-size:17px}
-.nova-lista .feat-novo span:not(.ic){font-size:14px}
+.nova-lista .feat-novo .ic-det{background:none;border-radius:50%}
+.nova-lista .feat-novo .ic-det svg{display:block}
 .nova-lista .novo{font-style:normal;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--accent);color:#1f1d1e;border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:2px}
 @media (min-width:600px){.auth-feats.nova-lista{grid-template-columns:1fr 1fr}}
 .nova-lista li{display:flex;gap:14px;align-items:flex-start}
@@ -983,6 +1016,7 @@
 
 <!-- ============ APP ============ -->
 <div id="viewApp" hidden>
+<div class="off-bar" id="offBar" role="status" aria-live="polite" hidden></div>
 <aside class="sidenav" aria-label="Navegação">
   <div class="side-brand"><img class="marca-img" src="logo/logo-simbolo.svg" alt="" width="44" height="44"><span class="marca-nome">Pra onde<br>foi<span class="q">?</span></span></div>
   <button class="side-item" type="button" data-tab="lanc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Lançamentos</button>
@@ -1066,7 +1100,7 @@
       <span class="note" id="expNote"></span>
     </div>
   </section>
-  <div class="cmp-linha"><button class="btn btn-secondary btn-sm" id="btnComparar" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Comparar meses</button></div>
+  <div class="cmp-linha"><button class="btn btn-secondary btn-sm" id="btnComparar" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Comparar meses</button><button class="btn btn-secondary btn-sm" id="btnImp" type="button" aria-expanded="false" aria-controls="impCard" hidden><span aria-hidden="true">🧾</span><span id="btnImpTxt">Impostos</span><svg class="imp-seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="imp" id="impCard" hidden></div></div>
 
   <section id="budget" hidden style="display:flex;flex-direction:column;gap:var(--space-2);">
     <div style="display:flex;justify-content:space-between;gap:var(--space-4);font-size:13px;">
@@ -1484,6 +1518,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="app.js?v=93"></script>
+<script src="app.js?v=98"></script>
 </body>
 </html>

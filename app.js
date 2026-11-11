@@ -68,6 +68,7 @@ const VIEWS = ['viewSetup','viewLoading','viewAuth','viewWait','viewApp','viewAd
 function show(v){ VIEWS.forEach(id => { $(id).hidden = id !== v; }); window.scrollTo(0,0); }
 let toastTimer;
 function toast(msg, ok){
+  if (!ok && !navigator.onLine && /carregar|conexão|internet/i.test(msg)) return;   // sem internet: a faixa do topo já explica
   $('toast').textContent = msg; $('toast').hidden = false;
   $('toast').classList.toggle('ok', !!ok);
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, 4500);
@@ -348,11 +349,13 @@ async function handleSession(session, force){
   currentUser = session.user;
   if ($('viewApp').hidden && $('viewAdmin').hidden) show('viewLoading');
 
+  if (!navigator.onLine && await abrirSemInternet()) return;   // modo avião: abre na hora com o que já tinha
   let { data, error } = await sb.from('perfis').select('id,email,status,is_admin,nome,foto,email_aviso,whatsapp,avisos').eq('id', currentUser.id).maybeSingle();
   perfilNovo = !error;
   if (error && (error.code === '42703' || /column/i.test(error.message || ''))){
     ({ data, error } = await sb.from('perfis').select('id,email,status,is_admin').eq('id', currentUser.id).maybeSingle());
   }
+  if (error && ehRede(error) && await abrirSemInternet()) return;
   if (error || !data){
     profile = null;
     return waitScreen('Algo não<br>carregou', error
@@ -382,6 +385,9 @@ async function handleSession(session, force){
   render();
   startRealtime();
   checarBot();
+  modoSemInternet = false;
+  gravarFoto();
+  enviarFila();
 }
 
 /* ======================= CONTROLES ======================= */
@@ -427,6 +433,7 @@ async function loadControles(){
 function selectControle(id){
   state.cid = id;
   try { localStorage.setItem(ctrlKey(), id); } catch(e){}
+  gravarFoto();
 }
 async function loadMembers(){
   if (!state.cid){ state.members = []; return; }
@@ -444,6 +451,7 @@ let loadSeq = 0;
 async function loadEntries(){
   const seq = ++loadSeq;
   if (!state.cid){ state.entries = []; return true; }
+  mesNaTela = '';
   const { y, m } = state;
   const start = `${y}-${pad(m+1)}-01`;
   const nd = new Date(y, m + 1, 1);
@@ -455,12 +463,19 @@ async function loadEntries(){
       .eq('controle_id', state.cid).gte('data', start).lt('data', end)
       .order('data', { ascending: false }).order('criado_em', { ascending: false })
       .range(from, from + PAGE - 1);
-    if (error){ toast('Não foi possível carregar os lançamentos.'); return false; }
+    if (error){
+      if (seq !== loadSeq) return false;
+      if (ehRede(error)){ state.entries = (lerCache(state.cid, y, m) || []).map(fromRow); mesNaTela = `${state.cid}|${y}-${m}`; juntarFila(); return true; }   // sem internet: o que já tinha aberto antes
+      toast('Não foi possível carregar os lançamentos.'); return false;
+    }
     all.push(...data);
     if (data.length < PAGE) break;
   }
   if (seq !== loadSeq) return false;           // o usuário já trocou de mês/controle
+  gravarCache(state.cid, y, m, all);
   state.entries = all.map(fromRow);
+  mesNaTela = `${state.cid}|${y}-${m}`;
+  juntarFila();
   return true;
 }
 async function fetchAllEntries(){
@@ -773,16 +788,177 @@ $('form').addEventListener('submit', async e => {
     return;
   }
   const entry = { type: state.type, desc, cat: $('cat').value, amount, date: $('date').value || todayISO() };
+  const id = novoId();   // o app cria o id: se o envio repetir, o banco recusa o 2º e nunca duplica
+  if (!navigator.onLine) return guardarSemInternet(id, entry);
   $('addBtn').disabled = true;
-  const { data, error } = await sb.from('lancamentos').insert({ ...toRow(entry), controle_id: state.cid }).select(COLS).single();
+  const { data, error } = await sb.from('lancamentos').insert({ ...toRow(entry), id, controle_id: state.cid }).select(COLS).single();
   $('addBtn').disabled = false;
-  if (error) return showError('Não foi possível salvar. Verifique a conexão e tente de novo.');
+  if (error && ehRede(error)) return guardarSemInternet(id, entry);
+  if (error) return showError('Não foi possível salvar. Tente de novo.');
   const [y,m] = entry.date.split('-').map(Number);
   $('desc').value = ''; $('amount').value = '';
   if (y === state.y && m - 1 === state.m){ state.entries.push(fromRow(data)); render(); }
   else { state.y = y; state.m = m - 1; await refresh(); }
   $('desc').focus();
 });
+
+
+/* ======================= SEM INTERNET =======================
+   Lançamento feito sem internet fica guardado neste celular (fila) e aparece na lista com ⏳.
+   Quando a conexão volta, o app envia sozinho. O id é criado aqui: se o envio repetir,
+   o banco recusa o repetido (23505) e nada duplica. O app também guarda uma "foto" da
+   conta e dos meses já abertos para conseguir abrir sem internet. */
+let modoSemInternet = false, enviandoFila = false, mesNaTela = '';
+const filaKey = () => `pof-fila-${currentUser ? currentUser.id : ''}`;
+const fotoKey = () => `pof-foto-${currentUser ? currentUser.id : ''}`;
+const cacheKey = () => `pof-cache-${currentUser ? currentUser.id : ''}`;
+function ehRede(err){
+  if (!navigator.onLine) return true;
+  const t = String((err && (err.message || err.details || err.name)) || err || '');
+  return /failed to fetch|network|load failed|fetch failed|timed? ?out|aborted/i.test(t);
+}
+function novoId(){
+  if (crypto.randomUUID) return crypto.randomUUID();
+  const b = crypto.getRandomValues(new Uint8Array(16)); b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+  const h = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;
+}
+function lerLS(k, padrao){ try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? padrao : v; } catch { return padrao; } }
+function gravarLS(k, v){ try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+const lerFila = () => { const f = lerLS(filaKey(), []); return Array.isArray(f) ? f : []; };
+const gravarFila = f => gravarLS(filaKey(), f.length ? f : null);
+// meses já abertos (os 6 mais recentes), para mostrar a lista sem internet
+function gravarCache(cid, y, m, rows){
+  if (!currentUser) return;
+  const c = lerLS(cacheKey(), {}), k = `${cid}|${y}-${m}`;
+  delete c[k]; c[k] = rows;
+  const ks = Object.keys(c); while (ks.length > 6) delete c[ks.shift()];
+  gravarLS(cacheKey(), c);
+}
+// guarda o mês que está na tela (sem os da fila), para abrir igual sem internet
+function cacheDaTela(){
+  if (!currentUser || !state.cid || mesNaTela !== `${state.cid}|${state.y}-${state.m}`) return;   // só o mês que já carregou
+  gravarCache(state.cid, state.y, state.m, state.entries.filter(e => !e.pend)
+    .map(e => ({ id: e.id, tipo: e.type, descricao: e.desc, categoria: e.cat, valor: e.amount, data: e.date, user_id: e.uid })));
+}
+const lerCache = (cid, y, m) => (lerLS(cacheKey(), {}) || {})[`${cid}|${y}-${m}`] || null;
+function gravarFoto(){
+  if (!currentUser || !profile || modoSemInternet) return;
+  gravarLS(fotoKey(), { profile, controles: state.controles, cid: state.cid, categorias, em: Date.now() });
+}
+// abre o app com a última foto (só se a conta já tinha aberto neste celular)
+async function abrirSemInternet(){
+  const f = lerLS(fotoKey(), null);
+  if (!f || !f.profile || f.profile.status !== 'aprovado' || f.profile.is_admin || !Array.isArray(f.controles) || !f.controles.length) return false;
+  modoSemInternet = true;
+  profile = f.profile; state.controles = f.controles; categorias = f.categorias || [];
+  state.cid = f.controles.some(c => c.id === f.cid) ? f.cid : f.controles[0].id;
+  renderMe();
+  await loadEntries();
+  fillCats(); show('viewApp'); render(); atualizarFaixa();
+  return true;
+}
+// mostra na lista do mês os lançamentos que ainda estão na fila
+function juntarFila(){
+  if (!currentUser) return;
+  const ids = new Set(state.entries.map(e => e.id));
+  for (const i of lerFila()){
+    if (i.controle_id !== state.cid || ids.has(i.id)) continue;
+    const [y, m] = i.row.data.split('-').map(Number);
+    if (y !== state.y || m - 1 !== state.m) continue;
+    state.entries.push({ ...fromRow({ ...i.row, id: i.id, user_id: currentUser.id }), pend: true });
+  }
+}
+function guardarSemInternet(id, entry){
+  const f = lerFila();
+  f.push({ id, controle_id: state.cid, row: toRow(entry), em: Date.now() });
+  gravarFila(f);
+  $('addBtn').disabled = false;
+  $('desc').value = ''; $('amount').value = '';
+  const [y, m] = entry.date.split('-').map(Number);
+  if (y === state.y && m - 1 === state.m){ state.entries.push({ ...entry, id, uid: currentUser.id, pend: true }); render(); }
+  atualizarFaixa();
+  toast('Sem internet: guardado no celular. Envio quando a conexão voltar ⏳', true);
+  $('desc').focus();
+}
+async function enviarFila(){
+  if (enviandoFila || !navigator.onLine || !currentUser || !profile) return atualizarFaixa();
+  if (modoSemInternet){ modoSemInternet = false; return handleSession((await sb.auth.getSession()).data.session, true); }   // abriu sem internet: carrega tudo de verdade
+  const fila = lerFila();
+  if (!fila.length) return atualizarFaixa();
+  enviandoFila = true; atualizarFaixa();
+  let enviados = 0, caiu = false;
+  for (const i of fila){
+    const { error } = await sb.from('lancamentos').insert({ ...i.row, id: i.id, controle_id: i.controle_id });
+    if (error && error.code !== '23505' && ehRede(error)){ caiu = true; break; }   // a internet caiu de novo: tenta depois
+    if (error && error.code !== '23505') toast(`Não deu para enviar "${i.row.descricao}": ${rpcMsg(error)}`);
+    else enviados++;
+    gravarFila(lerFila().filter(x => x.id !== i.id));
+  }
+  enviandoFila = false;
+  if (enviados){ toast(`${plural(enviados, 'lançamento')} guardado${enviados > 1 ? 's' : ''} sem internet ${enviados > 1 ? 'foram enviados' : 'foi enviado'} ✅`, true); await refresh(); }
+  atualizarFaixa();
+  if (caiu) setTimeout(enviarFila, 15000);
+}
+function atualizarFaixa(){
+  const bar = $('offBar'); if (!bar) return;
+  const n = currentUser ? lerFila().length : 0;
+  const off = !navigator.onLine || modoSemInternet;
+  bar.hidden = !(off || n);
+  bar.classList.toggle('enviando', !off);
+  bar.textContent = off
+    ? `Sem internet. Pode lançar normalmente: ${n ? `${plural(n, 'lançamento')} aguardando, ` : ''}envio quando a conexão voltar.`
+    : `Enviando ${plural(n, 'lançamento')} guardado${n > 1 ? 's' : ''} sem internet…`;
+}
+addEventListener('online', () => enviarFila());
+addEventListener('offline', () => atualizarFaixa());
+setInterval(() => { if (navigator.onLine && (modoSemInternet || lerFila().length)) enviarFila(); }, 30000);
+
+/* ======================= IMPOSTÔMETRO =======================
+   Estimativa do imposto embutido nos gastos do mês, por média de cada categoria.
+   É aproximado: o imposto real muda de produto para produto e de estado para estado.
+   Revisar as médias de tempos em tempos (reforma tributária muda as alíquotas até 2033). */
+// Médias com base nas tabelas do IBPT/Impostômetro (ex.: arroz/feijão 17%, carne 29%, higiene ~40%, luz 48%,
+// telefone 46%, água 24%, restaurante 32%, cinema 21%, ônibus 34%, remédio 34%, escola 26%).
+const IMPOSTO_CAT = { 'Mercado': .25, 'Lazer': .30, 'Contas': .40, 'Transporte': .35, 'Saúde': .30, 'Moradia': .07,
+  'Educação': .26, 'Cartão de crédito': .30, 'Outros': .27 };
+const IMPOSTO_PADRAO = .27;   // categorias criadas pela pessoa
+const IMPOSTO_FORA = new Set(['Metas']);   // guardar em meta não é gasto
+const impKey = () => `pof-imp-${currentUser ? currentUser.id : ''}`;
+let impComo = false;
+function renderImposto(month, inc){
+  const gastos = month.filter(e => e.type === 'exp' && !IMPOSTO_FORA.has(e.cat));
+  const btn = $('btnImp'), card = $('impCard');
+  if (!gastos.length){ btn.hidden = true; card.hidden = true; return; }
+  const por = {}; let tot = 0, gasto = 0;
+  for (const e of gastos){ const t = e.amount * (IMPOSTO_CAT[e.cat] ?? IMPOSTO_PADRAO); por[e.cat] = (por[e.cat] || 0) + t; tot += t; gasto += e.amount; }
+  const top = Object.entries(por).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  const max = top[0][1] || 1;
+  let aberto = false; try { aberto = localStorage.getItem(impKey()) === '1'; } catch {}
+  btn.hidden = false;
+  btn.setAttribute('aria-expanded', String(aberto));
+  $('btnImpTxt').textContent = `Impostos R$ ${Math.round(tot).toLocaleString('pt-BR')}`;
+  card.hidden = !aberto;
+  if (!aberto) return;
+  const usadas = [...new Set([...Object.keys(IMPOSTO_CAT), ...Object.keys(por)])].filter(c => por[c] != null);
+  const pct = Math.round(tot / gasto * 100);
+  card.innerHTML = `
+    <div class="imp-top"><span class="ic" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><b>Impostômetro</b><span class="imp-tag">Estimativa</span></div>
+    <div class="imp-corpo">
+      <div class="imp-total"><span class="k">Imposto embutido nos seus gastos de ${esc(MONTHS[state.m].toLowerCase())}</span><span class="v">${brl(tot)}</span>
+        <div class="imp-chips"><span><b>${pct}%</b> do que você gastou</span></div></div>
+      <div class="imp-cats"><span class="k">Onde mais pesou</span>${top.map(([c, v]) => `<div class="imp-row"><div class="l">${esc(rotuloCat(c))} <small title="Média de imposto da categoria">${Math.round((IMPOSTO_CAT[c] ?? IMPOSTO_PADRAO) * 100)}%</small><b>${brl(v)}</b></div><span class="bar"><i style="width:${Math.max(4, Math.round(v / max * 100))}%"></i></span></div>`).join('')}</div>
+    </div>
+    <div class="imp-aviso"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>Valor aproximado, calculado com médias por categoria. O imposto real muda de produto para produto e de estado para estado. <button type="button" id="impComoBtn" aria-expanded="${impComo}">Como calculamos?</button></span></div>
+    ${impComo ? `<div class="imp-como">Usamos a média de impostos (ICMS, PIS/Cofins, IPI, ISS…) que costuma vir no preço de cada tipo de gasto e multiplicamos pelo que você gastou em cada categoria. Não entra o imposto sobre o salário (IR e INSS).
+      <table>${usadas.map(c => `<tr><td>${esc(rotuloCat(c))}</td><td>${Math.round((IMPOSTO_CAT[c] ?? IMPOSTO_PADRAO) * 100)}%</td></tr>`).join('')}</table></div>` : ''}`;
+}
+$('btnImp').onclick = () => {
+  const abrir = $('btnImp').getAttribute('aria-expanded') !== 'true';
+  try { localStorage.setItem(impKey(), abrir ? '1' : '0'); } catch {}
+  render();
+};
+$('impCard').addEventListener('click', e => { if (e.target.closest('#impComoBtn')){ impComo = !impComo; render(); } });
 
 /* ======================= FILTRO ENTRADAS / SAÍDAS ======================= */
 state.filtro = null;
@@ -805,6 +981,10 @@ $('rows').addEventListener('click', async e => {
   if (!b) return;
   const id = b.dataset.del;
   const ent = state.entries.find(x => x.id === id);
+  if (ent && ent.pend){   // ainda não foi enviado: só tira da fila deste celular
+    if (!await confirmar(`Excluir "${ent.desc}"? Ele ainda não foi enviado.`)) return;
+    gravarFila(lerFila().filter(i => i.id !== id)); state.entries = state.entries.filter(x => x.id !== id); render(); atualizarFaixa(); return;
+  }
   if (ent && !await confirmar(`Excluir este lançamento?
 
 ${ent.desc} · ${ent.type === 'inc' ? '+' : '−'} ${brl(ent.amount)}`)) return;
@@ -995,6 +1175,7 @@ function renderCtrlBar(){
 }
 
 function render(){
+  cacheDaTela();
   const {entries, y, m} = state;
   const ym = `${y}-${pad(m+1)}`;
   const month = entries.filter(e => e.date.startsWith(ym)).sort((a,b) => b.date.localeCompare(a.date));
@@ -1004,6 +1185,7 @@ function render(){
   const bal = inc - exp;
   const shared = isShared();
 
+  renderImposto(month, inc);
   renderCtrlBar();
   $('mesLongo').textContent = `${MONTHS[m]} ${y}`;
   $('mesCurto').textContent = `${MONTHS[m].slice(0, 3)} ${y}`;
@@ -1050,7 +1232,7 @@ function render(){
       <td><span class="ldesc">${esc(e.desc)}</span>${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<div class="lmeta">${e.date.slice(8,10)}/${e.date.slice(5,7)} · ${esc(rotuloCat(e.cat))}${shared ? ` · ${mine ? 'você' : esc(nameOf(e.uid))}` : ''}</div><span class="tag cat-inline ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
       <td><span class="tag ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
       <td style="text-align:right;white-space:nowrap;font-weight:500;color:${e.type === 'inc' ? 'var(--green)' : 'var(--out)'};">${e.type === 'inc' ? '+ ' : '− '}${brl(e.amount)}</td>
-      <td style="text-align:right;white-space:nowrap;">${mine ? `<button class="btn btn-ghost btn-icon" data-edit="${esc(e.id)}" style="color:var(--muted);" aria-label="Editar ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</td>
+      <td style="text-align:right;white-space:nowrap;">${e.pend ? `<span class="pend-tag" title="Será enviado quando a internet voltar">⏳ aguardando</span><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : mine ? `<button class="btn btn-ghost btn-icon" data-edit="${esc(e.id)}" style="color:var(--muted);" aria-label="Editar ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</td>
     </tr>`;
   }).join('');
 

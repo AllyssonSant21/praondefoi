@@ -919,9 +919,11 @@ setInterval(() => { if (navigator.onLine && (modoSemInternet || lerFila().length
    Estimativa do imposto embutido nos gastos do mês, por média de cada categoria.
    É aproximado: o imposto real muda de produto para produto e de estado para estado.
    Revisar as médias de tempos em tempos (reforma tributária muda as alíquotas até 2033). */
-const IMPOSTO_CAT = { 'Mercado': .23, 'Lazer': .24, 'Contas': .33, 'Transporte': .35, 'Saúde': .30, 'Moradia': .07,
-  'Educação': .15, 'Cartão de crédito': .25, 'Outros': .25 };
-const IMPOSTO_PADRAO = .25;   // categorias criadas pela pessoa
+// Médias com base nas tabelas do IBPT/Impostômetro (ex.: arroz/feijão 17%, carne 29%, higiene ~40%, luz 48%,
+// telefone 46%, água 24%, restaurante 32%, cinema 21%, ônibus 34%, remédio 34%, escola 26%).
+const IMPOSTO_CAT = { 'Mercado': .25, 'Lazer': .30, 'Contas': .40, 'Transporte': .35, 'Saúde': .30, 'Moradia': .07,
+  'Educação': .26, 'Cartão de crédito': .30, 'Outros': .27 };
+const IMPOSTO_PADRAO = .27;   // categorias criadas pela pessoa
 const IMPOSTO_FORA = new Set(['Metas']);   // guardar em meta não é gasto
 const impKey = () => `pof-imp-${currentUser ? currentUser.id : ''}`;
 let impComo = false;
