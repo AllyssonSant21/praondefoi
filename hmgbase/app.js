@@ -3474,22 +3474,34 @@ const WA_BOT = '';   // número do bot no WhatsApp (só dígitos, com 55). Vazio
 const TG_BOT = 'praondefoi_teste_bot';   // usuário do bot no Telegram (sem @). Vazio: mostra "em breve"
 const BOT_LIGADO = true;   // o promover troca para false no prod enquanto o bot não for lançado
 let botDisponivel = false, botCodigo = '', botEspera = null;
-const botCardKey = () => `pof-botcard-${currentUser ? currentUser.id : ''}`;
+const DET_LOGO = (document.querySelector('#botFab .det-logo') || {}).outerHTML || '';
+const botFabKey = () => `pof-botfab-${currentUser ? currentUser.id : ''}`;
 const fmtCel = t => { const d = String(t || '').replace(/\D/g, '').replace(/^55/, ''); return d.length >= 10 ? `(${d.slice(0,2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : d; };
 const msgWa = cod => `Oi, Detetive Grana! 🕵️ Quero ativar meu bot. Código: ${cod.slice(0,3)} ${cod.slice(3)}`;
 
-// mostra o item do menu e o cartão da tela inicial (só se o banco tem o bot)
+// mostra o item do menu e a bolinha do Detetive (só se o banco tem o bot)
+let botBalTimer = null;
 async function checarBot(){
   if (!BOT_LIGADO) return;   // prod: o bot ainda não foi lançado
   const { data, error } = await sb.rpc('whatsapp_meu');
   botDisponivel = !error;
   $('drBot').hidden = !botDisponivel;
-  let fechado = false; try { fechado = localStorage.getItem(botCardKey()) === '1'; } catch {}
-  $('botCard').hidden = !botDisponivel || fechado || (data || []).length > 0;
+  $('botFab').hidden = !botDisponivel;
+  let visto = false; try { visto = localStorage.getItem(botFabKey()) === '1'; } catch {}
+  const novo = botDisponivel && !visto && !(data || []).length;
+  $('botFabNovo').hidden = !novo;
+  // na primeira vez, o balãozinho aparece uns segundos para explicar
+  clearTimeout(botBalTimer);
+  $('botFabBal').hidden = !novo;
+  if (novo) botBalTimer = setTimeout(() => { $('botFabBal').hidden = true; }, 7000);
 }
-$('drBot').addEventListener('click', () => { if (typeof closeDrawer === 'function') closeDrawer(); openBot(); });
-$('botCardAbrir').addEventListener('click', () => openBot());
-$('botCardFechar').addEventListener('click', () => { $('botCard').hidden = true; try { localStorage.setItem(botCardKey(), '1'); } catch {} });
+function botVisto(){
+  clearTimeout(botBalTimer);
+  $('botFabNovo').hidden = true; $('botFabBal').hidden = true;
+  try { localStorage.setItem(botFabKey(), '1'); } catch {}
+}
+$('drBot').addEventListener('click', () => { if (typeof closeDrawer === 'function') closeDrawer(); botVisto(); openBot(); });
+$('botFab').addEventListener('click', () => { botVisto(); openBot(); });
 
 function pararEspera(){ if (botEspera){ clearInterval(botEspera); botEspera = null; } }
 async function openBot(){
@@ -3504,7 +3516,6 @@ async function renderBot(){
   const v = (data || [])[0], atual = current();
   if (v){
     pararEspera(); botCodigo = '';
-    $('botCard').hidden = true;
     const tg = v.canal === 'telegram';
     const abrir = tg ? (TG_BOT ? `https://t.me/${TG_BOT}` : '') : (WA_BOT ? `https://wa.me/${WA_BOT}` : '');
     const outro = atual && atual.id !== v.controle_id;
@@ -3532,7 +3543,7 @@ async function renderBot(){
     ? `<a class="bot-opcao" style="--c:${cor}" href="${link}" target="_blank" rel="noopener" data-canal="${canal}"><span class="bot-opcao-ic">${ic}</span><span><b>${nome}</b><small>Abrir conversa e começar</small></span><span class="bot-seta" aria-hidden="true">›</span></a>`
     : `<div class="bot-opcao off" style="--c:${cor}"><span class="bot-opcao-ic">${ic}</span><span><b>${nome}</b><small>Chegando em breve</small></span><span class="tag tag-neutral">Em breve</span></div>`;
   $('dlg2Body').innerHTML = `
-    <div class="bot-topo"><span class="bot-emoji" aria-hidden="true">🕵️</span>
+    <div class="bot-topo">${DET_LOGO}
       <div><b>Comece a lançar por mensagem</b><span>Mande <b>mercado 50</b> ou <b>uber 23,90 ontem</b> e o Detetive anota em <b>${esc(atual ? atual.nome : 'Meu controle')}</b>.</span></div></div>
     <p class="bot-pergunta">Onde você quer conversar com ele?</p>
     <div class="bot-opcoes">
