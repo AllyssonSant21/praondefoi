@@ -915,6 +915,47 @@ addEventListener('online', () => enviarFila());
 addEventListener('offline', () => atualizarFaixa());
 setInterval(() => { if (navigator.onLine && (modoSemInternet || lerFila().length)) enviarFila(); }, 30000);
 
+/* ======================= IMPOSTÔMETRO =======================
+   Estimativa do imposto embutido nos gastos do mês, por média de cada categoria.
+   É aproximado: o imposto real muda de produto para produto e de estado para estado.
+   Revisar as médias de tempos em tempos (reforma tributária muda as alíquotas até 2033). */
+const IMPOSTO_CAT = { 'Mercado': .23, 'Lazer': .24, 'Contas': .33, 'Transporte': .35, 'Saúde': .30, 'Moradia': .07,
+  'Educação': .15, 'Cartão de crédito': .25, 'Outros': .25 };
+const IMPOSTO_PADRAO = .25;   // categorias criadas pela pessoa
+const IMPOSTO_FORA = new Set(['Metas']);   // guardar em meta não é gasto
+const impKey = () => `pof-imp-${currentUser ? currentUser.id : ''}`;
+let impComo = false;
+function renderImposto(month, inc){
+  const gastos = month.filter(e => e.type === 'exp' && !IMPOSTO_FORA.has(e.cat));
+  const btn = $('btnImp'), card = $('impCard');
+  if (!gastos.length){ btn.hidden = true; card.hidden = true; return; }
+  const por = {}; let tot = 0, gasto = 0;
+  for (const e of gastos){ const t = e.amount * (IMPOSTO_CAT[e.cat] ?? IMPOSTO_PADRAO); por[e.cat] = (por[e.cat] || 0) + t; tot += t; gasto += e.amount; }
+  const top = Object.entries(por).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  const max = top[0][1] || 1;
+  const dias = inc > 0 ? Math.max(1, Math.round(tot / inc * 30)) : 0;
+  let aberto = false; try { aberto = localStorage.getItem(impKey()) === '1'; } catch {}
+  btn.hidden = false;
+  btn.setAttribute('aria-expanded', String(aberto));
+  $('btnImpTxt').textContent = `Impostos ~R$ ${Math.round(tot).toLocaleString('pt-BR')}`;
+  card.hidden = !aberto;
+  if (!aberto) return;
+  const usadas = [...new Set([...Object.keys(IMPOSTO_CAT), ...Object.keys(por)])].filter(c => por[c] != null);
+  card.innerHTML = `
+    <div class="imp-top"><span aria-hidden="true">🧾</span> Impostômetro <span class="imp-tag">estimativa</span></div>
+    <div class="imp-big">~${brl(tot)}<small>de imposto embutido no que você gastou em ${esc(MONTHS[state.m].toLowerCase())} (≈${Math.round(tot / gasto * 100)}%)${dias ? ` · uns <b>${plural(dias, 'dia')}</b> de trabalho` : ''}</small></div>
+    <div class="imp-cats">${top.map(([c, v]) => `<div class="imp-row"><span>${esc(rotuloCat(c))}</span><span class="bar"><i style="width:${Math.max(4, Math.round(v / max * 100))}%"></i></span><span class="v">${brl(v)}</span></div>`).join('')}</div>
+    <div class="imp-aviso"><span aria-hidden="true">ⓘ</span><span>Valor aproximado, calculado com médias por categoria. O imposto real muda de produto para produto e de estado para estado. <button type="button" id="impComoBtn" aria-expanded="${impComo}">Como calculamos?</button></span></div>
+    ${impComo ? `<div class="imp-como">Usamos a média de impostos (ICMS, PIS/Cofins, IPI, ISS…) que costuma vir no preço de cada tipo de gasto e multiplicamos pelo que você gastou em cada categoria. Não entra o imposto sobre o salário (IR e INSS).
+      <table>${usadas.map(c => `<tr><td>${esc(rotuloCat(c))}</td><td>${Math.round((IMPOSTO_CAT[c] ?? IMPOSTO_PADRAO) * 100)}%</td></tr>`).join('')}</table></div>` : ''}`;
+}
+$('btnImp').onclick = () => {
+  const abrir = $('btnImp').getAttribute('aria-expanded') !== 'true';
+  try { localStorage.setItem(impKey(), abrir ? '1' : '0'); } catch {}
+  render();
+};
+$('impCard').addEventListener('click', e => { if (e.target.closest('#impComoBtn')){ impComo = !impComo; render(); } });
+
 /* ======================= FILTRO ENTRADAS / SAÍDAS ======================= */
 state.filtro = null;
 function toggleFiltro(f){ state.filtro = state.filtro === f ? null : f; render(); }
@@ -1140,6 +1181,7 @@ function render(){
   const bal = inc - exp;
   const shared = isShared();
 
+  renderImposto(month, inc);
   renderCtrlBar();
   $('mesLongo').textContent = `${MONTHS[m]} ${y}`;
   $('mesCurto').textContent = `${MONTHS[m].slice(0, 3)} ${y}`;
