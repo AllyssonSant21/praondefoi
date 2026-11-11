@@ -121,11 +121,11 @@ $('backLogin').onclick = async () => {
 
 function translateError(err){
   const msg = (err && (err.message || err.error_description)) || String(err);
-  if (/invalid login credentials/i.test(msg)) return 'Usuário ou senha incorretos.';
+  if (/invalid login credentials/i.test(msg)) return 'E-mail ou senha incorretos.';
   if (/captcha/i.test(msg)) return 'Não conseguimos confirmar que você não é um robô. Espere o quadrinho de verificação e tente de novo.';
   if (/not confirmed/i.test(msg)) return 'Confirme seu e-mail pelo link que enviamos antes de entrar.';
   if (/already registered|already been registered|already exists/i.test(msg)) return 'Esse usuário já existe. Use "Entrar" ou escolha outro nome.';
-  if (/email address .* invalid|invalid email/i.test(msg)) return 'Esse nome de usuário não foi aceito. Tente só letras e números.';
+  if (/email address .* invalid|invalid email/i.test(msg)) return 'Esse e-mail não foi aceito. Confira se digitou certinho.';
   if (/email rate limit/i.test(msg)) return 'Não conseguimos enviar o e-mail agora. Tente de novo em alguns minutos.';
   if (/rate limit|security purposes|too many/i.test(msg)) return 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo.';
   if (/should contain|weak|pwned|leaked|compromised/i.test(msg)) return 'Essa senha é fraca ou já apareceu em vazamentos. Escolha outra, misturando letras, números e símbolos.';
@@ -214,8 +214,9 @@ $('authForm').addEventListener('submit', async e => {
   e.preventDefault();
   const typed = $('authEmail').value.trim(), pass = $('authPass').value;
   const email = toLoginEmail(typed);
-  if (authMode !== 'nova' && !email)
-    return authMsg(typed.includes('@') ? 'Digite um e-mail válido.' : 'O usuário precisa ter de 3 a 30 caracteres, só letras, números, ponto, hífen ou _ (sem espaço nem acento).', 'err');
+  // acesso só com e-mail. (Quem já tinha conta com nome de usuário ainda consegue entrar.)
+  if (authMode !== 'nova' && (!email || (authMode !== 'entrar' && isUsernameLogin(email))))
+    return authMsg('Digite um e-mail válido, tipo maria@gmail.com.', 'err');
   if (authMode === 'esqueci' && isUsernameLogin(email))
     return authMsg('Contas com nome de usuário não recebem e-mail. Peça ao administrador uma senha temporária e depois troque em "Trocar senha".', 'err');
   // senha nova: mínimo 8. Para entrar, aceita as senhas antigas de 6 ou 7.
@@ -235,7 +236,7 @@ $('authForm').addEventListener('submit', async e => {
         // só senha errada conta para a trava (internet fora, servidor fora etc. não)
         if (/invalid login credentials/i.test(error.message || '')){
           const seg = senhaErrada(email);
-          authMsg(seg ? `Usuário ou senha incorretos. Espere ${seg >= 60 ? Math.round(seg / 60) + ' min' : seg + ' s'} para tentar de novo. Esqueceu? Use "Esqueci minha senha".` : 'Usuário ou senha incorretos.', 'err');
+          authMsg(seg ? `E-mail ou senha incorretos. Espere ${seg >= 60 ? Math.round(seg / 60) + ' min' : seg + ' s'} para tentar de novo. Esqueceu? Use "Esqueci minha senha".` : 'E-mail ou senha incorretos.', 'err');
           btn.disabled = false; aplicarTrava();
           return;
         }
