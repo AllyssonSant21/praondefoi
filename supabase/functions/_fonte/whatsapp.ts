@@ -71,7 +71,7 @@ if (Deno_?.serve) Deno_.serve(async (req: Request) => {
         const wa = String(m.from || '');
         if (!/^\d{8,15}$/.test(wa)) continue;
         try {
-          await tratar({ nome: 'WhatsApp', id: wa, msgId: String(m.id), fuso: fusoDoNumero(wa),
+          await tratar({ nome: 'WhatsApp', id: wa, msgId: String(m.id), fuso: fusoDoNumero(wa), enviadaEm: Number(m.timestamp),
                          texto: m.type === 'text' ? String(m.text?.body || '') : null,
                          enviar: (t: string) => enviarWa(wa, t) });
         } catch (err) { console.error('mensagem', err); }

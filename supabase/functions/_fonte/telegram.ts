@@ -74,7 +74,7 @@ if (Deno_?.serve) Deno_.serve(async (req: Request) => {
     if (m && m.chat?.type === 'private' && m.from && !m.from.is_bot) {
       const chat = Number(m.chat.id);
       await tratar({ nome: 'Telegram', id: 'tg' + String(m.from.id), msgId: 'tg' + String(u.update_id),
-                     fuso: env('BOT_FUSO') || 'America/Sao_Paulo',
+                     fuso: env('BOT_FUSO') || 'America/Sao_Paulo', enviadaEm: Number(m.date),
                      texto: typeof m.text === 'string' ? m.text : null,
                      enviar: (t: string) => enviarTg(chat, t) });
     }

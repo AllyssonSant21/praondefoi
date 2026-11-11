@@ -550,8 +550,18 @@ export type Canal = {
   msgId: string;                         // id único da mensagem (evita lançar 2x)
   texto: string | null;                  // null = não é texto (áudio, foto…)
   fuso: string;
+  enviadaEm?: number;                    // quando a pessoa escreveu (segundos, do Telegram/WhatsApp)
   enviar: (texto: string) => Promise<void>;
 };
+
+// a data vale pelo momento em que a pessoa ESCREVEU, não quando chegou: sem internet às 23h50,
+// a mensagem pode chegar só depois da meia-noite. Horário estranho (futuro ou mais de 7 dias) → agora.
+export function momentoDaMensagem(enviadaEm?: number, agora = new Date()): Date {
+  const t = Number(enviadaEm) * 1000;
+  if (!Number.isFinite(t) || t <= 0) return agora;
+  if (t > agora.getTime() + 5 * 60_000 || t < agora.getTime() - 7 * 86_400_000) return agora;
+  return new Date(t);
+}
 
 // texto curto do que o bot entendeu (para confirmar)
 function resumoLanc(ls: Lanc[], hoje: string) {
@@ -567,7 +577,7 @@ export async function tratar(c: Canal) {
   let texto = c.texto.slice(0, 1000).trim().replace(/^\/(\w+)(@\w+)?/, (_m, cmd) => cmd.toLowerCase() === 'start' ? '' : cmd).trim();
   if (!texto) texto = 'ajuda';
 
-  const hoje = hojeEm(c.fuso);
+  const hoje = hojeEm(c.fuso, momentoDaMensagem(c.enviadaEm));
   const ctx = await rpc('bot_contexto', { p_wa: c.id });
   const cats = ctx?.categorias || [], dic: Dic = ctx?.dicionario || [];
   const aprender = env('BOT_APRENDER') === '1';

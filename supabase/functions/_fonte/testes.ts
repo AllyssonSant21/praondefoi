@@ -1,6 +1,6 @@
 // Testes do entendimento do bot. Rodar: node --experimental-strip-types _fonte/testes.ts
 // Toda frase que já funcionou entra aqui, para nenhuma mudança quebrar o que dava certo.
-import { entender, completarPendente, acharConta } from './nucleo.ts';
+import { entender, completarPendente, acharConta, momentoDaMensagem, hojeEm } from './nucleo.ts';
 
 const H = '2026-11-10';   // terça
 const cats = [{ nome: 'Pet', tipo: 'exp' }];
@@ -94,6 +94,11 @@ const extras: [unknown, unknown][] = [
   [completarPendente({ texto: 'luz 180 vence', falta: 'dia' }, '20'), 'luz 180 vence dia 20'],
   [completarPendente({ texto: 'add conta de luz', falta: 'valor' }, 'foi 200 , vai vencer dia 20 /11'), 'add conta de luz foi 200 , vai vencer dia 20 /11'],
   [completarPendente({ texto: 'add conta de luz', falta: 'valor' }, 'mercado 50'), null],
+  // escrita 23h50 de 10/11 em Cuiabá (03:50 UTC de 11/11), chegou 00h10 de 11/11 → vale 10/11
+  [hojeEm('America/Cuiaba', momentoDaMensagem(Date.UTC(2026, 10, 11, 3, 50) / 1000, new Date(Date.UTC(2026, 10, 11, 4, 10)))), '2026-11-10'],
+  [hojeEm('America/Cuiaba', momentoDaMensagem(undefined, new Date(Date.UTC(2026, 10, 11, 4, 10)))), '2026-11-11'],
+  [momentoDaMensagem(Date.UTC(2026, 10, 20) / 1000, new Date(Date.UTC(2026, 10, 11))).toISOString(), '2026-11-11T00:00:00.000Z'],
+  [momentoDaMensagem(Date.UTC(2026, 9, 1) / 1000, new Date(Date.UTC(2026, 10, 11))).toISOString(), '2026-11-11T00:00:00.000Z'],
   [acharConta('luz', [{ id: '1', nome: 'Conta de luz', mes: '2026-11-01', falta: 180 }, { id: '2', nome: 'Água', mes: '2026-11-01', falta: 80 }]).map(x => x.nome).join(), 'Conta de luz'],
 ];
 for (const [obt, esp] of extras) if (obt !== esp) { falhas++; console.log(`✗ extra: esperado ${esp} · obtido ${obt}`); }
