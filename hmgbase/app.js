@@ -3494,7 +3494,7 @@ $('botCardFechar').addEventListener('click', () => { $('botCard').hidden = true;
 function pararEspera(){ if (botEspera){ clearInterval(botEspera); botEspera = null; } }
 async function openBot(){
   pararEspera();
-  openDlg2('Assistente', 'Detetive Grana', '<p class="hint" style="margin:0;">Carregando…</p>', { tipo: 'bot' });
+  openDlg2('Novo', 'Detetive Grana', '<p class="hint" style="margin:0;">Carregando…</p>', { tipo: 'bot' });
   await renderBot();
 }
 async function renderBot(){
@@ -3524,39 +3524,25 @@ async function renderBot(){
     botCodigo = String(g.data);
   }
   const cod = botCodigo;
+  const linkTg = TG_BOT ? `https://t.me/${TG_BOT}?start=${cod}` : '';
+  const linkWa = WA_BOT ? `https://wa.me/${WA_BOT}?text=${encodeURIComponent(msgWa(cod))}` : '';
+  const icTg = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4 3 11l6 2.5M21 4l-4 16-8-6.5M21 4 9 13.5V19l3-3.5"/></svg>';
+  const icWa = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4.1A8 8 0 1 1 20 11.5z"/><path d="M9 9.5c.3 1.6 1.9 3.6 3.6 4.3l1.3-1 1.6.7c-.2 1-1 1.6-2 1.5A6.5 6.5 0 0 1 8 10.5c0-1 .6-1.8 1.6-2l.7 1.6z"/></svg>';
+  const opcao = (canal, nome, link, ic, cor) => link
+    ? `<a class="bot-opcao" style="--c:${cor}" href="${link}" target="_blank" rel="noopener" data-canal="${canal}"><span class="bot-opcao-ic">${ic}</span><span><b>${nome}</b><small>Abrir conversa e começar</small></span><span class="bot-seta" aria-hidden="true">›</span></a>`
+    : `<div class="bot-opcao off" style="--c:${cor}"><span class="bot-opcao-ic">${ic}</span><span><b>${nome}</b><small>Chegando em breve</small></span><span class="tag tag-neutral">Em breve</span></div>`;
   $('dlg2Body').innerHTML = `
-    <p style="margin:0;font-size:15px;">🕵️ Mande seus gastos por mensagem, do seu jeito (<b>mercado 50</b>, <b>uber 23,90 ontem</b>), e o Detetive anota em <b>${esc(atual ? atual.nome : 'Meu controle')}</b>.</p>
-    <p class="hint" style="margin:0;">Ele ainda está aprendendo 🌱 Se errar, é só corrigir na conversa.</p>
-    <div class="bot-canal">
-      <h4>Telegram</h4>
-      ${TG_BOT ? `<p class="hint" style="margin:0;">Toque no botão e depois em <b>Iniciar</b>. Pronto.</p>
-      <a class="btn btn-primary" href="https://t.me/${TG_BOT}?start=${cod}" target="_blank" rel="noopener">Conectar Telegram</a>`
-      : '<p class="hint" style="margin:0;">Em breve.</p>'}
+    <div class="bot-topo"><span class="bot-emoji" aria-hidden="true">🕵️</span>
+      <div><b>Comece a lançar por mensagem</b><span>Mande <b>mercado 50</b> ou <b>uber 23,90 ontem</b> e o Detetive anota em <b>${esc(atual ? atual.nome : 'Meu controle')}</b>.</span></div></div>
+    <p class="bot-pergunta">Onde você quer conversar com ele?</p>
+    <div class="bot-opcoes">
+      ${opcao('telegram', 'Telegram', linkTg, icTg, '#2a9fd8')}
+      ${opcao('whatsapp', 'WhatsApp', linkWa, icWa, '#1fa855')}
     </div>
-    <div class="bot-canal">
-      <h4>WhatsApp</h4>
-      ${WA_BOT ? `<p class="hint" style="margin:0;">Digite o seu celular, toque no botão e só envie a mensagem que aparecer pronta.</p>
-      <input class="input" id="botCel" type="tel" inputmode="tel" autocomplete="tel" placeholder="(65) 99999-9999">
-      <a class="btn btn-primary" id="botWa" href="#" aria-disabled="true" style="opacity:.5;pointer-events:none;" target="_blank" rel="noopener">Abrir conversa no WhatsApp</a>
-      <p class="hint" style="margin:0;font-size:12px;">O celular só serve pra ligar o Detetive à sua conta. Ninguém vê, e ele some quando você desligar.</p>`
-      : '<p class="hint" style="margin:0;">Em breve. Enquanto isso, use pelo Telegram.</p>'}
-    </div>
-    <p class="hint" style="margin:0;font-size:12px;">Depois de enviar, volte aqui: esta tela atualiza sozinha.</p>`;
-  if (WA_BOT){
-    let t = null;
-    $('botCel').addEventListener('input', () => {
-      const a = $('botWa'); a.style.opacity = '.5'; a.style.pointerEvents = 'none'; a.setAttribute('aria-disabled', 'true');
-      clearTimeout(t);
-      const dig = $('botCel').value.replace(/\D/g, '');
-      if (dig.length < 10) return;
-      t = setTimeout(async () => {
-        const r = await sb.rpc('whatsapp_definir_telefone', { p_tel: $('botCel').value });
-        if (r.error) return toast(rpcMsg(r.error));
-        a.href = `https://wa.me/${WA_BOT}?text=${encodeURIComponent(msgWa(cod))}`;
-        a.style.opacity = ''; a.style.pointerEvents = ''; a.removeAttribute('aria-disabled');
-      }, 500);
-    });
-  }
+    <p class="hint" id="botEspera" style="margin:0;font-size:12.5px;">É só tocar, e na conversa tocar em <b>Iniciar</b> ou <b>Enviar</b>. Esta tela avisa sozinha quando conectar.</p>`;
+  $('dlg2Body').querySelectorAll('a.bot-opcao').forEach(a => a.addEventListener('click', () => {
+    $('botEspera').innerHTML = `<span class="bot-girando" aria-hidden="true"></span> Esperando sua mensagem no <b>${a.dataset.canal === 'telegram' ? 'Telegram' : 'WhatsApp'}</b>… Se não abriu, toque de novo.`;
+  }));
   // fica conferindo se a pessoa já mandou a mensagem (até 5 minutos)
   if (!botEspera){
     let n = 0;
