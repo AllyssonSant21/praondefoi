@@ -3472,6 +3472,7 @@ async function openPerfil(){
 /* ---------- Detetive Grana (bot do WhatsApp e do Telegram) ---------- */
 const WA_BOT = '';   // número do bot no WhatsApp (só dígitos, com 55). Vazio: mostra "em breve"
 const TG_BOT = 'praondefoi_teste_bot';   // usuário do bot no Telegram (sem @). Vazio: mostra "em breve"
+const BOT_LIGADO = true;   // o promover troca para false no prod enquanto o bot não for lançado
 let botDisponivel = false, botCodigo = '', botEspera = null;
 const botCardKey = () => `pof-botcard-${currentUser ? currentUser.id : ''}`;
 const fmtCel = t => { const d = String(t || '').replace(/\D/g, '').replace(/^55/, ''); return d.length >= 10 ? `(${d.slice(0,2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : d; };
@@ -3479,6 +3480,7 @@ const msgWa = cod => `Oi, Detetive Grana! 🕵️ Quero ativar meu bot. Código:
 
 // mostra o item do menu e o cartão da tela inicial (só se o banco tem o bot)
 async function checarBot(){
+  if (!BOT_LIGADO) return;   // prod: o bot ainda não foi lançado
   const { data, error } = await sb.rpc('whatsapp_meu');
   botDisponivel = !error;
   $('drBot').hidden = !botDisponivel;

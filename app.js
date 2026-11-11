@@ -120,11 +120,11 @@ $('backLogin').onclick = async () => {
 
 function translateError(err){
   const msg = (err && (err.message || err.error_description)) || String(err);
-  if (/invalid login credentials/i.test(msg)) return 'Usuário ou senha incorretos.';
+  if (/invalid login credentials/i.test(msg)) return 'E-mail ou senha incorretos.';
   if (/captcha/i.test(msg)) return 'Não conseguimos confirmar que você não é um robô. Espere o quadrinho de verificação e tente de novo.';
   if (/not confirmed/i.test(msg)) return 'Confirme seu e-mail pelo link que enviamos antes de entrar.';
   if (/already registered|already been registered|already exists/i.test(msg)) return 'Esse usuário já existe. Use "Entrar" ou escolha outro nome.';
-  if (/email address .* invalid|invalid email/i.test(msg)) return 'Esse nome de usuário não foi aceito. Tente só letras e números.';
+  if (/email address .* invalid|invalid email/i.test(msg)) return 'Esse e-mail não foi aceito. Confira se digitou certinho.';
   if (/email rate limit/i.test(msg)) return 'Não conseguimos enviar o e-mail agora. Tente de novo em alguns minutos.';
   if (/rate limit|security purposes|too many/i.test(msg)) return 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo.';
   if (/should contain|weak|pwned|leaked|compromised/i.test(msg)) return 'Essa senha é fraca ou já apareceu em vazamentos. Escolha outra, misturando letras, números e símbolos.';
@@ -213,8 +213,9 @@ $('authForm').addEventListener('submit', async e => {
   e.preventDefault();
   const typed = $('authEmail').value.trim(), pass = $('authPass').value;
   const email = toLoginEmail(typed);
-  if (authMode !== 'nova' && !email)
-    return authMsg(typed.includes('@') ? 'Digite um e-mail válido.' : 'O usuário precisa ter de 3 a 30 caracteres, só letras, números, ponto, hífen ou _ (sem espaço nem acento).', 'err');
+  // acesso só com e-mail. (Quem já tinha conta com nome de usuário ainda consegue entrar.)
+  if (authMode !== 'nova' && (!email || (authMode !== 'entrar' && isUsernameLogin(email))))
+    return authMsg('Digite um e-mail válido, tipo maria@gmail.com.', 'err');
   if (authMode === 'esqueci' && isUsernameLogin(email))
     return authMsg('Contas com nome de usuário não recebem e-mail. Peça ao administrador uma senha temporária e depois troque em "Trocar senha".', 'err');
   // senha nova: mínimo 8. Para entrar, aceita as senhas antigas de 6 ou 7.
@@ -234,7 +235,7 @@ $('authForm').addEventListener('submit', async e => {
         // só senha errada conta para a trava (internet fora, servidor fora etc. não)
         if (/invalid login credentials/i.test(error.message || '')){
           const seg = senhaErrada(email);
-          authMsg(seg ? `Usuário ou senha incorretos. Espere ${seg >= 60 ? Math.round(seg / 60) + ' min' : seg + ' s'} para tentar de novo. Esqueceu? Use "Esqueci minha senha".` : 'Usuário ou senha incorretos.', 'err');
+          authMsg(seg ? `E-mail ou senha incorretos. Espere ${seg >= 60 ? Math.round(seg / 60) + ' min' : seg + ' s'} para tentar de novo. Esqueceu? Use "Esqueci minha senha".` : 'E-mail ou senha incorretos.', 'err');
           btn.disabled = false; aplicarTrava();
           return;
         }
@@ -243,6 +244,10 @@ $('authForm').addEventListener('submit', async e => {
       senhaCerta(email);
     } else if (authMode === 'criar'){
       const { data, error } = await sb.auth.signUp({ email, password: pass, options: { emailRedirectTo: REDIRECT, ...cap } });
+      if (error && /database error saving new user|convidad/i.test(error.message || '')){
+        authMsg('Este ambiente é só para testes de pessoas convidadas.', 'err');
+        return;
+      }
       if (error) throw error;
       if (!data.session){
         setAuthMode('entrar');
@@ -376,6 +381,7 @@ async function handleSession(session, force){
   show('viewApp');
   render();
   startRealtime();
+  checarBot();
 }
 
 /* ======================= CONTROLES ======================= */
@@ -1354,7 +1360,7 @@ function openDlg2(kicker, title, html, ctx){
   $('dlg2').hidden = false;
   dlg2 = ctx || {};
 }
-function closeDlg2(){ $('dlg2').hidden = true; dlg2 = {}; }
+function closeDlg2(){ $('dlg2').hidden = true; dlg2 = {}; if (typeof pararEspera === 'function') pararEspera(); }
 $('dlg2Close').onclick = closeDlg2;
 // com uma janela aberta, a tela de trás não rola junto
 const travaFundo = () => document.documentElement.classList.toggle('travado', !$('dlg').hidden || !$('dlg2').hidden || !$('drawer').hidden || !$('dlgConf').hidden);
@@ -3439,6 +3445,11 @@ async function openPerfil(){
       <p class="hint" style="margin:-6px 0 0;">Os avisos por e-mail começam a sair quando o domínio do app estiver pronto.</p>
       <button class="btn btn-primary" type="submit" id="pfSalvar" style="min-height:44px;">Salvar</button>
     </form>
+    <div class="dlg-sec" id="pfBot" style="border-top:1px solid var(--divider);padding-top:14px;" hidden>
+      <h3>🕵️ Detetive Grana <span class="tag tag-neutral">teste</span></h3>
+      <p class="hint" style="margin:0 0 10px;">Lance gastos mandando mensagem no WhatsApp ou Telegram.</p>
+      <button class="btn btn-secondary btn-sm" type="button" data-act="pfBotAbrir">Abrir Detetive Grana</button>
+    </div>
     <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
       <h3>Formas de entrar</h3>
       <div class="person"><span>Usuário e senha</span>${temSenha ? '<span class="tag tag-neutral">Ativo</span>' : '<span class="by" style="margin:0;">não usa</span>'}</div>
@@ -3454,7 +3465,109 @@ async function openPerfil(){
         <button class="btn btn-danger btn-sm" type="button" data-act="pfExcluir">Excluir minha conta</button>
       </div>
     </div>`, { tipo: 'perfil' });
+  if (botDisponivel) $('pfBot').hidden = false;
 }
+
+/* ---------- Detetive Grana (bot do WhatsApp e do Telegram) ---------- */
+const WA_BOT = '';   // número do bot no WhatsApp (só dígitos, com 55). Vazio: mostra "em breve"
+const TG_BOT = 'praondefoi_teste_bot';   // usuário do bot no Telegram (sem @). Vazio: mostra "em breve"
+const BOT_LIGADO = false;   // o promover troca para false no prod enquanto o bot não for lançado
+let botDisponivel = false, botCodigo = '', botEspera = null;
+const botCardKey = () => `pof-botcard-${currentUser ? currentUser.id : ''}`;
+const fmtCel = t => { const d = String(t || '').replace(/\D/g, '').replace(/^55/, ''); return d.length >= 10 ? `(${d.slice(0,2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : d; };
+const msgWa = cod => `Oi, Detetive Grana! 🕵️ Quero ativar meu bot. Código: ${cod.slice(0,3)} ${cod.slice(3)}`;
+
+// mostra o item do menu e o cartão da tela inicial (só se o banco tem o bot)
+async function checarBot(){
+  if (!BOT_LIGADO) return;   // prod: o bot ainda não foi lançado
+  const { data, error } = await sb.rpc('whatsapp_meu');
+  botDisponivel = !error;
+  $('drBot').hidden = !botDisponivel;
+  let fechado = false; try { fechado = localStorage.getItem(botCardKey()) === '1'; } catch {}
+  $('botCard').hidden = !botDisponivel || fechado || (data || []).length > 0;
+}
+$('drBot').addEventListener('click', () => { if (typeof closeDrawer === 'function') closeDrawer(); openBot(); });
+$('botCardAbrir').addEventListener('click', () => openBot());
+$('botCardFechar').addEventListener('click', () => { $('botCard').hidden = true; try { localStorage.setItem(botCardKey(), '1'); } catch {} });
+
+function pararEspera(){ if (botEspera){ clearInterval(botEspera); botEspera = null; } }
+async function openBot(){
+  pararEspera();
+  openDlg2('Assistente', 'Detetive Grana', '<p class="hint" style="margin:0;">Carregando…</p>', { tipo: 'bot' });
+  await renderBot();
+}
+async function renderBot(){
+  if (dlg2.tipo !== 'bot') return pararEspera();
+  const { data, error } = await sb.rpc('whatsapp_meu');
+  if (error){ $('dlg2Body').innerHTML = '<p class="hint" style="margin:0;">O Detetive Grana ainda não está disponível.</p>'; return; }
+  const v = (data || [])[0], atual = current();
+  if (v){
+    pararEspera(); botCodigo = '';
+    $('botCard').hidden = true;
+    const tg = v.canal === 'telegram';
+    const abrir = tg ? (TG_BOT ? `https://t.me/${TG_BOT}` : '') : (WA_BOT ? `https://wa.me/${WA_BOT}` : '');
+    const outro = atual && atual.id !== v.controle_id;
+    $('dlg2Body').innerHTML = `
+      <p style="margin:0;font-size:15px;">✅ Conectado ${tg ? 'ao seu <b>Telegram</b>' : `ao WhatsApp com final <b>${esc(v.final || '')}</b>`}.</p>
+      <p class="hint" style="margin:0;">O Detetive anota tudo em <b>${esc(v.controle_nome || 'Meu controle')}</b>. Mande <b>ajuda</b> pra ele quando quiser ver o que ele sabe fazer.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${abrir ? `<a class="btn btn-primary btn-sm" href="${abrir}" target="_blank" rel="noopener">Abrir conversa</a>` : ''}
+        ${outro ? `<button class="btn btn-secondary btn-sm" type="button" data-act="botCtl">Anotar em "${esc(atual.nome)}"</button>` : ''}
+        <button class="btn btn-ghost btn-sm" type="button" data-act="botDesligar">Desligar</button>
+      </div>`;
+    return;
+  }
+  if (!botCodigo){
+    const g = await sb.rpc('whatsapp_gerar_codigo', { cid: state.cid });
+    if (g.error){ $('dlg2Body').innerHTML = `<p class="hint" style="margin:0;">${esc(rpcMsg(g.error))}</p>`; return; }
+    botCodigo = String(g.data);
+  }
+  const cod = botCodigo;
+  $('dlg2Body').innerHTML = `
+    <p style="margin:0;font-size:15px;">🕵️ Mande seus gastos por mensagem, do seu jeito (<b>mercado 50</b>, <b>uber 23,90 ontem</b>), e o Detetive anota em <b>${esc(atual ? atual.nome : 'Meu controle')}</b>.</p>
+    <p class="hint" style="margin:0;">Ele ainda está aprendendo 🌱 Se errar, é só corrigir na conversa.</p>
+    <div class="bot-canal">
+      <h4>Telegram</h4>
+      ${TG_BOT ? `<p class="hint" style="margin:0;">Toque no botão e depois em <b>Iniciar</b>. Pronto.</p>
+      <a class="btn btn-primary" href="https://t.me/${TG_BOT}?start=${cod}" target="_blank" rel="noopener">Conectar Telegram</a>`
+      : '<p class="hint" style="margin:0;">Em breve.</p>'}
+    </div>
+    <div class="bot-canal">
+      <h4>WhatsApp</h4>
+      ${WA_BOT ? `<p class="hint" style="margin:0;">Digite o seu celular, toque no botão e só envie a mensagem que aparecer pronta.</p>
+      <input class="input" id="botCel" type="tel" inputmode="tel" autocomplete="tel" placeholder="(65) 99999-9999">
+      <a class="btn btn-primary" id="botWa" href="#" aria-disabled="true" style="opacity:.5;pointer-events:none;" target="_blank" rel="noopener">Abrir conversa no WhatsApp</a>
+      <p class="hint" style="margin:0;font-size:12px;">O celular só serve pra ligar o Detetive à sua conta. Ninguém vê, e ele some quando você desligar.</p>`
+      : '<p class="hint" style="margin:0;">Em breve. Enquanto isso, use pelo Telegram.</p>'}
+    </div>
+    <p class="hint" style="margin:0;font-size:12px;">Depois de enviar, volte aqui: esta tela atualiza sozinha.</p>`;
+  if (WA_BOT){
+    let t = null;
+    $('botCel').addEventListener('input', () => {
+      const a = $('botWa'); a.style.opacity = '.5'; a.style.pointerEvents = 'none'; a.setAttribute('aria-disabled', 'true');
+      clearTimeout(t);
+      const dig = $('botCel').value.replace(/\D/g, '');
+      if (dig.length < 10) return;
+      t = setTimeout(async () => {
+        const r = await sb.rpc('whatsapp_definir_telefone', { p_tel: $('botCel').value });
+        if (r.error) return toast(rpcMsg(r.error));
+        a.href = `https://wa.me/${WA_BOT}?text=${encodeURIComponent(msgWa(cod))}`;
+        a.style.opacity = ''; a.style.pointerEvents = ''; a.removeAttribute('aria-disabled');
+      }, 500);
+    });
+  }
+  // fica conferindo se a pessoa já mandou a mensagem (até 5 minutos)
+  if (!botEspera){
+    let n = 0;
+    botEspera = setInterval(async () => {
+      if (dlg2.tipo !== 'bot' || $('dlg2').hidden || ++n > 100) return pararEspera();
+      const { data } = await sb.rpc('whatsapp_meu');
+      if ((data || []).length){ pararEspera(); toast('🕵️ Detetive Grana conectado!', true); renderBot(); }
+    }, 3000);
+  }
+}
+
+
 
 $('dlg2Body').addEventListener('change', async e => {
   if (e.target.id !== 'pfFile' || !e.target.files || !e.target.files[0]) return;
@@ -3471,7 +3584,7 @@ $('dlg2Body').addEventListener('change', async e => {
 });
 
 $('dlg2Body').addEventListener('click', async e => {
-  const b = e.target.closest('[data-act^="pf"]');
+  const b = e.target.closest('[data-act^="pf"], [data-act^="bot"]');
   if (!b) return;
   if (b.dataset.act === 'pfRemover'){
     const { error } = await sb.rpc('salvar_foto', { p_foto: null });
@@ -3479,6 +3592,22 @@ $('dlg2Body').addEventListener('click', async e => {
     profile.foto = null; renderMe(); await loadMembers(); render(); openPerfil();
   }
   if (b.dataset.act === 'pfBaixar'){ $('export').click(); return; }
+  if (b.dataset.act === 'pfBotAbrir'){ openBot(); return; }
+  if (b.dataset.act === 'botCtl'){
+    b.disabled = true;
+    const { error } = await sb.rpc('whatsapp_definir_controle', { cid: state.cid });
+    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+    toast('Pronto, o Detetive vai anotar neste controle.', true);
+    return renderBot();
+  }
+  if (b.dataset.act === 'botDesligar'){
+    b.disabled = true;
+    const { error } = await sb.rpc('whatsapp_desligar');
+    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+    toast('Detetive Grana desligado da sua conta.', true);
+    botCodigo = '';
+    return renderBot();
+  }
   if (b.dataset.act === 'pfExcluir'){
     const t = await pedirTexto('Excluir minha conta',
       'Isso apaga de vez o seu perfil, a sua foto e o "Meu controle" com tudo dentro. Nos controles que você divide, eles passam para outra pessoa e os seus lançamentos ficam lá sem o seu nome. Não dá para desfazer.\n\nSe quiser, baixe seus dados antes.',
