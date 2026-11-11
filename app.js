@@ -215,7 +215,7 @@ $('authForm').addEventListener('submit', async e => {
   const email = toLoginEmail(typed);
   // acesso só com e-mail. (Quem já tinha conta com nome de usuário ainda consegue entrar.)
   if (authMode !== 'nova' && (!email || (authMode !== 'entrar' && isUsernameLogin(email))))
-    return authMsg('Digite um e-mail válido, tipo maria@gmail.com.', 'err');
+    return authMsg('Digite um e-mail válido.', 'err');
   if (authMode === 'esqueci' && isUsernameLogin(email))
     return authMsg('Contas com nome de usuário não recebem e-mail. Peça ao administrador uma senha temporária e depois troque em "Trocar senha".', 'err');
   // senha nova: mínimo 8. Para entrar, aceita as senhas antigas de 6 ou 7.
@@ -566,13 +566,13 @@ function janelaCategoria(cat, tipoPadrao){
   return new Promise(res => {
     const t = cat ? cat.tipo : (tipoPadrao || 'exp');
     openDlg2('Categorias', cat ? 'Editar categoria' : 'Nova categoria', `
-      <div class="field"><label for="ctNome">Nome</label><input class="input" id="ctNome" maxlength="30" placeholder="Ex.: Pet, Academia, Farmácia" value="${cat ? esc(cat.nome) : ''}" autocomplete="off"></div>
+      <div class="field"><label for="ctNome">Nome</label><input class="input" id="ctNome" maxlength="30" placeholder="Academia" value="${cat ? esc(cat.nome) : ''}" autocomplete="off"></div>
       <div class="field"><label>Ícone (opcional)</label>
         <div class="ct-emojis" role="group" aria-label="Ícone">${['', ...EMOJIS_CAT].map(e => `<button type="button" class="ct-emoji" data-ct-emoji="${e}" aria-pressed="${(cat ? (cat.icone || '') : '') === e}">${e || 'Sem'}</button>`).join('')}</div>
       </div>
       <div class="field"><label>Aparece em qual lista?</label>
         <div class="seg" id="ctTipo">${[['exp','Saídas'],['inc','Entradas'],['ambos','Nas duas']].map(([v, l]) => `<button type="button" data-ct-tipo="${v}" aria-pressed="${t === v}">${l}</button>`).join('')}</div>
-        <span class="hint" style="margin:0;">Ex.: "Pet" só faz sentido em saídas. "Presente" pode ser as duas: quando você dá e quando você ganha.</span>
+        <span class="hint" style="margin:0;">Use "Nas duas" para categorias como Presente.</span>
       </div>
       ${cat ? '<p class="hint" style="margin:0;">Ao renomear, os lançamentos e as contas com essa categoria passam a usar o nome novo.</p>' : ''}
       <span class="hint" id="ctErro" style="color:var(--alerta);" hidden></span>
@@ -667,7 +667,7 @@ const opcoesCat = (tipo, atual, comNova = true) => listaCats(tipo, atual)
 
 function fillCats(){
   // exemplo do campo Descrição combina com o tipo (saída ou entrada)
-  if (!$('desc').readOnly) $('desc').placeholder = state.type === 'inc' ? 'Ex.: Salário, freela, Pix recebido' : 'Ex.: Mercado da semana';
+  if (!$('desc').readOnly) $('desc').placeholder = state.type === 'inc' ? 'Salário' : 'Mercado';
   if ($('cat').disabled) return;     // travada pelo "Usar para"
   const antes = $('cat').value;
   $('cat').innerHTML = opcoesCat(state.type, null);
@@ -878,12 +878,12 @@ async function criarControle(nome){
 }
 $('ctrlNew').onclick = async () => {
   const nome = await pedirTexto('Novo controle', 'Um controle separado para dividir com outras pessoas (casal, família, viagem).',
-    { rotulo: 'Nome', placeholder: 'Ex.: Casa, Família, Viagem', okTxt: 'Criar controle' });
+    { rotulo: 'Nome', placeholder: 'Casa', okTxt: 'Criar controle' });
   if (nome === null) return;
   await criarControle(nome);
 };
 $('ctrlJoin').onclick = async () => {
-  const cod = await pedirTexto('Entrar com código', 'Digite o código que a pessoa te mandou.', { rotulo: 'Código', placeholder: 'Ex.: K7P4-QX9M', okTxt: 'Entrar' });
+  const cod = await pedirTexto('Entrar com código', 'Digite o código que a pessoa te mandou.', { rotulo: 'Código', placeholder: 'K7P4-QX9M', okTxt: 'Entrar' });
   if (cod === null) return;
   const { data, error } = await sb.rpc('entrar_com_codigo', { p_codigo: cod });
   if (error) return toast(rpcMsg(error));
@@ -1346,7 +1346,7 @@ $('ctrlShare').onclick = async () => {
   if (!c.pessoal) return openManage();
   const nome = await pedirTexto('Compartilhar com alguém',
     'O "Meu controle" é só seu. Para dividir, criamos um controle compartilhado e você convida a pessoa. Seus lançamentos pessoais continuam só seus.',
-    { rotulo: 'Nome do controle compartilhado', placeholder: 'Ex.: Casa, Apê, Família', okTxt: 'Compartilhar' });
+    { rotulo: 'Nome do controle compartilhado', placeholder: 'Casa', okTxt: 'Compartilhar' });
   if (nome === null) return;
   await criarControle(nome);
 };
@@ -1472,7 +1472,7 @@ function openBillForm(c){
     <form id="billForm" novalidate style="display:flex;flex-direction:column;gap:var(--space-4);">
       <div class="field">
         <label for="bfNome">Nome</label>
-        <input class="input" id="bfNome" maxlength="60" placeholder="Ex.: Aluguel, Luz, Cartão" value="${c ? esc(c.nome) : ''}" autocomplete="off">
+        <input class="input" id="bfNome" maxlength="60" placeholder="Aluguel" value="${c ? esc(c.nome) : ''}" autocomplete="off">
       </div>
       <div class="grid2">
         <div class="field">
@@ -1481,7 +1481,7 @@ function openBillForm(c){
         </div>
         <div class="field">
           <label for="bfDia">Vence todo dia</label>
-          <input class="input" id="bfDia" type="number" inputmode="numeric" min="1" max="31" placeholder="Ex.: 10" value="${c ? c.dia : ''}">
+          <input class="input" id="bfDia" type="number" inputmode="numeric" min="1" max="31" placeholder="10" value="${c ? c.dia : ''}">
         </div>
       </div>
       <div class="field">
@@ -1504,7 +1504,7 @@ function openBillForm(c){
       <div class="grid2">
         <div class="field">
           <label for="bfParcTot">Total de parcelas</label>
-          <input class="input" id="bfParcTot" type="number" inputmode="numeric" min="2" max="240" placeholder="Ex.: 10" value="${c && c.parcelas ? c.parcelas : ''}">
+          <input class="input" id="bfParcTot" type="number" inputmode="numeric" min="2" max="240" placeholder="10" value="${c && c.parcelas ? c.parcelas : ''}">
         </div>
         <div class="field">
           <label for="bfParcAt">Parcela deste mês</label>
@@ -1912,7 +1912,7 @@ function openMetaForm(m, modelo){
       </div>
       <div class="field">
         <label for="mfNome">Nome</label>
-        <input class="input" id="mfNome" maxlength="60" autocomplete="off" placeholder="Ex.: Viagem pra Gramado" value="${esc(m ? m.nome : (modelo ? modelo.nome : ''))}">
+        <input class="input" id="mfNome" maxlength="60" autocomplete="off" placeholder="Viagem" value="${esc(m ? m.nome : (modelo ? modelo.nome : ''))}">
       </div>
       <div class="grid2">
         <div class="field">
@@ -2360,18 +2360,18 @@ function openInvForm(tipo){
   const idxs = T ? T.idx : [];
   const ix = idxs[0];
   const rf = T && !['cotacao', 'manual'].includes(ix);
-  const PH = { poupanca: 'Ex.: Poupança Caixa', cdb: 'Ex.: CDB Banco X', lci: 'Ex.: LCI Banco Y', lca: 'Ex.: LCA Banco Z', tesouro_selic: 'Ex.: Tesouro Selic 2029', tesouro_ipca: 'Ex.: Tesouro IPCA+ 2035', tesouro_pre: 'Ex.: Tesouro Prefixado 2031', outro: 'Ex.: Previdência, cripto…' };
+  const PH = { poupanca: 'Poupança', cdb: 'CDB', lci: 'LCI', lca: 'LCA', tesouro_selic: 'Tesouro Selic 2029', tesouro_ipca: 'Tesouro IPCA+ 2035', tesouro_pre: 'Tesouro Prefixado 2031', outro: 'Previdência' };
   openDlg2(T ? 'Novo investimento' : 'Investimentos', T ? `${T.ic} ${T.nome}` : 'Qual o tipo?', `
     <div class="tipo-grid" id="ifTipos">${Object.entries(TIPOS_INV).map(([k, t]) => `<button type="button" data-tipo="${k}" aria-pressed="${k === tipo}"><span>${t.ic}</span>${t.nome}</button>`).join('')}</div>
     ${!T ? '<p class="hint">Escolha o tipo para continuar.</p>' : `
     <form id="invForm" novalidate style="display:flex;flex-direction:column;gap:var(--space-4);">
       ${ix === 'cotacao' ? `
       <div class="grid2">
-        <div class="field"><label for="ifTicker">Código</label><input class="input" id="ifTicker" maxlength="7" autocapitalize="characters" placeholder="${tipo === 'fii' ? 'Ex.: MXRF11' : 'Ex.: PETR4'}"></div>
-        <div class="field"><label for="ifNome">Nome</label><input class="input" id="ifNome" maxlength="60" placeholder="${tipo === 'fii' ? 'Ex.: Maxi Renda' : 'Ex.: Petrobras'}"></div>
+        <div class="field"><label for="ifTicker">Código</label><input class="input" id="ifTicker" maxlength="7" autocapitalize="characters" placeholder="${tipo === 'fii' ? 'MXRF11' : 'PETR4'}"></div>
+        <div class="field"><label for="ifNome">Nome</label><input class="input" id="ifNome" maxlength="60" placeholder="${tipo === 'fii' ? 'Maxi Renda' : 'Petrobras'}"></div>
       </div>
       <div class="grid2">
-        <div class="field"><label for="ifQtd">Quantidade</label><input class="input" id="ifQtd" inputmode="decimal" placeholder="Ex.: 10"></div>
+        <div class="field"><label for="ifQtd">Quantidade</label><input class="input" id="ifQtd" inputmode="decimal" placeholder="10"></div>
         <div class="field"><label for="ifPreco">Preço pago (R$ por unidade)</label><input class="input" id="ifPreco" inputmode="numeric" data-dinheiro placeholder="0,00"></div>
       </div>
       <div class="field"><label for="ifCot">Cotação de hoje (R$) <span style="color:var(--muted);font-weight:400;">(opcional)</span></label><input class="input" id="ifCot" inputmode="numeric" data-dinheiro placeholder="0,00"></div>
@@ -2383,7 +2383,7 @@ function openInvForm(tipo){
       ${rf && ix !== 'poupanca' ? `
       <div class="grid2">
         <div class="field"><label for="ifTaxa" id="ifTaxaLbl">${ix === 'selic' ? 'Extra além da Selic (% a.a.)' : IDX_LABEL[ix]}</label>
-          <input class="input" id="ifTaxa" inputmode="decimal" placeholder="${ix === 'cdi' ? 'Ex.: 110' : ix === 'selic' ? 'Ex.: 0,05' : 'Ex.: 12'}" value="${ix === 'selic' ? '0' : ''}"></div>
+          <input class="input" id="ifTaxa" inputmode="decimal" placeholder="${ix === 'cdi' ? '110' : ix === 'selic' ? '0,05' : '12'}" value="${ix === 'selic' ? '0' : ''}"></div>
         <div class="field"><label for="ifVenc">Vencimento <span style="color:var(--muted);font-weight:400;">(opcional)</span></label><input class="input" id="ifVenc" type="date"></div>
       </div>
       ${ix === 'selic' ? '<p class="hint" style="margin:-6px 0 0;">A Selic o app já busca sozinho no Banco Central. Aqui vai só o extra que aparece na compra (ex.: Selic + 0,05%). Se não souber, deixe 0.</p>' : ''}` : ''}
@@ -2397,7 +2397,7 @@ function openInvForm(tipo){
       <label class="chk"><input type="checkbox" id="ifLancar"> Lançar também como saída em Lançamentos</label>
       <button class="btn btn-primary" type="submit" id="ifSalvar" style="min-height:44px;">Adicionar investimento</button>
     </form>`}`, { tipo: 'invForm', invTipo: tipo });
-  if ($('ifIdx')) $('ifIdx').onchange = () => { const v = $('ifIdx').value; $('ifTaxaLbl').textContent = IDX_LABEL[v]; $('ifTaxa').placeholder = v === 'cdi' ? 'Ex.: 110' : 'Ex.: 12'; };
+  if ($('ifIdx')) $('ifIdx').onchange = () => { const v = $('ifIdx').value; $('ifTaxaLbl').textContent = IDX_LABEL[v]; $('ifTaxa').placeholder = v === 'cdi' ? '110' : '12'; };
 }
 
 function openInv(id){
@@ -2444,7 +2444,7 @@ function openInvMov(id, tipo){
   openDlg2(titulo, inv.nome, `
     ${cot ? `
     <div class="grid2">
-      <div class="field"><label for="imQtd">Quantidade</label><input class="input" id="imQtd" inputmode="decimal" placeholder="Ex.: 10"></div>
+      <div class="field"><label for="imQtd">Quantidade</label><input class="input" id="imQtd" inputmode="decimal" placeholder="10"></div>
       <div class="field"><label for="imPreco">Preço por unidade (R$)</label><input class="input" id="imPreco" inputmode="numeric" data-dinheiro placeholder="0,00" value="${inv.cotacao ? num(Number(inv.cotacao)) : ''}"></div>
     </div>` : `
     <div class="field"><label for="imValor">${tipo === 'saldo' ? 'Quanto vale hoje (R$)' : 'Valor (R$)'}</label><input class="input" id="imValor" inputmode="numeric" data-dinheiro placeholder="0,00"></div>`}
@@ -2974,7 +2974,7 @@ function janelaCartao(k){
         <div class="kc-bancos" role="group" aria-label="Banco">${BANCOS.map(b => `<button type="button" class="kc-banco" data-kc-banco="${b.k}" aria-pressed="${banco === b.k}"><span>${b.cor}</span>${esc(b.nome)}</button>`).join('')}
           <button type="button" class="kc-banco" data-kc-banco="outro" aria-pressed="${banco === 'outro'}"><span>✏️</span>Outro</button></div>
       </div>
-      <div class="field"><label for="kfNome">Apelido</label><input class="input" id="kfNome" maxlength="30" autocomplete="off" placeholder="Ex.: Nubank, Itaú da Ana" value="${k ? esc(k.nome) : ''}"></div>
+      <div class="field"><label for="kfNome">Apelido</label><input class="input" id="kfNome" maxlength="30" autocomplete="off" placeholder="Nubank" value="${k ? esc(k.nome) : ''}"></div>
       <div class="field" id="kfCorWrap"${banco === 'outro' ? '' : ' hidden'}><label>Cor</label>
         <div class="ct-emojis" role="group" aria-label="Cor">${CORES_CARTAO.map(c => `<button type="button" class="ct-emoji" data-kc-cor="${c}" aria-pressed="${(k && k.icone ? k.icone : '💳') === c}">${c}</button>`).join('')}</div>
       </div>
@@ -2982,7 +2982,7 @@ function janelaCartao(k){
         <div class="field"><label for="kfFecha">Fatura fecha</label><select class="input" id="kfFecha">${opcoesDia(k ? k.fecha : 3)}</select></div>
         <div class="field"><label for="kfVence">Fatura vence</label><select class="input" id="kfVence">${opcoesDia(k ? k.vence : 10)}</select></div>
       </div>
-      <div class="field"><label for="kfLim">Limite (opcional)</label><input class="input" id="kfLim" inputmode="numeric" data-dinheiro placeholder="Ex.: 5.000,00" value="${k && k.limite ? num(Number(k.limite)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
+      <div class="field"><label for="kfLim">Limite (opcional)</label><input class="input" id="kfLim" inputmode="numeric" data-dinheiro placeholder="5.000,00" value="${k && k.limite ? num(Number(k.limite)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
       <span class="hint" style="margin:0;">Compras feitas no dia do fechamento ou depois vão para a fatura seguinte. As datas estão no app do banco, em "Fatura".</span>
       <span class="hint" id="kfErro" style="color:var(--alerta);" hidden></span>
       <button class="btn btn-primary" type="button" data-kc-salvar style="min-height:44px;">${k ? 'Salvar' : 'Cadastrar cartão'}</button>`,
@@ -3012,7 +3012,7 @@ function openCompra(id){
     .map(k => `<option value="${esc(k.id)}"${k.id === kid ? ' selected' : ''}>${esc(iconeCartao(k))} ${esc(k.nome)}</option>`).join('');
   openDlg2('Cartão de crédito', c ? 'Editar compra' : 'Compra no cartão', `
     <div class="field"><label for="kpCartao">Cartão</label><select class="input" id="kpCartao">${opts}</select></div>
-    <div class="field"><label for="kpDesc">Descrição</label><input class="input" id="kpDesc" maxlength="200" autocomplete="off" placeholder="Ex.: Geladeira, iFood" value="${c ? esc(c.descricao) : ''}"></div>
+    <div class="field"><label for="kpDesc">Descrição</label><input class="input" id="kpDesc" maxlength="200" autocomplete="off" placeholder="Geladeira" value="${c ? esc(c.descricao) : ''}"></div>
     <div class="kc-dias">
       <div class="field"><label for="kpValor">Valor total (R$)</label><input class="input" id="kpValor" inputmode="numeric" data-dinheiro placeholder="0,00" value="${c ? num(Number(c.valor)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
       <div class="field"><label for="kpParc">Parcelas</label><select class="input" id="kpParc">${opcoesParc(c ? c.parcelas : 1)}</select></div>
@@ -3070,7 +3070,7 @@ function openAjuste(kid, mk, c){
       <div class="kv"><span>Total da fatura agora</span><b>${brl(i.total)}</b></div>
       <div class="kv"><span>Vencimento</span><b>${ddmm(i.vence)}</b></div>
     </div>
-    <div class="field"><label for="kaValor">Saldo anterior (R$)</label><input class="input" id="kaValor" inputmode="numeric" data-dinheiro placeholder="Ex.: 800,00" value="${c ? num(Number(c.valor)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
+    <div class="field"><label for="kaValor">Saldo anterior (R$)</label><input class="input" id="kaValor" inputmode="numeric" data-dinheiro placeholder="800,00" value="${c ? num(Number(c.valor)) : ''}" style="font-variant-numeric:tabular-nums;"></div>
     <div class="field"><label for="kaDesc">Descrição (opcional)</label><input class="input" id="kaDesc" maxlength="200" autocomplete="off" placeholder="Saldo anterior da fatura" value="${c && c.descricao !== 'Saldo anterior da fatura' ? esc(c.descricao) : ''}"></div>
     <span class="hint" id="kaErro" style="color:var(--alerta);" hidden></span>
     <button class="btn btn-primary" type="button" data-kc-salvarajuste style="min-height:44px;">${c ? 'Salvar' : 'Adicionar à fatura'}</button>
@@ -3473,27 +3473,39 @@ const WA_BOT = '';   // número do bot no WhatsApp (só dígitos, com 55). Vazio
 const TG_BOT = 'praondefoi_teste_bot';   // usuário do bot no Telegram (sem @). Vazio: mostra "em breve"
 const BOT_LIGADO = false;   // o promover troca para false no prod enquanto o bot não for lançado
 let botDisponivel = false, botCodigo = '', botEspera = null;
-const botCardKey = () => `pof-botcard-${currentUser ? currentUser.id : ''}`;
+const DET_LOGO = (document.querySelector('#botFab .det-logo') || {}).outerHTML || '';
+const botFabKey = () => `pof-botfab-${currentUser ? currentUser.id : ''}`;
 const fmtCel = t => { const d = String(t || '').replace(/\D/g, '').replace(/^55/, ''); return d.length >= 10 ? `(${d.slice(0,2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : d; };
 const msgWa = cod => `Oi, Detetive Grana! 🕵️ Quero ativar meu bot. Código: ${cod.slice(0,3)} ${cod.slice(3)}`;
 
-// mostra o item do menu e o cartão da tela inicial (só se o banco tem o bot)
+// mostra o item do menu e a bolinha do Detetive (só se o banco tem o bot)
+let botBalTimer = null;
 async function checarBot(){
   if (!BOT_LIGADO) return;   // prod: o bot ainda não foi lançado
   const { data, error } = await sb.rpc('whatsapp_meu');
   botDisponivel = !error;
   $('drBot').hidden = !botDisponivel;
-  let fechado = false; try { fechado = localStorage.getItem(botCardKey()) === '1'; } catch {}
-  $('botCard').hidden = !botDisponivel || fechado || (data || []).length > 0;
+  $('botFab').hidden = !botDisponivel;
+  let visto = false; try { visto = localStorage.getItem(botFabKey()) === '1'; } catch {}
+  const novo = botDisponivel && !visto && !(data || []).length;
+  $('botFabNovo').hidden = !novo;
+  // na primeira vez, o balãozinho aparece uns segundos para explicar
+  clearTimeout(botBalTimer);
+  $('botFabBal').hidden = !novo;
+  if (novo) botBalTimer = setTimeout(() => { $('botFabBal').hidden = true; }, 7000);
 }
-$('drBot').addEventListener('click', () => { if (typeof closeDrawer === 'function') closeDrawer(); openBot(); });
-$('botCardAbrir').addEventListener('click', () => openBot());
-$('botCardFechar').addEventListener('click', () => { $('botCard').hidden = true; try { localStorage.setItem(botCardKey(), '1'); } catch {} });
+function botVisto(){
+  clearTimeout(botBalTimer);
+  $('botFabNovo').hidden = true; $('botFabBal').hidden = true;
+  try { localStorage.setItem(botFabKey(), '1'); } catch {}
+}
+$('drBot').addEventListener('click', () => { if (typeof closeDrawer === 'function') closeDrawer(); botVisto(); openBot(); });
+$('botFab').addEventListener('click', () => { botVisto(); openBot(); });
 
 function pararEspera(){ if (botEspera){ clearInterval(botEspera); botEspera = null; } }
 async function openBot(){
   pararEspera();
-  openDlg2('Assistente', 'Detetive Grana', '<p class="hint" style="margin:0;">Carregando…</p>', { tipo: 'bot' });
+  openDlg2('Novo', 'Detetive Grana', '<p class="hint" style="margin:0;">Carregando…</p>', { tipo: 'bot' });
   await renderBot();
 }
 async function renderBot(){
@@ -3503,7 +3515,6 @@ async function renderBot(){
   const v = (data || [])[0], atual = current();
   if (v){
     pararEspera(); botCodigo = '';
-    $('botCard').hidden = true;
     const tg = v.canal === 'telegram';
     const abrir = tg ? (TG_BOT ? `https://t.me/${TG_BOT}` : '') : (WA_BOT ? `https://wa.me/${WA_BOT}` : '');
     const outro = atual && atual.id !== v.controle_id;
@@ -3523,39 +3534,25 @@ async function renderBot(){
     botCodigo = String(g.data);
   }
   const cod = botCodigo;
+  const linkTg = TG_BOT ? `https://t.me/${TG_BOT}?start=${cod}` : '';
+  const linkWa = WA_BOT ? `https://wa.me/${WA_BOT}?text=${encodeURIComponent(msgWa(cod))}` : '';
+  const icTg = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4 3 11l6 2.5M21 4l-4 16-8-6.5M21 4 9 13.5V19l3-3.5"/></svg>';
+  const icWa = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4.1A8 8 0 1 1 20 11.5z"/><path d="M9 9.5c.3 1.6 1.9 3.6 3.6 4.3l1.3-1 1.6.7c-.2 1-1 1.6-2 1.5A6.5 6.5 0 0 1 8 10.5c0-1 .6-1.8 1.6-2l.7 1.6z"/></svg>';
+  const opcao = (canal, nome, link, ic, cor) => link
+    ? `<a class="bot-opcao" style="--c:${cor}" href="${link}" target="_blank" rel="noopener" data-canal="${canal}"><span class="bot-opcao-ic">${ic}</span><span><b>${nome}</b><small>Abrir conversa e começar</small></span><span class="bot-seta" aria-hidden="true">›</span></a>`
+    : `<div class="bot-opcao off" style="--c:${cor}"><span class="bot-opcao-ic">${ic}</span><span><b>${nome}</b><small>Chegando em breve</small></span><span class="tag tag-neutral">Em breve</span></div>`;
   $('dlg2Body').innerHTML = `
-    <p style="margin:0;font-size:15px;">🕵️ Mande seus gastos por mensagem, do seu jeito (<b>mercado 50</b>, <b>uber 23,90 ontem</b>), e o Detetive anota em <b>${esc(atual ? atual.nome : 'Meu controle')}</b>.</p>
-    <p class="hint" style="margin:0;">Ele ainda está aprendendo 🌱 Se errar, é só corrigir na conversa.</p>
-    <div class="bot-canal">
-      <h4>Telegram</h4>
-      ${TG_BOT ? `<p class="hint" style="margin:0;">Toque no botão e depois em <b>Iniciar</b>. Pronto.</p>
-      <a class="btn btn-primary" href="https://t.me/${TG_BOT}?start=${cod}" target="_blank" rel="noopener">Conectar Telegram</a>`
-      : '<p class="hint" style="margin:0;">Em breve.</p>'}
+    <div class="bot-topo">${DET_LOGO}
+      <div><b>Comece a lançar por mensagem</b><span>Mande <b>mercado 50</b> ou <b>uber 23,90 ontem</b> e o Detetive anota em <b>${esc(atual ? atual.nome : 'Meu controle')}</b>.</span></div></div>
+    <p class="bot-pergunta">Onde você quer conversar com ele?</p>
+    <div class="bot-opcoes">
+      ${opcao('telegram', 'Telegram', linkTg, icTg, '#2a9fd8')}
+      ${opcao('whatsapp', 'WhatsApp', linkWa, icWa, '#1fa855')}
     </div>
-    <div class="bot-canal">
-      <h4>WhatsApp</h4>
-      ${WA_BOT ? `<p class="hint" style="margin:0;">Digite o seu celular, toque no botão e só envie a mensagem que aparecer pronta.</p>
-      <input class="input" id="botCel" type="tel" inputmode="tel" autocomplete="tel" placeholder="(65) 99999-9999">
-      <a class="btn btn-primary" id="botWa" href="#" aria-disabled="true" style="opacity:.5;pointer-events:none;" target="_blank" rel="noopener">Abrir conversa no WhatsApp</a>
-      <p class="hint" style="margin:0;font-size:12px;">O celular só serve pra ligar o Detetive à sua conta. Ninguém vê, e ele some quando você desligar.</p>`
-      : '<p class="hint" style="margin:0;">Em breve. Enquanto isso, use pelo Telegram.</p>'}
-    </div>
-    <p class="hint" style="margin:0;font-size:12px;">Depois de enviar, volte aqui: esta tela atualiza sozinha.</p>`;
-  if (WA_BOT){
-    let t = null;
-    $('botCel').addEventListener('input', () => {
-      const a = $('botWa'); a.style.opacity = '.5'; a.style.pointerEvents = 'none'; a.setAttribute('aria-disabled', 'true');
-      clearTimeout(t);
-      const dig = $('botCel').value.replace(/\D/g, '');
-      if (dig.length < 10) return;
-      t = setTimeout(async () => {
-        const r = await sb.rpc('whatsapp_definir_telefone', { p_tel: $('botCel').value });
-        if (r.error) return toast(rpcMsg(r.error));
-        a.href = `https://wa.me/${WA_BOT}?text=${encodeURIComponent(msgWa(cod))}`;
-        a.style.opacity = ''; a.style.pointerEvents = ''; a.removeAttribute('aria-disabled');
-      }, 500);
-    });
-  }
+    <p class="hint" id="botEspera" style="margin:0;font-size:12.5px;">É só tocar, e na conversa tocar em <b>Iniciar</b> ou <b>Enviar</b>. Esta tela avisa sozinha quando conectar.</p>`;
+  $('dlg2Body').querySelectorAll('a.bot-opcao').forEach(a => a.addEventListener('click', () => {
+    $('botEspera').innerHTML = `<span class="bot-girando" aria-hidden="true"></span> Esperando sua mensagem no <b>${a.dataset.canal === 'telegram' ? 'Telegram' : 'WhatsApp'}</b>… Se não abriu, toque de novo.`;
+  }));
   // fica conferindo se a pessoa já mandou a mensagem (até 5 minutos)
   if (!botEspera){
     let n = 0;
@@ -3696,7 +3693,7 @@ async function openManage(){
     <div class="dlg-sec">
       <h3>Convidar pelo usuário</h3>
       <p class="hint">A pessoa precisa ter conta aprovada no app. O convite aparece para ela na próxima vez que entrar.</p>
-      <div class="row"><input class="input" id="dlgInvite" placeholder="Ex.: maria ou maria@gmail.com" autocapitalize="none" autocorrect="off" spellcheck="false"><button class="btn btn-primary" data-a="convidar">Convidar</button></div>
+      <div class="row"><input class="input" id="dlgInvite" placeholder="Nome ou e-mail" autocapitalize="none" autocorrect="off" spellcheck="false"><button class="btn btn-primary" data-a="convidar">Convidar</button></div>
     </div>
     <div class="dlg-sec">
       <h3>Código de convite</h3>
@@ -4069,7 +4066,7 @@ function renderAdmin(){
 
   const q = semAcento(adminBusca.trim());
   const acha = u => !q || semAcento(`${u.email} ${displayName(u.email)} ${u.nome || ''}`).includes(q);
-  const daAba = u => adminFilter === 'todos' || u.status === adminFilter;
+  const daAba = u => adminFilter === 'todos' || (adminFilter === 'fundador' ? u.fundador : u.status === adminFilter);
   const list = users.filter(u => daAba(u) && acha(u));
   $('usersEmpty').hidden = list.length > 0;
   $('usersTable').hidden = list.length === 0;
@@ -4085,13 +4082,14 @@ function renderAdmin(){
     else {
       if (u.status !== 'aprovado') actions += `<button class="btn btn-primary btn-sm" data-act="aprovado" data-id="${esc(u.id)}">${u.status === 'bloqueado' ? 'Desbloquear' : 'Aprovar'}</button>`;
       if (u.status !== 'bloqueado') actions += `<button class="btn btn-secondary btn-sm" data-act="bloqueado" data-id="${esc(u.id)}">${u.status === 'pendente' ? 'Recusar' : 'Bloquear'}</button>`;
+      if (u.status === 'aprovado') actions += `<button class="btn ${u.fundador ? 'btn-primary' : 'btn-secondary'} btn-sm" data-act="fundador" data-id="${esc(u.id)}" data-sim="${u.fundador ? '0' : '1'}" title="${u.fundador ? 'Tirar de fundador' : 'Marcar como fundador (não paga mensalidade)'}">${u.fundador ? '⭐ Fundador' : '☆ Fundador'}</button>`;
       actions += `<button class="btn btn-secondary btn-sm" data-act="senha" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Nova senha</button>`;
       actions += `<button class="btn btn-danger btn-sm" data-act="excluir" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Excluir</button>`;
     }
     return `<tr>
       <td style="word-break:break-all;">${esc(displayName(u.email))}${u.nome ? `<div class="by">${esc(u.nome)}</div>` : ''}</td>
       <td style="color:var(--muted);">${new Date(u.criado_em).toLocaleDateString('pt-BR')}</td>
-      <td>${me ? '<span class="tag tag-accent">Admin</span>' : STATUS_TAG[u.status]}</td>
+      <td>${me ? '<span class="tag tag-accent">Admin</span>' : STATUS_TAG[u.status]}${u.fundador ? ' <span class="tag tag-accent" title="Fundador: não paga mensalidade">⭐ Fundador</span>' : ''}</td>
       <td><div style="display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;">${actions}</div></td>
     </tr>`;
   }).join('');
@@ -4158,6 +4156,13 @@ document.querySelectorAll('#usoSeg button').forEach(b => b.addEventListener('cli
 $('usoResumo').addEventListener('click', e => { const b = e.target.closest('[data-uso]'); if (!b) return; usoFiltro = usoFiltro === b.dataset.uso ? 'todos' : b.dataset.uso; renderUso(); });
 
 $('adminRefresh').onclick = () => { loadUsers(); loadUso(); };
+$('adminFundadores').onclick = async () => {
+  if (!await confirmar('Marcar como fundadoras todas as contas que têm acesso hoje?\n\nElas ficam sem mensalidade quando a cobrança começar. Dá para desmarcar uma a uma depois.')) return;
+  const { data, error } = await sb.rpc('admin_marcar_fundadores');
+  if (error) return toast(rpcMsg(error));
+  toast(`⭐ ${data} conta${data === 1 ? '' : 's'} marcada${data === 1 ? '' : 's'} como fundadora${data === 1 ? '' : 's'}.`, true);
+  loadUsers();
+};
 document.querySelectorAll('#adminSeg button').forEach(b => b.addEventListener('click', () => { adminFilter = b.dataset.filter; renderAdmin(); }));
 $('adminBusca').addEventListener('input', e => { adminBusca = e.target.value; renderAdmin(); });
 $('adminBusca').addEventListener('keydown', e => { if (e.key === 'Escape'){ e.target.value = ''; adminBusca = ''; renderAdmin(); } });
@@ -4178,6 +4183,13 @@ $('userRows').addEventListener('click', async e => {
     if (error) return toast(rpcMsg(error));
     toast(`Senha de ${b.dataset.email} redefinida. Peça para a pessoa trocar em "Trocar senha" ao entrar.`, true);
     return;
+  }
+  if (act === 'fundador'){
+    b.disabled = true;
+    ({ error } = await sb.rpc('admin_definir_fundador', { alvo: id, sim: b.dataset.sim === '1' }));
+    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+    toast(b.dataset.sim === '1' ? '⭐ Marcado como fundador.' : 'Não é mais fundador.', true);
+    return loadUsers();
   }
   if (act === 'excluir'){
     if (!await confirmar(`Excluir a conta ${b.dataset.email}?\n\nA pessoa perde o acesso e o "Meu controle" dela é apagado. Nos controles compartilhados, os lançamentos que ela fez continuam lá. Não dá para desfazer.`)) return;

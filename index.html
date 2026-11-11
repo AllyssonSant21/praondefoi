@@ -127,11 +127,32 @@
   .tag{display:inline-flex;align-items:center;font-size:11px;font-weight:600;letter-spacing:.02em;padding:3px 10px;border-radius:999px;white-space:nowrap}
   .tag-accent{background:var(--accent);color:var(--ink)}
   /* ===== Detetive Grana ===== */
-  .bot-card{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--divider);border-radius:14px;background:var(--card);margin-bottom:12px}
-  .bot-card .bot-ic{font-size:26px;line-height:1}
-  .bot-card b{display:block;font-size:15px}
-  .bot-card span{display:block;font-size:13px;color:var(--muted)}
-  @media (max-width:560px){ .bot-card{flex-wrap:wrap} .bot-card #botCardAbrir{order:3;width:100%;min-height:40px} }
+  .bot-fab{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom) + 78px);z-index:29;width:58px;height:58px;padding:0;border:0;border-radius:50%;background:none;cursor:pointer;box-shadow:0 8px 22px rgba(14,21,37,.38);-webkit-tap-highlight-color:transparent;transition:transform .15s}
+  .bot-fab:active{transform:scale(.92)}
+  .bot-fab:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+  .bot-fab .det-logo{width:100%;height:100%;display:block;border-radius:50%}
+  .bot-fab-novo{position:absolute;top:-8px;right:-6px;background:#fed13d;color:#1f1d1e;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 7px;border:2px solid var(--bg,#fff);line-height:1.3}
+  .bot-fab-bal{position:absolute;right:68px;top:50%;transform:translateY(-50%);width:max-content;max-width:190px;text-align:left;background:#0e1525;color:#f6f0df;font-size:13px;font-weight:500;line-height:1.35;border-radius:14px 14px 4px 14px;padding:9px 12px;box-shadow:0 8px 22px rgba(14,21,37,.3);animation:botBal .35s ease-out}
+  .bot-fab-bal b{color:#fed13d;font-weight:700}
+  @keyframes botBal{from{opacity:0;transform:translate(8px,-50%)}to{opacity:1;transform:translateY(-50%)}}
+  @media (prefers-reduced-motion:reduce){.bot-fab-bal{animation:none}.bot-fab{transition:none}}
+  @media (min-width:900px){.bot-fab{right:28px;bottom:28px}}
+  #viewApp:has(#botFab:not([hidden])){padding-bottom:72px}
+  .bot-topo .det-logo{width:44px;height:44px;flex:none}
+  .bot-topo{display:flex;gap:14px;align-items:flex-start;padding:14px;border-radius:14px;background:rgba(var(--accent-rgb),.14)}
+  .bot-topo .bot-emoji{font-size:34px;line-height:1}
+  .bot-topo b{display:block;font-size:16px;margin-bottom:4px}.bot-topo span{font-size:14px;color:var(--muted);line-height:1.45}.bot-topo span b{display:inline;font-size:inherit;color:var(--fg)}
+  .bot-pergunta{margin:4px 0 0;font-weight:600}
+  .bot-opcoes{display:flex;flex-direction:column;gap:10px}
+  .bot-opcao{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;border:1.5px solid var(--divider);background:var(--card);color:var(--fg);text-decoration:none;min-height:64px}
+  a.bot-opcao:hover{border-color:var(--c)}
+  .bot-opcao-ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--c);color:#fff;flex:none}
+  .bot-opcao b{display:block;font-size:16px}.bot-opcao small{display:block;font-size:13px;color:var(--muted)}
+  .bot-opcao > span:nth-child(2){flex:1;min-width:0}
+  .bot-seta{font-size:26px;color:var(--muted);line-height:1}
+  .bot-opcao.off{opacity:.6}.bot-opcao.off .bot-opcao-ic{filter:grayscale(1)}
+  .bot-girando{display:inline-block;width:12px;height:12px;border:2px solid var(--divider);border-top-color:var(--accent);border-radius:50%;animation:girar .8s linear infinite;vertical-align:-2px;margin-right:4px}
+  @keyframes girar{to{transform:rotate(360deg)}}
   .bot-canal{border:1px solid var(--divider);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
   .bot-canal h4{margin:0;font-size:15px}
   .bot-canal .btn{min-height:44px;justify-content:center}
@@ -912,7 +933,7 @@
       <form id="authForm" novalidate style="display:flex;flex-direction:column;gap:var(--space-4);">
         <div class="field" id="authEmailWrap">
           <label for="authEmail">E-mail</label>
-          <input class="input" id="authEmail" type="email" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Ex.: maria@gmail.com">
+          <input class="input" id="authEmail" type="email" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="nome@email.com">
         </div>
         <div class="field" id="authPassWrap">
           <label for="authPass" id="authPassLabel">Senha</label>
@@ -975,6 +996,11 @@
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
   </button>
 </aside>
+<button class="bot-fab" id="botFab" type="button" hidden aria-label="Detetive Grana: lançar por mensagem">
+  <svg class="det-logo" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="#0e1525"/><line x1="61" y1="61" x2="75" y2="75" stroke="#f6f0df" stroke-width="10" stroke-linecap="round"/><circle cx="45" cy="45" r="24" fill="#16203a" stroke="#f6f0df" stroke-width="6"/><path d="M37 40C37 30 54 30 54 40C54 47 46 47 46 53" fill="none" stroke="#f6f0df" stroke-width="6" stroke-linecap="round"/><circle cx="46" cy="61" r="4.3" fill="#fed13d"/><circle cx="78" cy="78" r="7" fill="#fed13d" stroke="#e0a922" stroke-width="1.6"/></svg>
+  <span class="bot-fab-novo" id="botFabNovo" hidden>Novo</span>
+  <span class="bot-fab-bal" id="botFabBal" hidden>Lance por mensagem com o <b>Detetive Grana</b></span>
+</button>
 <nav class="bottomnav" aria-label="Navegação">
   <button type="button" data-tab="lanc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="lbl">Lançamentos</span></button>
   <button type="button" data-tab="cartoes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg><span class="lbl">Cartões</span><span class="nav-new">Novo</span></button>
@@ -1023,15 +1049,6 @@
 
 
 <div id="tabLanc" style="display:contents">
-  <div class="bot-card" id="botCard" hidden>
-    <span class="bot-ic" aria-hidden="true">🕵️</span>
-    <div style="min-width:0;flex:1;">
-      <b>Detetive Grana</b>
-      <span>Lance seus gastos mandando mensagem no WhatsApp ou Telegram.</span>
-    </div>
-    <button class="btn btn-primary btn-sm" type="button" id="botCardAbrir">Conhecer</button>
-    <button class="btn btn-ghost btn-icon" type="button" id="botCardFechar" aria-label="Fechar aviso"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-  </div>
   <section class="stats resumo">
     <div class="stat stat-bal" id="balCard">
       <span class="kicker">Saldo do mês</span>
@@ -1078,7 +1095,7 @@
     <form id="form" novalidate style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--space-4);align-items:end;">
       <div class="field span2" style="min-width:0;">
         <label for="desc">Descrição</label>
-        <input class="input" id="desc" placeholder="Ex.: Mercado da semana" autocomplete="off" maxlength="200">
+        <input class="input" id="desc" placeholder="Mercado" autocomplete="off" maxlength="200">
       </div>
       <div class="field">
         <label for="amount">Valor (R$)</label>
@@ -1347,8 +1364,10 @@
         <button type="button" data-filter="pendente" aria-pressed="true">Aguardando</button>
         <button type="button" data-filter="aprovado" aria-pressed="false">Com acesso</button>
         <button type="button" data-filter="bloqueado" aria-pressed="false">Bloqueados</button>
+        <button type="button" data-filter="fundador" aria-pressed="false">Fundadores</button>
         <button type="button" data-filter="todos" aria-pressed="false">Todos</button>
       </div>
+      <button class="btn btn-secondary btn-sm" type="button" id="adminFundadores" title="Marca como fundadoras todas as contas com acesso hoje">⭐ Marcar todos os atuais como fundadores</button>
     </div>
     <div class="field" style="margin:0;">
       <label for="adminBusca" class="sr-only">Buscar conta</label>
@@ -1465,6 +1484,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="app.js?v=89"></script>
+<script src="app.js?v=93"></script>
 </body>
 </html>
