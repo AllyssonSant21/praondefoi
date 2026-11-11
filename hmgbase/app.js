@@ -937,15 +937,19 @@ function renderImposto(month, inc){
   let aberto = false; try { aberto = localStorage.getItem(impKey()) === '1'; } catch {}
   btn.hidden = false;
   btn.setAttribute('aria-expanded', String(aberto));
-  $('btnImpTxt').textContent = `Impostos ~R$ ${Math.round(tot).toLocaleString('pt-BR')}`;
+  $('btnImpTxt').textContent = `Impostos R$ ${Math.round(tot).toLocaleString('pt-BR')}`;
   card.hidden = !aberto;
   if (!aberto) return;
   const usadas = [...new Set([...Object.keys(IMPOSTO_CAT), ...Object.keys(por)])].filter(c => por[c] != null);
+  const pct = Math.round(tot / gasto * 100);
   card.innerHTML = `
-    <div class="imp-top"><span aria-hidden="true">🧾</span> Impostômetro <span class="imp-tag">estimativa</span></div>
-    <div class="imp-big">~${brl(tot)}<small>de imposto embutido no que você gastou em ${esc(MONTHS[state.m].toLowerCase())} (≈${Math.round(tot / gasto * 100)}%)${dias ? ` · uns <b>${plural(dias, 'dia')}</b> de trabalho` : ''}</small></div>
-    <div class="imp-cats">${top.map(([c, v]) => `<div class="imp-row"><span>${esc(rotuloCat(c))}</span><span class="bar"><i style="width:${Math.max(4, Math.round(v / max * 100))}%"></i></span><span class="v">${brl(v)}</span></div>`).join('')}</div>
-    <div class="imp-aviso"><span aria-hidden="true">ⓘ</span><span>Valor aproximado, calculado com médias por categoria. O imposto real muda de produto para produto e de estado para estado. <button type="button" id="impComoBtn" aria-expanded="${impComo}">Como calculamos?</button></span></div>
+    <div class="imp-top"><span class="ic" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><b>Impostômetro</b><span class="imp-tag">Estimativa</span></div>
+    <div class="imp-corpo">
+      <div class="imp-total"><span class="k">Imposto embutido nos seus gastos de ${esc(MONTHS[state.m].toLowerCase())}</span><span class="v">${brl(tot)}</span>
+        <div class="imp-chips"><span><b>${pct}%</b> do que você gastou</span>${dias ? `<span><b>${plural(dias, 'dia')}</b> de trabalho</span>` : ''}</div></div>
+      <div class="imp-cats"><span class="k">Onde mais pesou</span>${top.map(([c, v]) => `<div class="imp-row"><div class="l">${esc(rotuloCat(c))} <small title="Média de imposto da categoria">${Math.round((IMPOSTO_CAT[c] ?? IMPOSTO_PADRAO) * 100)}%</small><b>${brl(v)}</b></div><span class="bar"><i style="width:${Math.max(4, Math.round(v / max * 100))}%"></i></span></div>`).join('')}</div>
+    </div>
+    <div class="imp-aviso"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>Valor aproximado, calculado com médias por categoria. O imposto real muda de produto para produto e de estado para estado. <button type="button" id="impComoBtn" aria-expanded="${impComo}">Como calculamos?</button></span></div>
     ${impComo ? `<div class="imp-como">Usamos a média de impostos (ICMS, PIS/Cofins, IPI, ISS…) que costuma vir no preço de cada tipo de gasto e multiplicamos pelo que você gastou em cada categoria. Não entra o imposto sobre o salário (IR e INSS).
       <table>${usadas.map(c => `<tr><td>${esc(rotuloCat(c))}</td><td>${Math.round((IMPOSTO_CAT[c] ?? IMPOSTO_PADRAO) * 100)}%</td></tr>`).join('')}</table></div>` : ''}`;
 }
