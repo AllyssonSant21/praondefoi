@@ -23,7 +23,17 @@ const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const plural = (n,w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const $ = id => document.getElementById(id);
-const REDIRECT = location.origin + location.pathname;
+// links limpos das abas: praondefoiapp.com.br/cartoes, /contas… (cada uma tem a mesma página numa pasta)
+const ROTAS = { lanc: 'lancamentos', cartoes: 'cartoes', contas: 'contas', metas: 'metas', invest: 'investimentos' };
+const ROTA_ABA = Object.fromEntries(Object.entries(ROTAS).map(([a, r]) => [r, a]));
+const APP_BASE = (() => {
+  let p = location.pathname.replace(/index\.html$/, '');
+  const m = p.match(/^(.*\/)([a-z]+)\/?$/);
+  if (m && ROTA_ABA[m[2]]) p = m[1];
+  return p.endsWith('/') ? p : p + '/';
+})();
+const ABA_DO_LINK = ROTA_ABA[location.pathname.slice(APP_BASE.length).replace(/\/$/, '')] || null;
+const REDIRECT = location.origin + APP_BASE;   // e-mails e login sempre voltam para o início do app
 
 // Login por nome de usuário: o Supabase exige e-mail, então "maria"
 // vira "maria@usuarios.local" por baixo dos panos (nenhum e-mail é enviado).
@@ -388,6 +398,7 @@ async function handleSession(session, force){
   modoSemInternet = false;
   gravarFoto();
   enviarFila();
+  temaDaConta();
 }
 
 /* ======================= CONTROLES ======================= */
@@ -1291,7 +1302,16 @@ const quem = uid => uid === myId() ? 'você' : nameOf(uid);
 
 Object.assign(state, { tab: 'lanc', contas: [], partes: {}, cmeses: {}, pags: [], pagsMeses: [], contasOk: true });
 try { const t = localStorage.getItem('pof-aba'); if (['lanc','cartoes','contas','metas','invest'].includes(t)) state.tab = t; } catch(e){}
-try { const t = new URLSearchParams(location.search).get('aba'); if (['lanc','cartoes','contas','metas','invest'].includes(t)) state.tab = t; } catch(e){}
+try { const t = new URLSearchParams(location.search).get('aba'); if (ROTAS[t]) state.tab = t; } catch(e){}   // links antigos (?aba=)
+if (ABA_DO_LINK) state.tab = ABA_DO_LINK;
+function linkDaAba(t){
+  try {
+    const u = new URL(location.href); u.searchParams.delete('aba');
+    const novo = APP_BASE + ROTAS[t] + u.search + u.hash;
+    if (novo !== location.pathname + location.search + location.hash) history.replaceState(history.state, '', novo);
+  } catch(e){}
+}
+if (ABA_DO_LINK || new URLSearchParams(location.search).has('aba')) linkDaAba(state.tab);
 
 function ocorre(c, mk){
   if (c.tipo === 'unica') return mk === c.inicio;
@@ -1421,7 +1441,7 @@ function renderTabs(){
 function setTab(t){
   state.tab = t;
   try { localStorage.setItem('pof-aba', t); } catch(e){}
-  try { const u = new URL(location.href); u.searchParams.set('aba', t); history.replaceState(history.state, '', u.pathname + u.search + u.hash); } catch(e){}
+  linkDaAba(t);
   renderTabs();
   window.scrollTo(0, 0);
 }
@@ -3563,7 +3583,25 @@ $('drExcel').addEventListener('click', () => $('export').click());
 $('drCodigo').addEventListener('click', () => $('ctrlJoin').click());
 // aparência: claro (padrão), escuro ou igual ao celular — guardado neste aparelho
 function marcarTema(){ const t = window.temaEscolhido ? window.temaEscolhido() : 'claro'; document.querySelectorAll('#temaSeg [data-tema]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tema === t))); }
-document.querySelectorAll('#temaSeg [data-tema]').forEach(b => b.addEventListener('click', () => { if (window.definirTema) window.definirTema(b.dataset.tema); marcarTema(); }));
+document.querySelectorAll('#temaSeg [data-tema]').forEach(b => b.addEventListener('click', () => {
+  if (window.definirTema) window.definirTema(b.dataset.tema);
+  marcarTema();
+  if (currentUser) sb.rpc('definir_tema', { p_tema: b.dataset.tema }).then(() => {}, () => {});   // guarda na conta: vale nos outros aparelhos
+}));
+// ao entrar: usa o tema guardado na conta. Se a conta ainda não tem, guarda o que este aparelho já usa (se a pessoa escolheu)
+async function temaDaConta(){
+  try {
+    const { data, error } = await sb.rpc('meu_tema');
+    if (error) return;   // banco ainda sem o tema salvo: fica só neste aparelho
+    if (data === 'claro' || data === 'escuro'){
+      if (window.temaEscolhido && window.temaEscolhido() !== data && window.definirTema) window.definirTema(data);
+      marcarTema();
+    } else {
+      let local = null; try { local = localStorage.getItem('pof-tema'); } catch {}
+      if (local === 'claro' || local === 'escuro') await sb.rpc('definir_tema', { p_tema: local });
+    }
+  } catch {}
+}
 marcarTema();
 
 function lerFoto(file){
