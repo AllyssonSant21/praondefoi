@@ -399,6 +399,7 @@ async function handleSession(session, force){
   modoSemInternet = false;
   gravarFoto();
   enviarFila();
+  temaDaConta();
 }
 
 /* ======================= CONTROLES ======================= */
@@ -3583,7 +3584,25 @@ $('drExcel').addEventListener('click', () => $('export').click());
 $('drCodigo').addEventListener('click', () => $('ctrlJoin').click());
 // aparência: claro (padrão), escuro ou igual ao celular — guardado neste aparelho
 function marcarTema(){ const t = window.temaEscolhido ? window.temaEscolhido() : 'claro'; document.querySelectorAll('#temaSeg [data-tema]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tema === t))); }
-document.querySelectorAll('#temaSeg [data-tema]').forEach(b => b.addEventListener('click', () => { if (window.definirTema) window.definirTema(b.dataset.tema); marcarTema(); }));
+document.querySelectorAll('#temaSeg [data-tema]').forEach(b => b.addEventListener('click', () => {
+  if (window.definirTema) window.definirTema(b.dataset.tema);
+  marcarTema();
+  if (currentUser) sb.rpc('definir_tema', { p_tema: b.dataset.tema }).then(() => {}, () => {});   // guarda na conta: vale nos outros aparelhos
+}));
+// ao entrar: usa o tema guardado na conta. Se a conta ainda não tem, guarda o que este aparelho já usa (se a pessoa escolheu)
+async function temaDaConta(){
+  try {
+    const { data, error } = await sb.rpc('meu_tema');
+    if (error) return;   // banco ainda sem o tema salvo: fica só neste aparelho
+    if (data === 'claro' || data === 'escuro'){
+      if (window.temaEscolhido && window.temaEscolhido() !== data && window.definirTema) window.definirTema(data);
+      marcarTema();
+    } else {
+      let local = null; try { local = localStorage.getItem('pof-tema'); } catch {}
+      if (local === 'claro' || local === 'escuro') await sb.rpc('definir_tema', { p_tema: local });
+    }
+  } catch {}
+}
 marcarTema();
 
 function lerFoto(file){
