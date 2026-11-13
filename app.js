@@ -1214,8 +1214,8 @@ async function rpEnviarIA(blob, mime){
     let r = data;
     if (error){ try { r = await error.context.json(); } catch { r = { erro: ehRede(error) ? 'rede' : 'falhou' }; } }
     if (r && r.limite != null && r.restam != null) rp.ia = { usadas: r.limite - r.restam, limite: r.limite };
-    const MSG = { sem_saldo: `Suas ${r?.limite ?? ''} leituras de IA deste mês acabaram. Use texto ou extrato (sem limite) ou espere o dia 1º.`,
-      sem_ia: 'A leitura por IA ainda não está ligada. Por enquanto, use texto ou extrato.', login: 'Sua sessão expirou. Entre de novo.',
+    const MSG = { sem_saldo: `Suas ${r?.limite ?? ''} leituras de IA deste mês acabaram. Lance pelo formulário ou pelo extrato (sem limite), ou espere o dia 1º.`,
+      sem_ia: 'A leitura por IA ainda não está ligada. Por enquanto, use o extrato.', nao_liberado: 'A leitura por IA ainda não foi liberada para a sua conta.', login: 'Sua sessão expirou. Entre de novo.',
       nao_aprovado: 'Sua conta ainda não foi liberada.', tipo: 'Esse tipo de arquivo não dá para ler. Use foto, PDF ou áudio.',
       tamanho: 'Arquivo grande demais (máximo 5 MB).', rede: 'Sem internet. A leitura por IA precisa de conexão.' };
     if (!r || r.erro){ rp.aviso = MSG[r?.erro] || 'Não consegui ler agora. Tente de novo daqui a pouco.'; return; }
@@ -4103,8 +4103,8 @@ async function renderLimites(){
 
 /* ---------- Detetive Grana (bot do WhatsApp e do Telegram) ---------- */
 const WA_BOT = '';   // número do bot no WhatsApp (só dígitos, com 55). Vazio: mostra "em breve"
-const TG_BOT = 'praondefoi_teste_bot';   // usuário do bot no Telegram (sem @). Vazio: mostra "em breve"
-const BOT_LIGADO = false;   // o promover troca para false no prod enquanto o bot não for lançado
+const TG_BOT = '';   // usuário do bot no Telegram (sem @). Vazio: mostra "em breve"
+const BOT_LIGADO = true;   // o promover troca para false no prod enquanto o bot não for lançado
 let botDisponivel = false, botCodigo = '', botEspera = null;
 const DET_LOGO = (document.querySelector('#botFab .det-logo') || {}).outerHTML || '';
 const botFabKey = () => `pof-botfab-${currentUser ? currentUser.id : ''}`;
@@ -4116,18 +4116,23 @@ let botBalTimer = null;
 // leitura por IA e limites só aparecem quando o banco já tem o supabase-ia.sql
 let iaDisponivel = false;
 async function checarIA(){
-  const { error } = await sb.rpc('ia_meu_saldo');
-  iaDisponivel = !error;
+  const { data, error } = await sb.rpc('ia_meu_saldo');
+  iaDisponivel = !error && !(data && data.liberada === false);   // liberada: o admin ligou para esta conta
   $('rpAbrirIa').hidden = !iaDisponivel;
   document.querySelector('.rp-d-bt').classList.toggle('um', !iaDisponivel);
   $('rpDestTx').textContent = iaDisponivel ? 'Mande a foto da nota ou o extrato do banco. Vários lançamentos de uma vez.' : 'Importe o extrato do banco e lance o mês inteiro de uma vez.';
-  $('drLimites').hidden = !iaDisponivel && !BOT_LIGADO;
+  if (iaDisponivel) $('drLimites').hidden = false;   // Limites aparece se a conta tem IA ou Detetive
 }
 async function checarBot(){
   if (!BOT_LIGADO) return;   // prod: o bot ainda não foi lançado
   const { data, error } = await sb.rpc('whatsapp_meu');
   botDisponivel = !error;
+  if (botDisponivel){   // o admin libera o Detetive conta por conta (supabase-liberacoes.sql); banco antigo: liberado
+    const r = await sb.rpc('meus_recursos');
+    if (!r.error && r.data && r.data.bot === false) botDisponivel = false;
+  }
   $('botFab').hidden = !botDisponivel;
+  if (botDisponivel) $('drLimites').hidden = false;
   let visto = false; try { visto = localStorage.getItem(botFabKey()) === '1'; } catch {}
   const novo = botDisponivel && !visto && !(data || []).length;
   $('botFabNovo').hidden = !novo;
@@ -4729,6 +4734,7 @@ async function loadUsers(){
   users = data;
   const n = users.filter(u => u.status === 'pendente').length;
   if (!$('viewAdmin').hidden) renderAdmin();
+  if (dlg2.tipo === 'admconta') openConta(dlg2.id);
 }
 
 function renderAdmin(){
@@ -4741,7 +4747,7 @@ function renderAdmin(){
 
   const q = semAcento(adminBusca.trim());
   const acha = u => !q || semAcento(`${u.email} ${displayName(u.email)} ${u.nome || ''}`).includes(q);
-  const daAba = u => adminFilter === 'todos' || (adminFilter === 'fundador' ? u.fundador : u.status === adminFilter);
+  const daAba = u => adminFilter === 'todos' || (adminFilter === 'fundador' ? u.fundador : adminFilter === 'ia' ? u.ia_liberada : adminFilter === 'bot' ? u.bot_liberado : u.status === adminFilter);
   const list = users.filter(u => daAba(u) && acha(u));
   $('usersEmpty').hidden = list.length > 0;
   $('usersTable').hidden = list.length === 0;
@@ -4755,24 +4761,16 @@ function renderAdmin(){
     let actions = '';
     if (me) actions = '<span style="font-size:13px;color:var(--muted);">Você · conta master</span>';
     else {
-      if (u.status !== 'aprovado') actions += `<button class="btn btn-primary btn-sm" data-act="aprovado" data-id="${esc(u.id)}">${u.status === 'bloqueado' ? 'Desbloquear' : 'Aprovar'}</button>`;
-      if (u.status !== 'bloqueado') actions += `<button class="btn btn-secondary btn-sm" data-act="bloqueado" data-id="${esc(u.id)}">${u.status === 'pendente' ? 'Recusar' : 'Bloquear'}</button>`;
-      if (u.status === 'aprovado') actions += `<button class="btn ${u.fundador ? 'btn-primary' : 'btn-secondary'} btn-sm" data-act="fundador" data-id="${esc(u.id)}" data-sim="${u.fundador ? '0' : '1'}" title="${u.fundador ? 'Tirar de fundador' : 'Marcar como fundador (não paga mensalidade)'}">${u.fundador ? '⭐ Fundador' : '☆ Fundador'}</button>`;
-      if (u.status === 'aprovado' && u.wa_padrao != null){
-        const lim = u.wa_limite ?? u.wa_padrao;
-        actions += `<button class="btn btn-secondary btn-sm" data-act="walimite" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}" data-lim="${u.wa_limite ?? ''}" data-padrao="${u.wa_padrao}" title="Respostas do Detetive no WhatsApp por mês (cada uma custa). Usou ${u.wa_usadas || 0} este mês.">WhatsApp ${u.wa_usadas || 0}/${lim}${u.wa_limite != null ? ' ✎' : ''}</button>`;
+      if (u.status === 'pendente'){
+        actions += `<button class="btn btn-primary btn-sm" data-act="aprovado" data-id="${esc(u.id)}">Aprovar</button>`;
+        actions += `<button class="btn btn-secondary btn-sm" data-act="bloqueado" data-id="${esc(u.id)}">Recusar</button>`;
       }
-      if (u.status === 'aprovado' && u.ia_padrao != null){
-        const lim = u.ia_limite ?? u.ia_padrao;
-        actions += `<button class="btn btn-secondary btn-sm" data-act="ialimite" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}" data-lim="${u.ia_limite ?? ''}" data-padrao="${u.ia_padrao}" title="Leituras de foto, PDF e áudio pela IA por mês. Usou ${u.ia_usadas || 0} este mês.">IA ${u.ia_usadas || 0}/${lim}${u.ia_limite != null ? ' ✎' : ''}</button>`;
-      }
-      actions += `<button class="btn btn-secondary btn-sm" data-act="senha" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Nova senha</button>`;
-      actions += `<button class="btn btn-danger btn-sm" data-act="excluir" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Excluir</button>`;
+      actions += `<button class="btn btn-ghost btn-icon adm-mais" data-act="menu" data-id="${esc(u.id)}" aria-label="Mais opções de ${esc(displayName(u.email))}" title="Mais opções"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button>`;
     }
     return `<tr>
       <td style="word-break:break-all;">${esc(displayName(u.email))}${u.nome ? `<div class="by">${esc(u.nome)}</div>` : ''}</td>
       <td style="color:var(--muted);">${new Date(u.criado_em).toLocaleDateString('pt-BR')}</td>
-      <td>${me ? '<span class="tag tag-accent">Admin</span>' : STATUS_TAG[u.status]}${u.fundador ? ' <span class="tag tag-accent" title="Fundador: não paga mensalidade">⭐ Fundador</span>' : ''}</td>
+      <td>${me ? '<span class="tag tag-accent">Admin</span>' : STATUS_TAG[u.status]}${u.fundador ? ' <span class="tag tag-accent" title="Fundador: não paga mensalidade">⭐ Fundador</span>' : ''}${u.ia_liberada ? ' <span class="tag tag-neutral" title="Leitura por IA liberada">📷 IA</span>' : ''}${u.bot_liberado ? ` <span class="tag tag-neutral" title="Detetive liberado${u.canais ? ' · ligado: ' + esc(u.canais) : ''}">🕵️ Detetive${u.canais ? ' ✓' : ''}</span>` : ''}</td>
       <td><div style="display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;">${actions}</div></td>
     </tr>`;
   }).join('');
@@ -4851,10 +4849,42 @@ $('adminBusca').addEventListener('input', e => { adminBusca = e.target.value; re
 $('adminBusca').addEventListener('keydown', e => { if (e.key === 'Escape'){ e.target.value = ''; adminBusca = ''; renderAdmin(); } });
 $('usersEmpty').addEventListener('click', e => { if (e.target.id === 'adminVerTodos'){ adminFilter = 'todos'; renderAdmin(); } });
 
-$('userRows').addEventListener('click', async e => {
-  const b = e.target.closest('[data-act]');
+// ⋮ de cada conta: recursos liberados, limites e ações da conta
+function openConta(id){
+  const u = users.find(x => x.id === id); if (!u) return closeDlg2();
+  const nome = displayName(u.email), d = `data-uid="${esc(u.id)}" data-email="${esc(nome)}"`;
+  const tem = u.ia_padrao != null;   // banco já tem IA e limites
+  const chave = (act, on, titulo, sub, extra = '') => `<button type="button" class="adm-chave" role="switch" aria-checked="${on}" data-adm="${act}" data-sim="${on ? '0' : '1'}" ${d} ${extra}>
+      <span><b>${titulo}</b><small>${sub}</small></span><i aria-hidden="true"></i></button>`;
+  const iaLim = u.ia_limite ?? u.ia_padrao, waLim = u.ia_padrao != null ? (u.wa_limite ?? u.wa_padrao) : null;
+  openDlg2('Conta', nome, `
+    ${u.nome ? `<p class="hint" style="margin:-6px 0 0;">${esc(u.nome)} · desde ${new Date(u.criado_em).toLocaleDateString('pt-BR')}</p>` : ''}
+    <div class="adm-sec"><h4>Liberar recursos</h4>
+      ${u.ia_liberada !== undefined ? chave('lib-ia', !!u.ia_liberada, '📷 Leitura por IA', 'Foto, PDF e áudio no app e no Detetive') : ''}
+      ${u.bot_liberado !== undefined ? chave('lib-bot', !!u.bot_liberado, '🕵️ Detetive Grana', u.canais ? `Ligado: ${esc(u.canais.replace('telegram', 'Telegram').replace('whatsapp', 'WhatsApp'))}. Desligar desconecta.` : 'Lançar pelo Telegram (e WhatsApp quando liberar)') : ''}
+      ${u.status === 'aprovado' ? chave('fundador', !!u.fundador, '⭐ Fundador', 'Não paga mensalidade quando a cobrança começar') : ''}
+      ${u.ia_liberada === undefined ? '<p class="hint" style="margin:0;">Para liberar IA e Detetive por conta, rode o supabase-liberacoes.sql neste banco.</p>' : ''}
+    </div>
+    ${tem && u.status === 'aprovado' ? `<div class="adm-sec"><h4>Limites do mês</h4>
+      <button type="button" class="adm-linha" data-adm="ialimite" ${d} data-lim="${u.ia_limite ?? ''}" data-padrao="${u.ia_padrao}"><span>📷 Leituras de IA</span><b>${u.ia_usadas || 0} de ${iaLim}</b><em>Mudar</em></button>
+      <button type="button" class="adm-linha" data-adm="walimite" ${d} data-lim="${u.wa_limite ?? ''}" data-padrao="${u.wa_padrao}"><span>💬 Respostas no WhatsApp</span><b>${u.wa_usadas || 0} de ${waLim}</b><em>Mudar</em></button>
+    </div>` : ''}
+    <div class="adm-sec"><h4>Conta</h4>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        ${u.status !== 'aprovado' ? `<button class="btn btn-primary btn-sm" data-adm="aprovado" ${d}>${u.status === 'bloqueado' ? 'Desbloquear' : 'Aprovar'}</button>` : ''}
+        ${u.status !== 'bloqueado' ? `<button class="btn btn-secondary btn-sm" data-adm="bloqueado" ${d}>${u.status === 'pendente' ? 'Recusar' : 'Bloquear'}</button>` : ''}
+        <button class="btn btn-secondary btn-sm" data-adm="senha" ${d}>Nova senha</button>
+        <button class="btn btn-danger btn-sm" data-adm="excluir" ${d}>Excluir conta</button>
+      </div>
+    </div>`, { tipo: 'admconta', id });
+}
+$('dlg2Body').addEventListener('click', e => { if (dlg2.tipo === 'admconta' && e.target.closest('[data-adm]')) acaoAdmin(e); });
+$('userRows').addEventListener('click', acaoAdmin);
+async function acaoAdmin(e){
+  const b = e.target.closest('[data-adm], [data-act]');
   if (!b) return;
-  const id = b.dataset.id, act = b.dataset.act;
+  if (b.dataset.act === 'menu') return openConta(b.dataset.id);
+  const id = b.dataset.uid || b.dataset.id, act = b.dataset.adm || b.dataset.act;
   let error;
   if (act === 'senha'){
     const nova = await pedirTexto('Senha temporária', `Para ${b.dataset.email}. Passe para a pessoa e peça para trocar depois.`, { rotulo: 'Senha (mínimo de 8 caracteres)', tipo: 'text', okTxt: 'Definir senha' });
@@ -4893,6 +4923,15 @@ $('userRows').addEventListener('click', async e => {
     toast(n === null ? `Voltou para o padrão (${padrao} por mês).` : `${b.dataset.email}: ${n} respostas por mês no WhatsApp.`, true);
     return loadUsers();
   }
+  if (act === 'lib-ia' || act === 'lib-bot'){
+    const sim = b.dataset.sim === '1', bot = act === 'lib-bot';
+    if (bot && !sim && /,|telegram|whatsapp/.test((users.find(x => x.id === id) || {}).canais || '') && !await confirmar(`Tirar o Detetive de ${b.dataset.email}?\n\nOs canais ligados (Telegram/WhatsApp) são desconectados.`, 'Tirar')) return;
+    b.disabled = true;
+    ({ error } = await sb.rpc('admin_liberar', { alvo: id, p_recurso: bot ? 'bot' : 'ia', sim }));
+    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+    toast(`${bot ? '🕵️ Detetive' : '📷 Leitura por IA'} ${sim ? 'liberado' : 'desligado'} para ${b.dataset.email}.`, true);
+    return loadUsers();
+  }
   if (act === 'fundador'){
     b.disabled = true;
     ({ error } = await sb.rpc('admin_definir_fundador', { alvo: id, sim: b.dataset.sim === '1' }));
@@ -4909,8 +4948,9 @@ $('userRows').addEventListener('click', async e => {
     ({ error } = await sb.rpc('admin_mudar_status', { alvo: id, novo: act }));
   }
   if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+  if (act === 'excluir') closeDlg2();
   await loadUsers();
-});
+}
 
 /* ======================= APP INSTALÁVEL ======================= */
 if ('serviceWorker' in navigator && location.protocol === 'https:'){
