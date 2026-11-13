@@ -1116,6 +1116,13 @@ a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
 .rp-d-op svg{color:var(--accent-text)}
 .rp-d-bt.dois{grid-template-columns:repeat(2,1fr)}
 @media (min-width:900px){.rp-destaque{flex-direction:row;align-items:center;justify-content:space-between;gap:20px}.rp-d-bt{min-width:460px}.rp-d-op{min-height:58px;flex-direction:row;gap:8px}}
+
+/* "Para onde foi" vira filtro */
+.cat-filtro{display:flex;flex-direction:column;gap:5px;width:100%;margin:0;padding:8px 10px;border:1.5px solid transparent;border-radius:var(--r-btn);background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.cat-filtro:hover{background:rgba(var(--fg-rgb),.04)}
+.cat-filtro.on{border-color:var(--accent);background:rgba(var(--accent-rgb),.12)}
+#cats.filtrando .cat-filtro:not(.on){opacity:.5}
+#cats{gap:var(--space-2) !important;margin:0 -10px}
 </style>
 </head>
 <body>
@@ -1719,6 +1726,6 @@ a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="entender.js?v=3"></script>
-<script src="app.js?v=111"></script>
+<script src="app.js?v=112"></script>
 </body>
 </html>
