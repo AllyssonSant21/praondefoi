@@ -12,13 +12,19 @@ begin;
 
 -- nomes que contam como a mesma coisa (sem diferença de maiúscula, acento ou espaço)
 create or replace function pg_temp.eh_alimentacao(t text) returns boolean language sql immutable as $$
-  select lower(btrim(coalesce(t, ''))) in ('alimentação', 'alimentacao')
+  -- normalize: o mesmo "ç" pode vir gravado de dois jeitos diferentes (um caractere só, ou c + cedilha)
+  select translate(lower(normalize(btrim(coalesce(t, '')), NFD)), U&'\0327\0303', '') in ('alimentacao')
 $$;
 
 update public.lancamentos     set categoria = 'Alimentação' where pg_temp.eh_alimentacao(categoria) and categoria <> 'Alimentação';
 update public.compras_cartao  set categoria = 'Alimentação' where pg_temp.eh_alimentacao(categoria) and categoria <> 'Alimentação';
 update public.contas          set categoria = 'Alimentação' where pg_temp.eh_alimentacao(categoria) and categoria <> 'Alimentação';
-update public.bot_dicionario  set categoria = 'Alimentação' where pg_temp.eh_alimentacao(categoria) and categoria <> 'Alimentação';
+-- o dicionário do bot só existe onde o Detetive já foi instalado
+do $$ begin
+  if to_regclass('public.bot_dicionario') is not null then
+    update public.bot_dicionario set categoria = 'Alimentação' where pg_temp.eh_alimentacao(categoria) and categoria <> 'Alimentação';
+  end if;
+end $$;
 
 -- a categoria própria some: a padrão já aparece para todo mundo
 delete from public.categorias where pg_temp.eh_alimentacao(nome) and tipo <> 'inc';
@@ -26,5 +32,5 @@ delete from public.categorias where pg_temp.eh_alimentacao(nome) and tipo <> 'in
 commit;
 
 -- conferência: as duas linhas devem dar 0
-select count(*) as categorias_repetidas from public.categorias where lower(btrim(nome)) in ('alimentação', 'alimentacao') and tipo <> 'inc';
-select count(*) as lancamentos_com_nome_antigo from public.lancamentos where lower(btrim(categoria)) in ('alimentação', 'alimentacao') and categoria <> 'Alimentação';
+select count(*) as categorias_repetidas from public.categorias where translate(lower(normalize(btrim(nome), NFD)), U&'\0327\0303', '') = 'alimentacao' and tipo <> 'inc';
+select count(*) as lancamentos_com_nome_antigo from public.lancamentos where translate(lower(normalize(btrim(categoria), NFD)), U&'\0327\0303', '') = 'alimentacao' and categoria <> 'Alimentação';
