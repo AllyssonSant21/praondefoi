@@ -560,8 +560,8 @@ async function rpc(nome: string, args: Record<string, unknown>) {
 }
 
 // ------------------------------------------------------------------ leitura por IA (foto, print, PDF, áudio)
-//  Usa o Gemini (Google). Segredos: GEMINI_KEY (obrigatório), GEMINI_MODELO (padrão gemini-2.5-flash-lite),
-//  GEMINI_RESERVA (padrão gemini-2.5-flash; tentado quando a primeira leitura vem com dúvida). O arquivo não é guardado.
+//  Usa o Gemini (Google). Segredos: GEMINI_KEY (obrigatório), GEMINI_MODELO (padrão gemini-3.5-flash-lite),
+//  GEMINI_RESERVA (padrão gemini-3.8-flash; tentado quando a primeira leitura vem com dúvida). O arquivo não é guardado.
 
 export const IA_TIPOS: Record<string, string> = {
   'image/jpeg': 'imagem', 'image/png': 'imagem', 'image/webp': 'imagem', 'image/heic': 'imagem', 'image/heif': 'imagem',
@@ -633,7 +633,7 @@ async function chamarGemini(modelo: string, b64: string, mime: string, hoje: str
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env('GEMINI_KEY') },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ inline_data: { mime_type: mime, data: b64 } }, { text: iaInstrucoes(hoje, cats) }] }],
-      generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: IA_ESQUEMA, maxOutputTokens: 2048 },
+      generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: IA_ESQUEMA, maxOutputTokens: 8192 },
     }),
     signal: AbortSignal.timeout(45_000),
   });
@@ -647,8 +647,8 @@ async function chamarGemini(modelo: string, b64: string, mime: string, hoje: str
 export async function lerComIA(bytes: Uint8Array, mime: string, hoje: string, cats: { exp: string[]; inc: string[] }) {
   if (!env('GEMINI_KEY')) throw new Error('sem_chave');
   const b64 = paraBase64(bytes);
-  const principal = env('GEMINI_MODELO') || 'gemini-2.5-flash-lite';
-  const reserva = env('GEMINI_RESERVA') || 'gemini-2.5-flash';
+  const principal = env('GEMINI_MODELO') || 'gemini-3.5-flash-lite';
+  const reserva = env('GEMINI_RESERVA') || 'gemini-3.8-flash';
   let modelo = principal, itens: ItemIA[] = [], legivel = true;
   try {
     const j = await chamarGemini(principal, b64, mime, hoje, cats);

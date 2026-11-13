@@ -6,8 +6,8 @@
 //
 //  Segredos (Supabase → Edge Functions → Secrets), colados por você:
 //    GEMINI_KEY      chave do Google AI Studio (com faturamento ativo)
-//    GEMINI_MODELO   opcional (padrão gemini-2.5-flash-lite)
-//    GEMINI_RESERVA  opcional (padrão gemini-2.5-flash)
+//    GEMINI_MODELO   opcional (padrão gemini-3.5-flash-lite)
+//    GEMINI_RESERVA  opcional (padrão gemini-3.8-flash)
 //    APP_ORIGENS     opcional: endereços do app separados por vírgula
 //                    (padrão https://praondefoiapp.com.br)
 //  Deixe "Verify JWT" LIGADO nesta função (só quem está logado usa).
