@@ -1074,6 +1074,16 @@ html[data-tema="escuro"] .capa .cp-h1 em{background:none;color:#fed13d}
 .capa .cp-seta:before{content:"";position:absolute;left:calc(50% - 4.5px);bottom:2px;width:7px;height:7px;border-right:1.5px solid #fed13d;border-bottom:1.5px solid #fed13d;transform:rotate(45deg)}
 .capa .cp-c{gap:12px}
 .capa .cp-in{justify-content:center}
+.capa .cp-lista li{align-items:center;padding:16px 0}.capa .cp-lista b{font-size:17px}
+.capa .cp-esq{order:2;display:flex;flex-direction:column;gap:18px}
+.capa .cp-det{display:flex;gap:16px;align-items:flex-start;background:#0e1525;color:#f6f0df;border-radius:14px;padding:22px}
+.capa .cp-det>svg{flex:none}
+.capa .cp-det .tag{display:inline-block;background:#fed13d;color:#0e1525;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:4px;padding:3px 7px;margin-bottom:8px}
+.capa .cp-det b{display:block;font-family:"Archivo",system-ui,sans-serif;font-weight:900;font-size:28px;letter-spacing:-.03em;line-height:1;color:#fff}
+.capa .cp-det p{margin:8px 0 0;font-size:15px;color:#c9c6bc}
+.capa .cp-det .ch{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.capa .cp-det .ch span{border:1px solid #2c3954;border-radius:6px;padding:5px 10px;font-size:13px;color:#fff}
+@media (min-width:980px){.capa .cp-esq{order:0;justify-self:end;width:100%;max-width:400px}.capa .cp-esq .cp-lista{max-width:none}}
 </style>
 </head>
 <body>
@@ -1103,11 +1113,11 @@ html[data-tema="escuro"] .capa .cp-h1 em{background:none;color:#fed13d}
     <p class="cp-sub">Anote em segundos, pelo app ou por mensagem, e veja no fim do mês para onde foi cada real.</p>
   </section>
   <div class="cp-grid">
-    <ol class="cp-lista">
-      <li><span class="n">01</span><div><b>Contas e cartões</b><span>Aviso antes de vencer e fatura do mês.</span></div></li>
-      <li><span class="n">02</span><div><b>Metas e investimentos</b><span>Quanto falta e quanto rendeu.</span></div></li>
-      <li><span class="n">03</span><div><b>A dois ou em família</b><span>Cada um lança, todos veem.</span></div></li>
-    </ol>
+    <div class="cp-esq"><!--BOT--><div class="cp-det"><svg width="52" height="52" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="#fed13d"/><line x1="61" y1="61" x2="75" y2="75" stroke="#0e1525" stroke-width="10" stroke-linecap="round"/><circle cx="45" cy="45" r="24" fill="#0e1525" stroke="#0e1525" stroke-width="6"/><path d="M37 40C37 30 54 30 54 40C54 47 46 47 46 53" fill="none" stroke="#f6f0df" stroke-width="6" stroke-linecap="round"/><circle cx="46" cy="61" r="4.3" fill="#fed13d"/></svg><div><span class="tag">Novo</span><b>Detetive Grana</b><p>Seu agente de IA no WhatsApp e no Telegram.</p><div class="ch"><span>Texto</span><span>Foto</span><span>Áudio</span><span>PDF</span></div></div></div><!--/BOT--><ol class="cp-lista">
+      <li><span class="n">01</span><div><b>Contas e cartões</b></div></li>
+      <li><span class="n">02</span><div><b>Metas e investimentos</b></div></li>
+      <li><span class="n">03</span><div><b>A dois ou em família</b></div></li>
+    </ol></div>
     <div class="cp-meio" aria-hidden="true"><div class="cp-fone"><div class="cp-tela">
       <div class="cp-ttop"><b>Lançamentos</b><span>Nov 2026</span></div><div class="cp-saldo"><small>Saldo do mês</small><b>R$ 4.983,70</b><span>Sobrou 59% do que entrou</span><div class="cp-mini"><div><i class="up">↑</i>Entradas<b>R$ 8.400,00</b></div><div><i class="dn">↓</i>Saídas<b>R$ 3.416,30</b></div></div></div><div class="cp-rows"><div class="cp-row"><div><b>Internet</b><small>11/11 · 🧾 Contas</small></div><span class="cp-v">− R$ 120,00</span></div><div class="cp-row"><div><b>Mercado do mês</b><small>11/11 · 🛒 Mercado</small></div><span class="cp-v">− R$ 820,00</span></div><div class="cp-row"><div><b>Salário</b><small>11/11 · 💰 Salário</small></div><span class="cp-v cp-ent">+ R$ 4.800,00</span></div><div class="cp-row"><div><b>Uber</b><small>10/11 · 🚗 Transporte</small></div><span class="cp-v">− R$ 45,90</span></div><div class="cp-row"><div><b>Aluguel</b><small>10/11 · 🏠 Moradia</small></div><span class="cp-v">− R$ 1.500,00</span></div></div></div></div>
     <!--BOT--><div class="cp-bolha"><span class="b1">Mercado 50</span><div class="b2"><svg width="22" height="22" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="#0e1525"/><line x1="61" y1="61" x2="75" y2="75" stroke="#f6f0df" stroke-width="10" stroke-linecap="round"/><circle cx="45" cy="45" r="24" fill="#16203a" stroke="#f6f0df" stroke-width="6"/><path d="M37 40C37 30 54 30 54 40C54 47 46 47 46 53" fill="none" stroke="#f6f0df" stroke-width="6" stroke-linecap="round"/><circle cx="46" cy="61" r="4.3" fill="#fed13d"/></svg><div><b>✅ Caso registrado</b>🛒 Mercado · R$ 50,00</div></div></div><!--/BOT-->
