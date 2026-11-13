@@ -4103,7 +4103,7 @@ async function renderLimites(){
 
 /* ---------- Detetive Grana (bot do WhatsApp e do Telegram) ---------- */
 const WA_BOT = '';   // número do bot no WhatsApp (só dígitos, com 55). Vazio: mostra "em breve"
-const TG_BOT = '';   // usuário do bot no Telegram (sem @). Vazio: mostra "em breve"
+const TG_BOT = 'Praondefoi_bot';   // usuário do bot no Telegram (sem @). Vazio: mostra "em breve"
 const BOT_LIGADO = true;   // o promover troca para false no prod enquanto o bot não for lançado
 let botDisponivel = false, botCodigo = '', botEspera = null;
 const DET_LOGO = (document.querySelector('#botFab .det-logo') || {}).outerHTML || '';
