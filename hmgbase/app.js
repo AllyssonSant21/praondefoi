@@ -967,7 +967,7 @@ function renderRapido(){
     ${rp.aba === 'texto' ? `
       <div style="display:flex;flex-direction:column;gap:10px;">
         <label for="rpTexto" class="hint">Fale, escreva ou cole a notificação do banco. Pode ser mais de um gasto.</label>
-        <textarea class="input rp-texto" id="rpTexto" placeholder="gastei 50 no mercado e 20 de uber ontem">${esc(texto)}</textarea>
+        <textarea class="input rp-texto" id="rpTexto" placeholder="Gastei 50 no mercado e 20 de Uber ontem">${esc(texto)}</textarea>
         <div class="rp-acoes">
           ${SR ? `<button class="btn btn-secondary btn-sm" type="button" data-rp="falar">${rp.ouvindo ? 'Parar' : '🎤 Falar'}</button>` : ''}
           ${rp.ouvindo ? '<span class="rp-ouvindo" role="status">Ouvindo…</span>' : ''}
@@ -1036,7 +1036,7 @@ async function rpEntender(){
   if (!tentar(texto)) for (const l of texto.split(/\n+/).map(x => x.trim()).filter(Boolean)) if (!tentar(l)) ignorados++;
   rp.itens.push(...lancs.map(l => rpItem({ type: l.tipo, desc: l.descricao, amount: l.valor, date: l.data, cat: l.categoria })));
   rp.aviso = !lancs.length
-    ? (faltou.length ? `Faltou o valor de <b>${esc(faltou.join(', '))}</b>. Tente "${esc(faltou[0].toLowerCase())} 50".` : 'Não entendi. Tente algo como <b>mercado 50</b> ou <b>recebi 200 de freela</b>.')
+    ? (faltou.length ? `Faltou o valor de <b>${esc(faltou.join(', '))}</b>. Tente "${esc(faltou[0])} 50".` : 'Não entendi. Tente algo como <b>Mercado 50</b> ou <b>Recebi 200 de freela</b>.')
     : (ignorados ? `Entendi ${plural(lancs.length, 'lançamento')}. Algumas partes ficaram de fora.` : '');
   if (lancs.length) $('rpTexto').value = '';
   renderRapido();
@@ -4163,7 +4163,7 @@ async function renderBot(){
     : `<div class="bot-opcao off" style="--c:${cor}"><span class="bot-opcao-ic">${ic}</span><span><b>${nome}</b><small>Chegando em breve</small></span><span class="tag tag-neutral">Em breve</span></div>`;
   $('dlg2Body').innerHTML = `
     <div class="bot-topo">${DET_LOGO}
-      <div><b>Comece a lançar por mensagem</b><span>Mande <b>mercado 50</b> ou <b>uber 23,90 ontem</b> e o Detetive anota em <b>${esc(atual ? atual.nome : 'Meu controle')}</b>.</span></div></div>
+      <div><b>Comece a lançar por mensagem</b><span>Mande <b>Mercado 50</b> ou <b>Uber 23,90 ontem</b> e o Detetive anota em <b>${esc(atual ? atual.nome : 'Meu controle')}</b>.</span></div></div>
     <p class="bot-pergunta">Onde você quer conversar com ele?</p>
     <div class="bot-opcoes">
       ${opcao('telegram', 'Telegram', linkTg, icTg, '#2a9fd8', 'Sem limite de mensagens')}

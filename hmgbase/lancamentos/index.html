@@ -1047,6 +1047,33 @@ html[data-tema="escuro"] .capa .cp-faixa{background:#141c2e;border-top:1px solid
 html[data-tema="escuro"] .capa .cp-login .seg button[aria-pressed="true"]{background:#fed13d !important;color:#0e1525 !important}
 html[data-tema="escuro"] .capa .cp-h1 em{background:none;color:#fed13d}
 .capa .cp-marca{padding-top:34px}
+
+/* capa: celular e exemplos iguais ao app */
+.capa .cp-tela{background:#f5f6f8}
+.capa .cp-ttop b{font-size:19px;font-weight:700}
+.capa .cp-saldo{background:#fff;border:1px solid #e6e8ec;border-radius:10px;padding:12px 0 0;color:#1f1d1e}
+.capa .cp-saldo>small,.capa .cp-saldo>b,.capa .cp-saldo>span{padding:0 14px}
+.capa .cp-saldo>small{font-size:12px;font-weight:500}
+.capa .cp-saldo>b{font-family:Rubik,system-ui,sans-serif !important;font-weight:700;font-size:26px;color:#1e9e52;letter-spacing:-.02em}
+.capa .cp-saldo>span{display:block;font-size:11px;color:#6b6b6b;padding-bottom:10px}
+.capa .cp-saldo .cp-mini{margin:0;border-top:1px solid #e6e8ec;gap:0}
+.capa .cp-saldo .cp-mini div{background:none;border-radius:0;padding:9px 12px;color:#1f1d1e;font-size:11px}
+.capa .cp-saldo .cp-mini div+div{border-left:1px solid #e6e8ec}
+.capa .cp-mini i{font-style:normal;display:inline-grid;place-items:center;width:15px;height:15px;border-radius:4px;margin-right:5px;font-size:10px;font-weight:700}
+.capa .cp-mini i.up{background:#e3f5ea;color:#1e9e52}.capa .cp-mini i.dn{background:#fde8e8;color:#d93a3a}
+.capa .cp-rows{background:none;margin:8px 12px 0;padding:0;border-radius:0}
+.capa .cp-row{padding:9px 2px;border-bottom:1px solid #e6e8ec;align-items:flex-start}
+.capa .cp-row b{font-size:13px;font-weight:500;color:#1f1d1e}
+.capa .cp-row small{display:block;font-size:11px;color:#6b6b6b;margin-top:2px}
+.capa .cp-v{color:#d93a3a;font-size:12.5px}.capa .cp-v.cp-ent{color:#1e9e52}
+.capa .cp-res{display:block;padding:4px 14px;background:#f5f6f8}
+.capa .cp-res .cp-row{border:0;padding:10px 0}
+.capa .cp-res .cp-row b{font-size:15px}.capa .cp-res .cp-row small{font-size:12.5px}.capa .cp-res .cp-v{font-size:14.5px;color:#d93a3a}
+.capa .cp-seta{display:block;height:22px;position:relative}
+.capa .cp-seta:after{content:"";position:absolute;left:calc(50% - .75px);top:0;height:16px;width:1.5px;background:#fed13d;flex:none}
+.capa .cp-seta:before{content:"";position:absolute;left:calc(50% - 4.5px);bottom:2px;width:7px;height:7px;border-right:1.5px solid #fed13d;border-bottom:1.5px solid #fed13d;transform:rotate(45deg)}
+.capa .cp-c{gap:12px}
+.capa .cp-in{justify-content:center}
 </style>
 </head>
 <body>
@@ -1072,7 +1099,7 @@ html[data-tema="escuro"] .capa .cp-h1 em{background:none;color:#fed13d}
   <header class="cp-marca"><img src="../logo/logo-simbolo.svg" alt="" width="44" height="44"><b>Pra Onde Foi<i>?</i></b></header>
   <section class="cp-topo">
     <p class="cp-kick">Controle financeiro</p>
-    <h1 class="cp-h1">Descubra pra onde foi <em>seu dinheiro.</em></h1>
+    <h1 class="cp-h1">Descubra para onde foi <em>seu dinheiro.</em></h1>
     <p class="cp-sub">Anote em segundos, pelo app ou por mensagem, e veja no fim do mês para onde foi cada real.</p>
   </section>
   <div class="cp-grid">
@@ -1082,12 +1109,8 @@ html[data-tema="escuro"] .capa .cp-h1 em{background:none;color:#fed13d}
       <li><span class="n">03</span><div><b>A dois ou em família</b><span>Cada um lança, todos veem.</span></div></li>
     </ol>
     <div class="cp-meio" aria-hidden="true"><div class="cp-fone"><div class="cp-tela">
-      <div class="cp-ttop"><b>Novembro</b><span>Meu controle</span></div>
-      <div class="cp-saldo"><small>Saldo do mês</small><b>R$ 3.787,65</b><span>Sobrou 73% do que entrou</span></div>
-      <div class="cp-mini"><div>Entradas<b>R$ 5.200,00</b></div><div>Saídas<b>R$ 1.412,35</b></div></div>
-      <div class="cp-rows"><div class="cp-row"><span class="cp-ri"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/><path d="M2.5 3.5h3l2.4 11.2a1.5 1.5 0 0 0 1.5 1.2h8.3a1.5 1.5 0 0 0 1.5-1.1l1.6-6.3H7"/></svg></span><div><b>Mercado</b><small>Hoje</small></div><span class="cp-v">− R$ 186,40</span></div><div class="cp-row"><span class="cp-ri"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span><div><b>Salário</b><small>05/11</small></div><span class="cp-v cp-ent">+ R$ 5.200,00</span></div><div class="cp-row"><span class="cp-ri"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17h14v-5l-2-5H7l-2 5z"/><circle cx="8" cy="17" r="1.6"/><circle cx="16" cy="17" r="1.6"/></svg></span><div><b>Uber</b><small>Ontem</small></div><span class="cp-v">− R$ 23,90</span></div><div class="cp-row"><span class="cp-ri"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg></span><div><b>Aluguel</b><small>10/11</small></div><span class="cp-v">− R$ 1.500,00</span></div><div class="cp-row"><span class="cp-ri"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span><div><b>Conta de luz</b><small>12/11</small></div><span class="cp-v">− R$ 182,30</span></div></div>
-    </div></div>
-    <!--BOT--><div class="cp-bolha"><span class="b1">mercado 50</span><div class="b2"><svg width="22" height="22" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="#0e1525"/><line x1="61" y1="61" x2="75" y2="75" stroke="#f6f0df" stroke-width="10" stroke-linecap="round"/><circle cx="45" cy="45" r="24" fill="#16203a" stroke="#f6f0df" stroke-width="6"/><path d="M37 40C37 30 54 30 54 40C54 47 46 47 46 53" fill="none" stroke="#f6f0df" stroke-width="6" stroke-linecap="round"/><circle cx="46" cy="61" r="4.3" fill="#fed13d"/></svg><div><b>Caso registrado ✓</b>Mercado · R$ 50,00 · hoje</div></div></div><!--/BOT-->
+      <div class="cp-ttop"><b>Lançamentos</b><span>Nov 2026</span></div><div class="cp-saldo"><small>Saldo do mês</small><b>R$ 4.983,70</b><span>Sobrou 59% do que entrou</span><div class="cp-mini"><div><i class="up">↑</i>Entradas<b>R$ 8.400,00</b></div><div><i class="dn">↓</i>Saídas<b>R$ 3.416,30</b></div></div></div><div class="cp-rows"><div class="cp-row"><div><b>Internet</b><small>11/11 · 🧾 Contas</small></div><span class="cp-v">− R$ 120,00</span></div><div class="cp-row"><div><b>Mercado do mês</b><small>11/11 · 🛒 Mercado</small></div><span class="cp-v">− R$ 820,00</span></div><div class="cp-row"><div><b>Salário</b><small>11/11 · 💰 Salário</small></div><span class="cp-v cp-ent">+ R$ 4.800,00</span></div><div class="cp-row"><div><b>Uber</b><small>10/11 · 🚗 Transporte</small></div><span class="cp-v">− R$ 45,90</span></div><div class="cp-row"><div><b>Aluguel</b><small>10/11 · 🏠 Moradia</small></div><span class="cp-v">− R$ 1.500,00</span></div></div></div></div>
+    <!--BOT--><div class="cp-bolha"><span class="b1">Mercado 50</span><div class="b2"><svg width="22" height="22" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="#0e1525"/><line x1="61" y1="61" x2="75" y2="75" stroke="#f6f0df" stroke-width="10" stroke-linecap="round"/><circle cx="45" cy="45" r="24" fill="#16203a" stroke="#f6f0df" stroke-width="6"/><path d="M37 40C37 30 54 30 54 40C54 47 46 47 46 53" fill="none" stroke="#f6f0df" stroke-width="6" stroke-linecap="round"/><circle cx="46" cy="61" r="4.3" fill="#fed13d"/></svg><div><b>✅ Caso registrado</b>🛒 Mercado · R$ 50,00</div></div></div><!--/BOT-->
     </div>
     <div class="cp-login">
     <div class="blueprint auth-card">
@@ -1118,27 +1141,20 @@ html[data-tema="escuro"] .capa .cp-h1 em{background:none;color:#fed13d}
         <button class="btn btn-ghost btn-sm" id="forgot" type="button">Esqueci minha senha</button>
         <button class="btn btn-ghost btn-sm" id="backLogin" type="button" hidden>Voltar para entrar</button>
       </div>
-      <p class="cp-seg"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Não conecta no seu banco e nunca pede CPF ou senha do banco.</p>
+      <p class="cp-seg"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Não se conecta ao seu banco e nunca pede CPF nem senha bancária.</p>
     </div>
     </div>
   </div>
   <!--BOT--><section class="cp-faixa"><div class="cp-wrap">
-    <div class="cp-ftop"><h2>Mandou,<br><span>tá lançado.</span></h2>
-      <p>Escreve, fotografa ou fala. O Detetive entende e lança no lugar certo, <b>pelo WhatsApp, Telegram ou direto no app.</b></p></div>
+    <div class="cp-ftop"><h2>Mandou?<br><span>Está lançado.</span></h2>
+      <p>Escreva, fotografe ou fale. O Detetive entende e lança no lugar certo, <b>pelo WhatsApp, pelo Telegram ou direto no app.</b></p></div>
     <div class="cp-cols">
-      <div class="cp-c"><span class="q">Mensagem</span>
-        <div class="cp-in"><div class="cp-msg">almoço 32,50 no débito<small>10:42</small></div></div>
-        <span class="cp-seta">vira</span>
-        <div class="cp-res"><p>Almoço<span>Alimentação · débito · hoje</span></p><b>− R$ 32,50</b></div></div>
-      <div class="cp-c"><span class="q">Foto da nota</span>
-        <div class="cp-in"><div class="cp-nota"><b>MERCADO BOM</b><i><span>ARROZ 5KG</span><span>27,90</span></i><i><span>CAFÉ 500G</span><span>18,49</span></i><i><span>LEITE</span><span>5,99</span></i><i><span>TOTAL</span><span>52,38</span></i></div></div>
-        <span class="cp-seta">vira</span>
-        <div class="cp-res"><p>Mercado Bom<span>Mercado · 3 itens · hoje</span></p><b>− R$ 52,38</b></div></div>
-      <div class="cp-c"><span class="q">Áudio</span>
-        <div class="cp-in cp-col"><div class="cp-audio"><span class="play"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.5v9l7.5-4.5z" fill="#fed13d"/></svg></span><div class="cp-onda"><i style="height:8px"></i><i style="height:14px"></i><i style="height:22px"></i><i style="height:12px"></i><i style="height:26px"></i><i style="height:18px"></i><i style="height:10px"></i><i style="height:20px"></i><i style="height:28px"></i><i style="height:16px"></i><i style="height:9px"></i><i style="height:22px"></i><i style="height:14px"></i><i style="height:24px"></i><i style="height:11px"></i><i style="height:18px"></i><i style="height:8px"></i><i style="height:15px"></i><i style="height:21px"></i><i style="height:10px"></i></div><small>0:06</small></div>
-        <small class="cp-fala">“paguei a luz, cento e oitenta e sete e vinte”</small></div>
-        <span class="cp-seta">vira</span>
-        <div class="cp-res"><p>Conta de luz<span>Contas · hoje</span></p><b>− R$ 187,20</b></div></div>
+      <div class="cp-c"><div class="cp-in"><div class="cp-msg">Farmácia 32,50 no débito<small>10:42</small></div></div><span class="cp-seta" aria-hidden="true"></span>
+        <div class="cp-res"><div class="cp-row"><div><b>Farmácia</b><small>13/11 · 💊 Saúde</small></div><span class="cp-v">− R$ 32,50</span></div></div></div>
+      <div class="cp-c"><div class="cp-in"><div class="cp-nota"><b>MERCADO BOM</b><i><span>ARROZ 5KG</span><span>27,90</span></i><i><span>CAFÉ 500G</span><span>18,49</span></i><i><span>LEITE</span><span>5,99</span></i><i><span>TOTAL</span><span>52,38</span></i></div></div><span class="cp-seta" aria-hidden="true"></span>
+        <div class="cp-res"><div class="cp-row"><div><b>Mercado Bom</b><small>13/11 · 🛒 Mercado</small></div><span class="cp-v">− R$ 52,38</span></div></div></div>
+      <div class="cp-c"><div class="cp-in"><div class="cp-audio"><span class="play"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.5v9l7.5-4.5z" fill="#fed13d"/></svg></span><div class="cp-onda"><i style="height:8px"></i><i style="height:14px"></i><i style="height:22px"></i><i style="height:12px"></i><i style="height:26px"></i><i style="height:18px"></i><i style="height:10px"></i><i style="height:20px"></i><i style="height:28px"></i><i style="height:16px"></i><i style="height:9px"></i><i style="height:22px"></i><i style="height:14px"></i><i style="height:24px"></i><i style="height:11px"></i><i style="height:18px"></i><i style="height:8px"></i><i style="height:15px"></i><i style="height:21px"></i><i style="height:10px"></i></div><small>0:06</small></div></div><span class="cp-seta" aria-hidden="true"></span>
+        <div class="cp-res"><div class="cp-row"><div><b>Conta de luz</b><small>13/11 · 🧾 Contas</small></div><span class="cp-v">− R$ 187,20</span></div></div></div>
     </div>
     <div class="cp-canais"><span><b>WhatsApp</b> e <b>Telegram</b></span><span>Foto, PDF e extrato</span><span>Você confirma antes de lançar</span></div>
   </div></section><!--/BOT-->
@@ -1667,6 +1683,6 @@ html[data-tema="escuro"] .capa .cp-h1 em{background:none;color:#fed13d}
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=2"></script>
-<script src="app.js?v=107"></script>
+<script src="app.js?v=108"></script>
 </body>
 </html>
