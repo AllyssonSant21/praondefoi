@@ -1141,6 +1141,23 @@ a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
 .adm-chave[aria-checked="true"] i:after{transform:translateX(18px)}
 .adm-linha{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:8px 12px;border:1.5px solid var(--divider);border-radius:var(--r-cartao);background:var(--card);color:var(--fg);font:inherit;font-size:14px;cursor:pointer;text-align:left}
 .adm-linha span{flex:1}.adm-linha em{font-style:normal;font-size:13px;font-weight:600;color:var(--accent-text)}
+
+/* Detetive: janela compacta, cabe na tela sem precisar de zoom */
+#dlg2.compacto .dlg{gap:14px}
+details.bot-info summary{cursor:pointer;font-weight:700;font-size:14px;min-height:28px;display:flex;align-items:center;list-style:none}
+details.bot-info summary::-webkit-details-marker{display:none}
+details.bot-info summary:after{content:"";margin-left:auto;width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);transition:transform .15s}
+details.bot-info[open] summary:after{transform:rotate(-135deg)}
+details.bot-info[open] summary{margin-bottom:8px}
+details.bot-info{padding:10px 14px}
+@media (max-width:560px){
+  #dlg2.compacto .dlg{padding:18px 16px}
+  #dlg2.compacto .bot-topo{padding:12px;gap:12px}
+  #dlg2.compacto .bot-topo .det-logo{width:36px;height:36px}
+  #dlg2.compacto .bot-topo b{font-size:15px}
+  #dlg2.compacto .bot-topo span{font-size:13.5px}
+  #dlg2.compacto .bot-pergunta{margin:0;font-size:15px}
+}
 </style>
 </head>
 <body>
@@ -1760,6 +1777,6 @@ a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=3"></script>
-<script src="app.js?v=116"></script>
+<script src="app.js?v=117"></script>
 </body>
 </html>
