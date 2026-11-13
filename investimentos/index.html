@@ -1110,12 +1110,13 @@ a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
 /* Lançar rápido em destaque no topo do "Novo lançamento" */
 .rp-destaque{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:var(--r-cartao);background:rgba(var(--accent-rgb),.14);border:1.5px solid rgba(var(--accent-rgb),.55)}
 .rp-d-tx b{display:block;font-size:17px}.rp-d-tx span{font-size:13.5px;color:var(--muted)}
-.rp-d-bt{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.rp-d-bt{display:grid;gap:8px}
 .rp-d-op{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:76px;padding:10px 6px;border-radius:var(--r-btn);border:1.5px solid var(--divider);background:var(--card);color:var(--fg);font:600 13px var(--font-body);text-align:center;cursor:pointer}
 .rp-d-op:hover{border-color:var(--accent)}
 .rp-d-op svg{color:var(--accent-text)}
-.rp-d-bt.dois{grid-template-columns:repeat(2,1fr)}
-@media (min-width:900px){.rp-destaque{flex-direction:row;align-items:center;justify-content:space-between;gap:20px}.rp-d-bt{min-width:460px}.rp-d-op{min-height:58px;flex-direction:row;gap:8px}}
+.rp-d-bt{grid-template-columns:repeat(2,1fr)}.rp-d-bt.um{grid-template-columns:1fr}
+@media (min-width:900px){.rp-d-bt.um{min-width:230px !important}}
+@media (min-width:900px){.rp-destaque{flex-direction:row;align-items:center;justify-content:space-between;gap:20px}.rp-d-bt{min-width:400px}.rp-d-op{min-height:58px;flex-direction:row;gap:8px}}
 
 /* "Para onde foi" vira filtro */
 .cat-filtro{display:flex;flex-direction:column;gap:5px;width:100%;margin:0;padding:8px 10px;border:1.5px solid transparent;border-radius:var(--r-btn);background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
@@ -1320,9 +1321,8 @@ a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
       </div>
     </div>
     <div class="rp-destaque" id="rpDestaque">
-      <div class="rp-d-tx"><b>Lançar rápido</b><span>Fale, escreva ou mande a foto da nota. Vários lançamentos de uma vez.</span></div>
-      <div class="rp-d-bt dois">
-        <button type="button" class="rp-d-op" data-rp-abrir="texto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>Falar ou escrever</span></button>
+      <div class="rp-d-tx"><b>Lançar rápido</b><span id="rpDestTx">Mande a foto da nota ou o extrato do banco. Vários lançamentos de uma vez.</span></div>
+      <div class="rp-d-bt um">
         <button type="button" class="rp-d-op" data-rp-abrir="ia" id="rpAbrirIa" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Foto, PDF ou áudio</span></button>
         <button type="button" class="rp-d-op" data-rp-abrir="extrato"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg><span>Extrato do banco</span></button>
       </div>
@@ -1726,6 +1726,6 @@ a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="entender.js?v=3"></script>
-<script src="app.js?v=112"></script>
+<script src="app.js?v=113"></script>
 </body>
 </html>
