@@ -4122,7 +4122,7 @@ async function checarIA(){
   $('rpAbrirIa').hidden = !iaDisponivel;
   document.querySelector('.rp-d-bt').classList.toggle('um', !iaDisponivel);
   $('rpDestTx').textContent = iaDisponivel ? 'Mande a foto da nota ou o extrato do banco. Vários lançamentos de uma vez.' : 'Importe o extrato do banco e lance o mês inteiro de uma vez.';
-  $('drLimites').hidden = !iaDisponivel && !BOT_LIGADO;
+  if (iaDisponivel) $('drLimites').hidden = false;   // Limites aparece se a conta tem IA ou Detetive
 }
 async function checarBot(){
   if (!BOT_LIGADO) return;   // prod: o bot ainda não foi lançado
@@ -4133,6 +4133,7 @@ async function checarBot(){
     if (!r.error && r.data && r.data.bot === false) botDisponivel = false;
   }
   $('botFab').hidden = !botDisponivel;
+  if (botDisponivel) $('drLimites').hidden = false;
   let visto = false; try { visto = localStorage.getItem(botFabKey()) === '1'; } catch {}
   const novo = botDisponivel && !visto && !(data || []).length;
   $('botFabNovo').hidden = !novo;
