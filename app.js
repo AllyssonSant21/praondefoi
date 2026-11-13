@@ -1964,6 +1964,7 @@ function openDlg2(kicker, title, html, ctx){
   $('dlg2Body').innerHTML = html;
   $('dlg2').hidden = false;
   $('dlg2').classList.toggle('largo', !!(ctx && ctx.largo));
+  $('dlg2').classList.toggle('compacto', !!(ctx && ctx.compacto));
   dlg2 = ctx || {};
 }
 function closeDlg2(){ $('dlg2').hidden = true; dlg2 = {}; if (typeof pararEspera === 'function') pararEspera(); }
@@ -4166,17 +4167,17 @@ $('botFab').addEventListener('click', () => { botVisto(); openBot(); });
 function pararEspera(){ if (botEspera){ clearInterval(botEspera); botEspera = null; } }
 async function openBot(){
   pararEspera();
-  openDlg2('Novo', 'Detetive Grana', '<p class="hint" style="margin:0;">Carregando…</p>', { tipo: 'bot' });
+  openDlg2('Novo', 'Detetive Grana', '<p class="hint" style="margin:0;">Carregando…</p>', { tipo: 'bot', compacto: true });
   await renderBot();
 }
 const BOT_IC_TG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4 3 11l6 2.5M21 4l-4 16-8-6.5M21 4 9 13.5V19l3-3.5"/></svg>';
 const BOT_IC_WA = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4.1A8 8 0 1 1 20 11.5z"/></svg>';
 // explica os limites de cada canal (fica embaixo dos botões do Detetive)
-const botComoFunciona = () => `<div class="bot-info"><h4>Como funciona</h4><dl>
+const botComoFunciona = () => `<details class="bot-info"><summary>Como funciona e limites</summary><dl>
   <dt>Telegram</dt><dd>Sem limite. Mande quantas mensagens quiser.</dd>
   <dt>WhatsApp</dt><dd>300 respostas do Detetive por mês. O saldo vale o mês inteiro e zera no dia 1º. Avisamos quando chegar em 80%.</dd>
   <dt>Foto, PDF e áudio</dt><dd>Lidos com IA: 30 leituras por mês, em qualquer canal.</dd>
-  <dt>No app</dt><dd>Sem limite.</dd></dl></div>`;
+  <dt>No app</dt><dd>Sem limite.</dd></dl></details>`;
 let botQtd = 0;   // quantos canais estavam ligados quando a tela abriu (para saber quando ligou mais um)
 async function renderBot(){
   if (dlg2.tipo !== 'bot') return pararEspera();
@@ -4209,7 +4210,7 @@ async function renderBot(){
       ${canal('whatsapp', 'WhatsApp', waV, linkWa, BOT_IC_WA, '#1fa855', 'Até 300 mensagens por mês')}
     </div>`;
   const podeLigar = !!cod && ((!tgV && linkTg) || (!waV && linkWa));
-  const espera = podeLigar ? `<p class="hint" id="botEspera" style="margin:0;font-size:12.5px;">${lig.length ? 'Para ligar o outro canal, toque em <b>Conectar</b>.' : 'É só tocar, e na conversa tocar em <b>Iniciar</b> ou <b>Enviar</b>.'} Esta tela avisa sozinha quando conectar.</p>` : '';
+  const espera = podeLigar ? `<p class="hint" id="botEspera" style="margin:0;font-size:12.5px;">${lig.length ? 'Para ligar o outro canal, toque em <b>Conectar</b>.' : 'Toque em <b>Conectar</b> e, na conversa, em <b>Iniciar</b>.'} Esta tela avisa sozinha quando conectar.</p>` : '';
   if (lig.length){
     const v = lig[0], outro = atual && atual.id !== v.controle_id;
     const nomes = [tgV ? 'ao seu <b>Telegram</b>' : '', waV ? `ao WhatsApp com final <b>${esc(waV.final || '')}</b>` : ''].filter(Boolean).join(' e ');
