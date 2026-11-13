@@ -13,7 +13,7 @@ const KEY = 'cf-lancamentos-v1';        // dados antigos, salvos só neste apare
 const IMPORTED_KEY = 'cf-importado-v1';
 const BKEY = 'cf-orcamento-v1';
 const CATS = {
-  exp: ['Mercado','Moradia','Contas','Transporte','Saúde','Lazer','Educação','Outros'],
+  exp: ['Mercado','Alimentação','Moradia','Contas','Transporte','Saúde','Lazer','Educação','Outros'],
   inc: ['Salário','Renda extra','Outros']
 };
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -69,9 +69,28 @@ function parseAmount(s){
   const n = parseFloat(s);
   return isFinite(n) ? Math.round(n*100)/100 : NaN;
 }
-const fromRow = r => ({id:r.id, type:r.tipo, desc:r.descricao, cat:r.categoria, amount:Number(r.valor), date:r.data, uid:r.user_id});
+const fromRow = r => ({id:r.id, type:r.tipo, desc:r.descricao, cat:r.categoria, amount:Number(r.valor), date:r.data, uid:r.user_id, orig:r.origem || null});
 const toRow = e => ({tipo:e.type, descricao:e.desc, categoria:e.cat, valor:e.amount, data:e.date});
 const COLS = 'id,tipo,descricao,categoria,valor,data,user_id';
+// de onde veio o lançamento (Detetive no Telegram/WhatsApp, leitura por IA). Só existe depois do supabase-bot8.sql
+let temOrigem = null;
+const colsLanc = () => temOrigem ? COLS + ',origem' : COLS;
+async function checarOrigem(){
+  if (temOrigem !== null) return;
+  const { error } = await sb.from('lancamentos').select('origem').limit(1);
+  if (!error) temOrigem = true; else if (!ehRede(error)) temOrigem = false;
+}
+const ORIGEM_TXT = {
+  telegram: 'Lançado pelo Detetive no Telegram',
+  whatsapp: 'Lançado pelo Detetive no WhatsApp',
+  telegram_ia: 'Lido por IA: foto, PDF ou áudio enviado ao Detetive no Telegram',
+  whatsapp_ia: 'Lido por IA: foto, PDF ou áudio enviado ao Detetive no WhatsApp',
+};
+const ROBO = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4"/><circle cx="12" cy="3.5" r="1.2" fill="currentColor"/><circle cx="9" cy="14" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="14" r="1.3" fill="currentColor" stroke="none"/><path d="M2 13v3M22 13v3"/></svg>';
+const origemSelo = (e, onde) => {
+  const t = e.orig && ORIGEM_TXT[e.orig];
+  return t ? `<button type="button" class="lorig lorig-${onde}" aria-label="${esc(t)}">${ROBO}<span class="bal" role="tooltip">🤖 ${esc(t)}</span></button>` : '';
+};
 
 // ---------- telas ----------
 const VIEWS = ['viewSetup','viewLoading','viewAuth','viewWait','viewApp','viewAdmin'];
@@ -394,7 +413,7 @@ async function handleSession(session, force){
   show('viewApp');
   render();
   startRealtime();
-  checarBot();
+  checarBot(); checarIA();
   modoSemInternet = false;
   gravarFoto();
   enviarFila();
@@ -470,7 +489,8 @@ async function loadEntries(){
   const all = [];
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE){
-    const { data, error } = await sb.from('lancamentos').select(COLS)
+    if (temOrigem === null) await checarOrigem();
+    const { data, error } = await sb.from('lancamentos').select(colsLanc())
       .eq('controle_id', state.cid).gte('data', start).lt('data', end)
       .order('data', { ascending: false }).order('criado_em', { ascending: false })
       .range(from, from + PAGE - 1);
@@ -675,7 +695,7 @@ async function loadCategorias(){
   return true;
 }
 // emoji de cada categoria do app (as personalizadas usam o emoji que a pessoa escolheu)
-const ICONE_APP = { 'Mercado':'🛒', 'Moradia':'🏠', 'Contas':'🧾', 'Transporte':'🚗', 'Saúde':'💊', 'Lazer':'🎉', 'Educação':'📚',
+const ICONE_APP = { 'Mercado':'🛒', 'Alimentação':'🍽️', 'Moradia':'🏠', 'Contas':'🧾', 'Transporte':'🚗', 'Saúde':'💊', 'Lazer':'🎉', 'Educação':'📚',
   'Outros':'📦', 'Salário':'💰', 'Renda extra':'💸', 'Metas':'🎯', 'Cartão de crédito':'💳' };
 const iconeCat = nome => { const c = categorias.find(x => x.nome === nome); return (c && c.icone) || ICONE_APP[nome] || ''; };
 // rótulo com o emoji, valor só com o nome (é o que fica gravado no lançamento)
@@ -925,13 +945,371 @@ addEventListener('online', () => enviarFila());
 addEventListener('offline', () => atualizarFaixa());
 setInterval(() => { if (navigator.onLine && (modoSemInternet || lerFila().length)) enviarFila(); }, 30000);
 
+/* ======================= LANÇAR RÁPIDO (voz, texto colado, extrato do banco) =======================
+   Usa o mesmo "entendedor" do Detetive Grana (entender.js, gerado de supabase/functions/_fonte).
+   Nada é salvo sem a pessoa conferir a lista. Grátis: nada sai do aparelho além do lançamento. */
+const PE = () => window.PofEntender;
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rp = { aba: 'texto', itens: [], aviso: '', ouvindo: null, arquivo: '', ia: null, lendo: false, gravador: null };
+let dicDetetive = null;
+async function carregarDic(){
+  if (dicDetetive) return dicDetetive;
+  try { const { data, error } = await sb.from('bot_dicionario').select('termo,tipo,categoria').limit(300); dicDetetive = error ? [] : (data || []); }
+  catch { dicDetetive = []; }
+  return dicDetetive;
+}
+const catsCtl = () => categorias.filter(c => !c.oculta).map(c => ({ nome: c.nome, tipo: c.tipo }));
+const catValida = (tipo, nome) => listaCats(tipo).includes(nome) ? nome : 'Outros';
+function rpItem(o){ return { nota: o.nota || '', sel: !o.dup && !o.nota, type: o.type, desc: String(o.desc || '').slice(0, 200), amount: Math.round(o.amount * 100) / 100, date: o.date, cat: catValida(o.type, o.cat), dup: !!o.dup }; }
+
+function openRapido(aba){
+  if (!PE()) return toast('Não deu para abrir agora. Atualize a página.');
+  if (!state.cid) return toast('Escolha um controle primeiro.');
+  rp = { aba: ['texto', 'extrato', iaDisponivel ? 'ia' : ''].includes(aba) ? aba : 'texto', itens: [], aviso: '', ouvindo: null, arquivo: '', ia: null, lendo: false, gravador: null };
+  openDlg2('Lançar rápido', 'Do jeito mais fácil pra você', '', { tipo: 'rapido', largo: true });
+  renderRapido();
+  carregarDic();
+  sb.rpc('ia_meu_saldo').then(r => { if (!r.error && r.data){ rp.ia = r.data; if (rp.aba === 'ia') renderRapido(); } }, () => {});
+}
+document.querySelectorAll('[data-rp-abrir]').forEach(b => b.addEventListener('click', () => openRapido(b.dataset.rpAbrir)));
+
+function renderRapido(){
+  if (dlg2.tipo !== 'rapido') return;
+  const texto = $('rpTexto') ? $('rpTexto').value : '';
+  const cel = (tipo, atual) => listaCats(tipo, atual).map(c => `<option value="${esc(c)}"${c === atual ? ' selected' : ''}>${esc(rotuloCat(c))}</option>`).join('');
+  $('dlg2Body').innerHTML = `
+    <div class="seg rp-abas" role="group" aria-label="Como lançar">
+      <button type="button" data-rp-aba="texto" aria-pressed="${rp.aba === 'texto'}">Texto ou voz</button>
+      <button type="button" data-rp-aba="extrato" aria-pressed="${rp.aba === 'extrato'}">Extrato</button>
+      ${iaDisponivel ? `<button type="button" data-rp-aba="ia" aria-pressed="${rp.aba === 'ia'}">Foto, PDF, áudio</button>` : ''}
+    </div>
+    ${rp.aba === 'texto' ? `
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <label for="rpTexto" class="hint">Fale, escreva ou cole a notificação do banco. Pode ser mais de um gasto.</label>
+        <textarea class="input rp-texto" id="rpTexto" placeholder="Gastei 50 no mercado e 20 de Uber ontem">${esc(texto)}</textarea>
+        <div class="rp-acoes">
+          ${SR ? `<button class="btn btn-secondary btn-sm" type="button" data-rp="falar">${rp.ouvindo ? 'Parar' : '🎤 Falar'}</button>` : ''}
+          ${rp.ouvindo ? '<span class="rp-ouvindo" role="status">Ouvindo…</span>' : ''}
+          <button class="btn btn-primary btn-sm" type="button" data-rp="entender">Entender</button>
+        </div>
+        ${SR ? '' : '<p class="hint">Para falar, toque no microfone do teclado do celular.</p>'}
+      </div>` : rp.aba === 'ia' ? `
+      <div class="rp-arquivo">
+        <b style="font-size:15px;">Foto da nota, print, PDF ou áudio</b>
+        <span class="hint">A IA lê e mostra o que achou para você conferir. O arquivo não fica guardado.</span>
+        <div class="rp-acoes">
+          <button class="btn btn-secondary btn-sm" type="button" data-rp="ia-foto"${rp.lendo || rp.gravador ? ' disabled' : ''}>📷 Foto ou print</button>
+          <button class="btn btn-secondary btn-sm" type="button" data-rp="ia-pdf"${rp.lendo || rp.gravador ? ' disabled' : ''}>📄 PDF</button>
+          <button class="btn ${rp.gravador ? 'btn-danger' : 'btn-secondary'} btn-sm" type="button" data-rp="ia-gravar"${rp.lendo ? ' disabled' : ''}>${rp.gravador ? '⏹ Parar e ler' : '🎙️ Gravar áudio'}</button>
+          <input type="file" id="rpIaArq" hidden>
+        </div>
+        ${rp.gravador ? '<span class="rp-ouvindo" role="status">Gravando… fale os gastos (até 1 minuto)</span>' : ''}
+        ${rp.lendo ? '<span class="hint" role="status">🕵️ Lendo… isso leva alguns segundos.</span>' : ''}
+        ${rp.ia ? `<span class="hint">Leituras este mês: <b>${rp.ia.usadas} de ${rp.ia.limite}</b>. Leitura feita por IA (Google Gemini).</span>` : ''}
+      </div>` : `
+      <div class="rp-arquivo">
+        <b style="font-size:15px;">Extrato do banco (OFX ou CSV)</b>
+        <span class="hint">No app do seu banco, exporte o extrato em OFX ou CSV e escolha o arquivo aqui. Ele é lido só neste aparelho.</span>
+        <input type="file" id="rpArquivo" accept=".ofx,.csv,.txt,text/csv,application/x-ofx" class="input" style="padding:8px;">
+        ${rp.arquivo ? `<span class="hint">Arquivo: <b>${esc(rp.arquivo)}</b></span>` : ''}
+      </div>`}
+    ${rp.aviso ? `<p class="hint" role="status" style="color:var(--text);">${rp.aviso}</p>` : ''}
+    ${rp.itens.length ? `
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="rp-topo"><span>Confira antes de lançar. Toque para corrigir.</span>
+          ${rp.aba === 'extrato' ? '<button class="btn btn-ghost btn-sm" type="button" data-rp="inverter">Inverter entradas e saídas</button>' : ''}</div>
+        <div class="rp-lista">${rp.itens.map((i, k) => `
+          <div class="rp-item${i.sel ? '' : ' off'}" data-k="${k}">
+            <input type="checkbox" data-f="sel" aria-label="Lançar ${esc(i.desc)}"${i.sel ? ' checked' : ''}>
+            <select class="input rp-tipo" data-f="type" aria-label="Tipo"><option value="exp"${i.type === 'exp' ? ' selected' : ''}>Saída</option><option value="inc"${i.type === 'inc' ? ' selected' : ''}>Entrada</option></select>
+            <input class="input rp-desc" data-f="desc" value="${esc(i.desc)}" maxlength="200" aria-label="Descrição">
+            <input class="input rp-valor" data-f="amount" inputmode="decimal" value="${esc(i.amount.toFixed(2).replace('.', ','))}" aria-label="Valor">
+            <input class="input rp-data" data-f="date" type="date" value="${esc(i.date)}" aria-label="Data">
+            <select class="input rp-cat" data-f="cat" aria-label="Categoria">${cel(i.type, i.cat)}</select>
+            ${i.dup ? '<span class="rp-dup">Parece já lançado (mesmo valor e data). Marque se quiser lançar mesmo assim.</span>' : i.nota ? `<span class="rp-dup">${esc(i.nota)}</span>` : ''}
+          </div>`).join('')}</div>
+        <div class="rp-rodape" id="rpRodape"></div>
+      </div>` : ''}`;
+  rpRodape();
+}
+function rpRodape(){
+  const el = $('rpRodape'); if (!el) return;
+  const tot = rp.itens.filter(i => i.sel);
+  const soma = tot.reduce((a, i) => a + (i.type === 'exp' ? -i.amount : i.amount), 0);
+  el.innerHTML = `<span class="hint">${plural(tot.length, 'lançamento')} · saldo ${soma < 0 ? '−' : '+'}${brl(Math.abs(soma))}</span>
+    <button class="btn btn-primary" type="button" data-rp="lancar"${tot.length ? '' : ' disabled'}>Lançar ${tot.length || ''}</button>`;
+}
+
+// texto → itens (frase inteira; se não der, linha por linha)
+async function rpEntender(){
+  const texto = ($('rpTexto').value || '').trim();
+  if (!texto) return toast('Fale ou escreva o que quer lançar.');
+  const E = PE(), hoje = todayISO(), dic = await carregarDic(), cats = catsCtl();
+  let lancs = [], faltou = [], ignorados = 0;
+  const tentar = t => {
+    const r = E.entender(t, hoje, cats, dic);
+    if (r.tipo === 'lancar') { lancs.push(...r.lancs); return true; }
+    if (r.tipo === 'perguntar' && r.falta === 'valor') faltou.push(r.rotulo);
+    return false;
+  };
+  if (!tentar(texto)) for (const l of texto.split(/\n+/).map(x => x.trim()).filter(Boolean)) if (!tentar(l)) ignorados++;
+  rp.itens.push(...lancs.map(l => rpItem({ type: l.tipo, desc: l.descricao, amount: l.valor, date: l.data, cat: l.categoria })));
+  rp.aviso = !lancs.length
+    ? (faltou.length ? `Faltou o valor de <b>${esc(faltou.join(', '))}</b>. Tente "${esc(faltou[0])} 50".` : 'Não entendi. Tente algo como <b>Mercado 50</b> ou <b>Recebi 200 de freela</b>.')
+    : (ignorados ? `Entendi ${plural(lancs.length, 'lançamento')}. Algumas partes ficaram de fora.` : '');
+  if (lancs.length) $('rpTexto').value = '';
+  renderRapido();
+}
+
+function rpFalar(){
+  if (rp.ouvindo){ try { rp.ouvindo.stop(); } catch {} return; }
+  const rec = new SR(); rec.lang = 'pt-BR'; rec.interimResults = false; rec.continuous = false;
+  rec.onresult = e => {
+    const t = [...e.results].map(r => r[0].transcript).join(' ').trim();
+    const ta = $('rpTexto'); if (ta && t) ta.value = (ta.value ? ta.value.trim() + '\n' : '') + t;
+  };
+  rec.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast('Libere o microfone para o app nas configurações do navegador.'); };
+  rec.onend = () => { const tinha = $('rpTexto') && $('rpTexto').value.trim(); rp.ouvindo = null; renderRapido(); if (tinha) rpEntender(); };
+  rp.ouvindo = rec; renderRapido();
+  try { rec.start(); } catch { rp.ouvindo = null; renderRapido(); }
+}
+
+/* ---------- leitura de extrato ---------- */
+function numBanco(v){
+  let s = String(v || '').replace(/R\$|\s| /g, '');
+  if (!s) return NaN;
+  let neg = /^-|^\(.*\)$|-$|D$/i.test(s);
+  s = s.replace(/[()\-+CD]/gi, '');
+  const ul = Math.max(s.lastIndexOf(','), s.lastIndexOf('.'));
+  if (s.includes(',') && s.includes('.')) s = s.slice(0, ul).replace(/[.,]/g, '') + '.' + s.slice(ul + 1);
+  else if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  const n = parseFloat(s);
+  return isNaN(n) ? NaN : (neg ? -n : n);
+}
+function dataBanco(v){
+  const s = String(v || '').trim();
+  let m = s.match(/^(\d{4})-?(\d{2})-?(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+  if (m){ const a = m[3].length === 2 ? '20' + m[3] : m[3]; return `${a}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; }
+  return '';
+}
+function descBonita(d){
+  let t = String(d || '').replace(/\s+/g, ' ').trim();
+  // "Compra no débito - UBER *TRIP" → "UBER *TRIP"
+  const m = t.match(/^(compra no (debito|débito|credito|crédito)|compra|transfer[eê]ncia (recebida|enviada)( pelo pix)?|pagamento de boleto efetuado|pagamento efetuado|pix (enviado|recebido)|d[eé]bito autom[aá]tico|pagamento)\s+-\s+(.+)$/i);
+  if (m) t = m[m.length - 1];
+  t = t.slice(0, 80);
+  if (t && t === t.toUpperCase()) t = t.toLowerCase().replace(/(^|[\s*\/-])([a-zà-ú])/g, (x, a, b) => a + b.toUpperCase());
+  return t || 'Sem descrição';
+}
+function lerOFX(txt){
+  return txt.split(/<STMTTRN>/i).slice(1).map(b => {
+    const tag = n => ((b.match(new RegExp(`<${n}>([^<\\r\\n]*)`, 'i')) || [])[1] || '').trim();
+    const v = numBanco(tag('TRNAMT').replace(',', '.'));
+    return { valor: v, data: dataBanco(tag('DTPOSTED')), desc: tag('MEMO') || tag('NAME') || tag('PAYEE') };
+  });
+}
+function linhasCSV(txt, sep){
+  const out = []; let lin = [], cel = '', q = false;
+  for (let i = 0; i < txt.length; i++){
+    const c = txt[i];
+    if (q){ if (c === '"'){ if (txt[i + 1] === '"'){ cel += '"'; i++; } else q = false; } else cel += c; continue; }
+    if (c === '"') q = true; else if (c === sep){ lin.push(cel); cel = ''; }
+    else if (c === '\n' || c === '\r'){ if (c === '\r' && txt[i + 1] === '\n') i++; lin.push(cel); out.push(lin); lin = []; cel = ''; }
+    else cel += c;
+  }
+  if (cel || lin.length){ lin.push(cel); out.push(lin); }
+  return out.filter(l => l.some(x => x.trim()));
+}
+function lerCSV(txt){
+  const l1 = txt.split(/\r?\n/).slice(0, 5).join('\n');
+  const sep = (l1.match(/;/g) || []).length > (l1.match(/,/g) || []).length ? ';' : ((l1.match(/\t/g) || []).length > 2 ? '\t' : ',');
+  const rows = linhasCSV(txt, sep);
+  const n = x => PE().norm(x || '');
+  let h = rows.findIndex(r => r.some(c => /^(data|date|dt)/.test(n(c))) && r.some(c => /(valor|amount|value|quantia)/.test(n(c))));
+  if (h < 0) return { itens: [], cartao: false };
+  const cab = rows[h].map(n);
+  const iData = cab.findIndex(c => /^(data|date|dt)/.test(c));
+  const iValor = cab.findIndex(c => /(valor|amount|value|quantia)/.test(c) && !/saldo/.test(c));
+  // coluna da descrição: na ordem de preferência (Nubank tem "Identificador" antes de "Descrição"; Inter tem "Histórico" e "Descrição")
+  const achar = re => cab.findIndex(c => re.test(c) && !/^(data|date)/.test(c));
+  const iDesc = [/descri/, /title|titulo/, /estabelecimento/, /memo/, /histor/, /lancamento|detalhe|nome/].map(achar).find(i => i >= 0) ?? -1;
+  const iHist = achar(/histor/);
+  const itens = rows.slice(h + 1).map(r => ({ valor: numBanco(r[iValor]), data: dataBanco(r[iData]),
+    desc: (iDesc >= 0 && (r[iDesc] || '').trim()) ? r[iDesc] : (iHist >= 0 ? r[iHist] : '') }));
+  const cartao = cab.includes('title') || cab.some(c => /fatura|cartao/.test(c)) || !itens.some(i => i.valor < 0);
+  return { itens, cartao };
+}
+async function rpArquivo(file){
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) return toast('Arquivo grande demais (máximo 5 MB).');
+  rp.arquivo = file.name; rp.aviso = 'Lendo o extrato…'; renderRapido();
+  const buf = await file.arrayBuffer();
+  let txt = new TextDecoder('utf-8').decode(buf);
+  if (txt.includes('�')) txt = new TextDecoder('windows-1252').decode(buf);   // extrato antigo em Latin-1
+  const ofx = /<OFX>|<STMTTRN>/i.test(txt);
+  let { itens, cartao } = ofx ? { itens: lerOFX(txt), cartao: false } : lerCSV(txt);
+  itens = itens.filter(i => i.data && isFinite(i.valor) && i.valor !== 0);
+  if (!itens.length){ rp.itens = []; rp.aviso = 'Não consegui ler esse arquivo. Exporte o extrato em <b>OFX</b> ou <b>CSV</b> no app do banco e tente de novo.'; return renderRapido(); }
+  let cortados = 0;
+  if (itens.length > 300){ itens.sort((a, b) => b.data.localeCompare(a.data)); cortados = itens.length - 300; itens = itens.slice(0, 300); }
+  const dic = await carregarDic(), cats = catsCtl(), E = PE();
+  // o que já está lançado no controle (mesmo tipo, valor e data com até 1 dia de diferença)
+  const datas = itens.map(i => i.data).sort();
+  const dia = (iso, d) => { const x = new Date(iso + 'T12:00:00'); x.setDate(x.getDate() + d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
+  const { data: ja } = await sb.from('lancamentos').select('tipo,valor,data').eq('controle_id', state.cid).gte('data', dia(datas[0], -1)).lte('data', dia(datas[datas.length - 1], 1)).limit(2000);
+  const usados = new Set();
+  rp.itens = itens.map(i => {
+    const type = cartao ? (i.valor > 0 ? 'exp' : 'inc') : (i.valor < 0 ? 'exp' : 'inc');
+    const amount = Math.abs(i.valor), desc = descBonita(i.desc);
+    const k = (ja || []).findIndex((r, j) => !usados.has(j) && r.tipo === type && Math.abs(Number(r.valor) - amount) < 0.005 &&
+      Math.abs((new Date(r.data) - new Date(i.data)) / 864e5) <= 1);
+    if (k >= 0) usados.add(k);
+    // na fatura do cartão, o pagamento da própria fatura não é entrada de dinheiro
+    const nota = cartao && type === 'inc' && /pagamento|pgto/i.test(desc) ? 'Pagamento da fatura: normalmente não precisa lançar.' : '';
+    return rpItem({ type, desc, amount, date: i.data, cat: E.categorizar(desc, type, cats, dic), dup: k >= 0, nota });
+  }).sort((a, b) => b.date.localeCompare(a.date));
+  const dups = rp.itens.filter(i => i.dup).length;
+  rp.aviso = `${rp.itens.length} ${rp.itens.length === 1 ? 'movimentação' : 'movimentações'} no extrato${dups ? ` · ${dups} parece${dups > 1 ? 'm' : ''} já lançada${dups > 1 ? 's' : ''} (desmarcada${dups > 1 ? 's' : ''})` : ''}${cortados ? ` · só as 300 mais recentes (${cortados} ficaram de fora)` : ''}.`;
+  renderRapido();
+}
+
+/* ---------- foto, PDF e áudio pela IA (função "leitor" no Supabase) ---------- */
+async function reduzirImagem(file){
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, erro) => { const i = new Image(); i.onload = () => ok(i); i.onerror = erro; i.src = url; });
+    const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise(r => c.toBlob(r, 'image/jpeg', 0.82));
+  } catch { return null; }
+  finally { URL.revokeObjectURL(url); }
+}
+// áudio gravado → WAV 16 kHz mono (formato que a IA lê em qualquer celular)
+async function paraWav(blob){
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  try {
+    const dec = await ctx.decodeAudioData(await blob.arrayBuffer());
+    const taxa = 16000, n = Math.ceil(dec.duration * taxa);
+    const off = new OfflineAudioContext(1, n, taxa); const src = off.createBufferSource(); src.buffer = dec; src.connect(off.destination); src.start();
+    const pcm = (await off.startRendering()).getChannelData(0);
+    const buf = new ArrayBuffer(44 + pcm.length * 2), v = new DataView(buf);
+    const txt = (o, t) => [...t].forEach((ch, i) => v.setUint8(o + i, ch.charCodeAt(0)));
+    txt(0, 'RIFF'); v.setUint32(4, 36 + pcm.length * 2, true); txt(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, taxa, true); v.setUint32(28, taxa * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); txt(36, 'data'); v.setUint32(40, pcm.length * 2, true);
+    for (let i = 0; i < pcm.length; i++){ const x = Math.max(-1, Math.min(1, pcm[i])); v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
+    return new Blob([buf], { type: 'audio/wav' });
+  } finally { ctx.close && ctx.close(); }
+}
+const paraB64 = blob => new Promise((ok, erro) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = erro; r.readAsDataURL(blob); });
+
+async function rpEnviarIA(blob, mime){
+  if (!blob || !blob.size) return toast('Não consegui abrir esse arquivo.');
+  if (blob.size > 5 * 1024 * 1024) return toast('Arquivo grande demais (máximo 5 MB).');
+  rp.lendo = true; rp.aviso = ''; renderRapido();
+  try {
+    const cats = { exp: listaCats('exp'), inc: listaCats('inc') };
+    const { data, error } = await sb.functions.invoke('leitor', { body: { mime, dados: await paraB64(blob), hoje: todayISO(), cats } });
+    let r = data;
+    if (error){ try { r = await error.context.json(); } catch { r = { erro: ehRede(error) ? 'rede' : 'falhou' }; } }
+    if (r && r.limite != null && r.restam != null) rp.ia = { usadas: r.limite - r.restam, limite: r.limite };
+    const MSG = { sem_saldo: `Suas ${r?.limite ?? ''} leituras de IA deste mês acabaram. Use texto ou extrato (sem limite) ou espere o dia 1º.`,
+      sem_ia: 'A leitura por IA ainda não está ligada. Por enquanto, use texto ou extrato.', login: 'Sua sessão expirou. Entre de novo.',
+      nao_aprovado: 'Sua conta ainda não foi liberada.', tipo: 'Esse tipo de arquivo não dá para ler. Use foto, PDF ou áudio.',
+      tamanho: 'Arquivo grande demais (máximo 5 MB).', rede: 'Sem internet. A leitura por IA precisa de conexão.' };
+    if (!r || r.erro){ rp.aviso = MSG[r?.erro] || 'Não consegui ler agora. Tente de novo daqui a pouco.'; return; }
+    if (!r.itens.length){ rp.aviso = 'Não achei nenhum valor. Tente uma foto mais nítida, ou escreva o gasto (não gastou sua leitura).'; return; }
+    rp.itens.push(...r.itens.map(i => rpItem({ type: i.tipo, desc: i.descricao, amount: i.valor, date: i.data, cat: i.categoria,
+      nota: i.confianca === 'baixa' ? 'A IA ficou em dúvida aqui: confira valor e data.' : '' })).map(i => ({ ...i, sel: true })));
+    rp.aviso = `🕵️ A IA leu ${r.itens.length > 1 ? `${r.itens.length} lançamentos` : '1 lançamento'}. Confira antes de lançar.`;
+  } catch { rp.aviso = 'Não consegui ler agora. Tente de novo daqui a pouco.'; }
+  finally { rp.lendo = false; renderRapido(); }
+}
+async function rpIaArquivo(file){
+  if (!file) return;
+  if (file.type === 'application/pdf') return rpEnviarIA(file, 'application/pdf');
+  if (file.type.startsWith('image/')){
+    const menor = await reduzirImagem(file);
+    return menor ? rpEnviarIA(menor, 'image/jpeg') : rpEnviarIA(file, file.type);   // HEIC que o navegador não abre vai como está
+  }
+  toast('Use foto, print ou PDF.');
+}
+async function rpGravar(){
+  if (rp.gravador){ if (rp.gravador.state === 'recording') rp.gravador.stop(); return; }
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return toast('Este navegador não grava áudio. Use o microfone do teclado na aba "Texto ou voz".');
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch { return toast('Libere o microfone para o app nas configurações do navegador.'); }
+  const rec = new MediaRecorder(stream), partes = [];
+  rec.ondataavailable = e => { if (e.data.size) partes.push(e.data); };
+  rec.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop()); clearTimeout(rp.gravaFim); rp.gravador = null;
+    const bruto = new Blob(partes, { type: (rec.mimeType || 'audio/webm').split(';')[0] });
+    if (bruto.size < 2000){ renderRapido(); return toast('Não ouvi nada. Tente de novo falando perto do celular.'); }
+    let wav = null; try { wav = await paraWav(bruto); } catch {}
+    rpEnviarIA(wav || bruto, wav ? 'audio/wav' : bruto.type);
+  };
+  rec.start(); rp.gravador = rec;
+  rp.gravaFim = setTimeout(() => { if (rec.state === 'recording') rec.stop(); }, 60000);
+  renderRapido();
+}
+
+async function rpLancar(){
+  const sel = rp.itens.filter(i => i.sel);
+  const ruim = sel.find(i => !i.desc.trim() || !(i.amount > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(i.date));
+  if (ruim) return toast(`Confira "${ruim.desc || 'sem descrição'}": falta descrição, valor ou data.`);
+  const rows = sel.map(i => ({ ...toRow({ type: i.type, desc: i.desc.trim(), cat: i.cat, amount: i.amount, date: i.date }), id: novoId(), controle_id: state.cid }));
+  const b = document.querySelector('[data-rp="lancar"]'); if (b) b.disabled = true;
+  for (let k = 0; k < rows.length; k += 200){
+    const { error } = await sb.from('lancamentos').insert(rows.slice(k, k + 200));
+    if (error){ if (b) b.disabled = false; return showError(`Não deu para lançar${k ? ` (${k} já foram)` : ''}. ${ehRede(error) ? 'Sem internet.' : 'Tente de novo.'}`); }
+  }
+  closeDlg2();
+  toast(`${plural(rows.length, 'lançamento')} ${rows.length > 1 ? 'feitos' : 'feito'} ✅`, true);
+  await refresh();
+}
+
+$('dlg2Body').addEventListener('click', e => {
+  if (dlg2.tipo !== 'rapido') return;
+  const aba = e.target.closest('[data-rp-aba]');
+  if (aba){ if (rp.ouvindo) try { rp.ouvindo.stop(); } catch {} if (rp.gravador || rp.lendo) return; rp.aba = aba.dataset.rpAba; rp.aviso = ''; return renderRapido(); }
+  const b = e.target.closest('[data-rp]'); if (!b) return;
+  if (b.dataset.rp === 'ia-foto' || b.dataset.rp === 'ia-pdf'){
+    const inp = $('rpIaArq'); inp.accept = b.dataset.rp === 'ia-pdf' ? 'application/pdf,.pdf' : 'image/*'; inp.value = ''; inp.click(); return;
+  }
+  if (b.dataset.rp === 'ia-gravar') return rpGravar();
+  if (b.dataset.rp === 'entender') rpEntender();
+  else if (b.dataset.rp === 'falar') rpFalar();
+  else if (b.dataset.rp === 'lancar') rpLancar();
+  else if (b.dataset.rp === 'inverter'){ rp.itens.forEach(i => { i.type = i.type === 'exp' ? 'inc' : 'exp'; i.cat = catValida(i.type, PE().categorizar(i.desc, i.type, catsCtl(), dicDetetive || [])); }); renderRapido(); }
+});
+$('dlg2Body').addEventListener('change', e => {
+  if (dlg2.tipo !== 'rapido') return;
+  if (e.target.id === 'rpArquivo') return rpArquivo(e.target.files[0]);
+  if (e.target.id === 'rpIaArq') return rpIaArquivo(e.target.files[0]);
+  const row = e.target.closest('.rp-item'); if (!row) return;
+  const i = rp.itens[Number(row.dataset.k)], f = e.target.dataset.f; if (!i || !f) return;
+  // atualiza só o que mudou (redesenhar tudo faria perder o toque no próximo campo)
+  if (f === 'sel'){ i.sel = e.target.checked; row.classList.toggle('off', !i.sel); }
+  else if (f === 'amount'){ const v = PE().lerValor(e.target.value) ?? numBanco(e.target.value); i.amount = v > 0 ? Math.round(v * 100) / 100 : 0; e.target.value = i.amount.toFixed(2).replace('.', ','); }
+  else if (f === 'type'){
+    i.type = e.target.value; i.cat = catValida(i.type, PE().categorizar(i.desc, i.type, catsCtl(), dicDetetive || []));
+    row.querySelector('[data-f="cat"]').innerHTML = listaCats(i.type, i.cat).map(c => `<option value="${esc(c)}"${c === i.cat ? ' selected' : ''}>${esc(rotuloCat(c))}</option>`).join('');
+  }
+  else i[f] = e.target.value;
+  rpRodape();
+});
+$('dlg2Body').addEventListener('keydown', e => { if (dlg2.tipo === 'rapido' && e.target.id === 'rpTexto' && e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); rpEntender(); } });
+
 /* ======================= IMPOSTÔMETRO =======================
    Estimativa do imposto embutido nos gastos do mês, por média de cada categoria.
    É aproximado: o imposto real muda de produto para produto e de estado para estado.
    Revisar as médias de tempos em tempos (reforma tributária muda as alíquotas até 2033). */
 // Médias com base nas tabelas do IBPT/Impostômetro (ex.: arroz/feijão 17%, carne 29%, higiene ~40%, luz 48%,
 // telefone 46%, água 24%, restaurante 32%, cinema 21%, ônibus 34%, remédio 34%, escola 26%).
-const IMPOSTO_CAT = { 'Mercado': .25, 'Lazer': .30, 'Contas': .40, 'Transporte': .35, 'Saúde': .30, 'Moradia': .07,
+const IMPOSTO_CAT = { 'Mercado': .25, 'Alimentação': .32, 'Lazer': .30, 'Contas': .40, 'Transporte': .35, 'Saúde': .30, 'Moradia': .07,
   'Educação': .26, 'Cartão de crédito': .30, 'Outros': .27 };
 const IMPOSTO_PADRAO = .27;   // categorias criadas pela pessoa
 const IMPOSTO_FORA = new Set(['Metas']);   // guardar em meta não é gasto
@@ -1045,7 +1423,7 @@ $('dlg2Body').addEventListener('click', async e => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return toast('Escolha a data.');
   b.disabled = true;
   const novo = { type: dlg2.letipo, desc, cat: $('leCat').value, amount: valor, date: data };
-  const { data: row, error } = await sb.from('lancamentos').update(toRow(novo)).eq('id', dlg2.id).select(COLS).single();
+  const { data: row, error } = await sb.from('lancamentos').update(toRow(novo)).eq('id', dlg2.id).select(colsLanc()).single();
   if (error || !row){ b.disabled = false; return toast('Não foi possível salvar. Tente de novo.'); }
   const i = state.entries.findIndex(x => x.id === dlg2.id);
   if (i >= 0) state.entries[i] = fromRow(row);
@@ -1240,7 +1618,7 @@ function render(){
     return `
     <tr>
       <td style="color:var(--muted);">${e.date.slice(8,10)}/${e.date.slice(5,7)}</td>
-      <td><span class="ldesc">${esc(e.desc)}</span>${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<div class="lmeta">${e.date.slice(8,10)}/${e.date.slice(5,7)} · ${esc(rotuloCat(e.cat))}${shared ? ` · ${mine ? 'você' : esc(nameOf(e.uid))}` : ''}</div><span class="tag cat-inline ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
+      <td><span class="ldesc">${esc(e.desc)}</span>${origemSelo(e, 'd')}${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<div class="lmeta">${e.date.slice(8,10)}/${e.date.slice(5,7)} · ${esc(rotuloCat(e.cat))}${shared ? ` · ${mine ? 'você' : esc(nameOf(e.uid))}` : ''}${origemSelo(e, 'm')}</div><span class="tag cat-inline ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
       <td><span class="tag ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
       <td style="text-align:right;white-space:nowrap;font-weight:500;color:${e.type === 'inc' ? 'var(--green)' : 'var(--out)'};">${e.type === 'inc' ? '+ ' : '− '}${brl(e.amount)}</td>
       <td style="text-align:right;white-space:nowrap;">${e.pend ? `<span class="pend-tag" title="Será enviado quando a internet voltar">⏳ aguardando</span><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : mine ? `<button class="btn btn-ghost btn-icon" data-edit="${esc(e.id)}" style="color:var(--muted);" aria-label="Editar ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</td>
@@ -1560,6 +1938,7 @@ function openDlg2(kicker, title, html, ctx){
   $('dlg2Title').textContent = title;
   $('dlg2Body').innerHTML = html;
   $('dlg2').hidden = false;
+  $('dlg2').classList.toggle('largo', !!(ctx && ctx.largo));
   dlg2 = ctx || {};
 }
 function closeDlg2(){ $('dlg2').hidden = true; dlg2 = {}; if (typeof pararEspera === 'function') pararEspera(); }
@@ -3665,11 +4044,6 @@ async function openPerfil(){
       <p class="hint" style="margin:-6px 0 0;">Os avisos por e-mail começam a sair quando o domínio do app estiver pronto.</p>
       <button class="btn btn-primary" type="submit" id="pfSalvar" style="min-height:44px;">Salvar</button>
     </form>
-    <div class="dlg-sec" id="pfBot" style="border-top:1px solid var(--divider);padding-top:14px;" hidden>
-      <h3>🕵️ Detetive Grana <span class="tag tag-neutral">teste</span></h3>
-      <p class="hint" style="margin:0 0 10px;">Lance gastos mandando mensagem no WhatsApp ou Telegram.</p>
-      <button class="btn btn-secondary btn-sm" type="button" data-act="pfBotAbrir">Abrir Detetive Grana</button>
-    </div>
     <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
       <h3>Formas de entrar</h3>
       <div class="person"><span>Usuário e senha</span>${temSenha ? '<span class="tag tag-neutral">Ativo</span>' : '<span class="by" style="margin:0;">não usa</span>'}</div>
@@ -3685,7 +4059,35 @@ async function openPerfil(){
         <button class="btn btn-danger btn-sm" type="button" data-act="pfExcluir">Excluir minha conta</button>
       </div>
     </div>`, { tipo: 'perfil' });
-  if (botDisponivel) $('pfBot').hidden = false;
+}
+
+// Meu perfil → Limites: o que tem limite por mês (custa para o app) e o que é à vontade
+function openLimites(){
+  openDlg2('Sua conta', 'Limites', '<p class="hint" style="margin:0;">Carregando…</p>', { tipo: 'limites' });
+  renderLimites();
+}
+async function renderLimites(){
+  const [ia, wa] = await Promise.all([
+    sb.rpc('ia_meu_saldo').then(r => r.error ? null : r.data, () => null),
+    BOT_LIGADO ? sb.rpc('bot_meu_saldo').then(r => r.error ? null : r.data, () => null) : null,
+  ]);
+  if (dlg2.tipo !== 'limites') return;
+  const el = $('dlg2Body');
+  if (!ia && !wa){ el.innerHTML = '<p class="hint" style="margin:0;">Não foi possível ver seus limites agora. Tente de novo em instantes.</p>'; return; }
+  const hoje = new Date(), prox = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
+  const renova = `1º de ${MONTHS[prox.getMonth()].toLowerCase()}`;
+  const barra = (titulo, usadas, limite, extra) => {
+    const pct = limite > 0 ? Math.min(100, Math.round(usadas / limite * 100)) : 100;
+    return `<div class="bot-saldo"><div><span>${titulo}</span><b>${usadas} de ${limite}</b></div>
+      <span class="bar"><i style="width:${pct}%${pct >= 100 ? ';background:#d23b3b' : ''}"></i></span>
+      <small>${usadas >= limite ? 'Acabou este mês. ' : ''}${extra}</small></div>`;
+  };
+  el.innerHTML = `<p class="hint" style="margin:0;">Algumas coisas têm limite por mês porque custam para o app. Renova em <b>${renova}</b>.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      ${ia ? barra('📷 Leituras de foto, PDF e áudio', ia.usadas, ia.limite, 'Feitas pela IA no app e no Detetive.') : ''}
+      ${wa ? barra('💬 Mensagens do Detetive no WhatsApp', wa.usadas, wa.limite, 'Cada resposta do Detetive no WhatsApp conta 1.') : ''}
+    </div>
+    <p class="hint" style="margin:0;">✅ <b>Sem limite:</b> lançar pelo app, texto, voz, extrato do banco${BOT_LIGADO ? ' e o Detetive no Telegram' : ''}.</p>`;
 }
 
 /* ---------- Detetive Grana (bot do WhatsApp e do Telegram) ---------- */
@@ -3700,11 +4102,19 @@ const msgWa = cod => `Oi, Detetive Grana! 🕵️ Quero ativar meu bot. Código:
 
 // mostra o item do menu e a bolinha do Detetive (só se o banco tem o bot)
 let botBalTimer = null;
+// leitura por IA e limites só aparecem quando o banco já tem o supabase-ia.sql
+let iaDisponivel = false;
+async function checarIA(){
+  const { error } = await sb.rpc('ia_meu_saldo');
+  iaDisponivel = !error;
+  $('rpAbrirIa').hidden = !iaDisponivel;
+  document.querySelector('.rp-d-bt').classList.toggle('dois', !iaDisponivel);
+  $('drLimites').hidden = !iaDisponivel && !BOT_LIGADO;
+}
 async function checarBot(){
   if (!BOT_LIGADO) return;   // prod: o bot ainda não foi lançado
   const { data, error } = await sb.rpc('whatsapp_meu');
   botDisponivel = !error;
-  $('drBot').hidden = !botDisponivel;
   $('botFab').hidden = !botDisponivel;
   let visto = false; try { visto = localStorage.getItem(botFabKey()) === '1'; } catch {}
   const novo = botDisponivel && !visto && !(data || []).length;
@@ -3719,7 +4129,7 @@ function botVisto(){
   $('botFabNovo').hidden = true; $('botFabBal').hidden = true;
   try { localStorage.setItem(botFabKey(), '1'); } catch {}
 }
-$('drBot').addEventListener('click', () => { if (typeof closeDrawer === 'function') closeDrawer(); botVisto(); openBot(); });
+$('drLimites').addEventListener('click', () => { if (typeof closeDrawer === 'function') closeDrawer(); openLimites(); });
 $('botFab').addEventListener('click', () => { botVisto(); openBot(); });
 
 function pararEspera(){ if (botEspera){ clearInterval(botEspera); botEspera = null; } }
@@ -3728,58 +4138,90 @@ async function openBot(){
   openDlg2('Novo', 'Detetive Grana', '<p class="hint" style="margin:0;">Carregando…</p>', { tipo: 'bot' });
   await renderBot();
 }
+const BOT_IC_TG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4 3 11l6 2.5M21 4l-4 16-8-6.5M21 4 9 13.5V19l3-3.5"/></svg>';
+const BOT_IC_WA = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4.1A8 8 0 1 1 20 11.5z"/></svg>';
+// explica os limites de cada canal (fica embaixo dos botões do Detetive)
+const botComoFunciona = () => `<div class="bot-info"><h4>Como funciona</h4><dl>
+  <dt>Telegram</dt><dd>Sem limite. Mande quantas mensagens quiser.</dd>
+  <dt>WhatsApp</dt><dd>300 respostas do Detetive por mês. O saldo vale o mês inteiro e zera no dia 1º. Avisamos quando chegar em 80%.</dd>
+  <dt>Foto, PDF e áudio</dt><dd>Lidos com IA: 30 leituras por mês, em qualquer canal.</dd>
+  <dt>No app</dt><dd>Sem limite.</dd></dl></div>`;
+let botQtd = 0;   // quantos canais estavam ligados quando a tela abriu (para saber quando ligou mais um)
 async function renderBot(){
   if (dlg2.tipo !== 'bot') return pararEspera();
   const { data, error } = await sb.rpc('whatsapp_meu');
   if (error){ $('dlg2Body').innerHTML = '<p class="hint" style="margin:0;">O Detetive Grana ainda não está disponível.</p>'; return; }
-  const v = (data || [])[0], atual = current();
-  if (v){
-    pararEspera(); botCodigo = '';
-    const tg = v.canal === 'telegram';
-    const abrir = tg ? (TG_BOT ? `https://t.me/${TG_BOT}` : '') : (WA_BOT ? `https://wa.me/${WA_BOT}` : '');
-    const outro = atual && atual.id !== v.controle_id;
+  const lig = data || [], atual = current();
+  const tgV = lig.find(x => x.canal === 'telegram'), waV = lig.find(x => x.canal === 'whatsapp');
+  botQtd = lig.length;
+  // código para conectar o canal que falta
+  let cod = '';
+  if (!tgV || !waV){
+    if (!botCodigo){
+      const g = await sb.rpc('whatsapp_gerar_codigo', { cid: (lig[0] && lig[0].controle_id) || state.cid });
+      if (!g.error) botCodigo = String(g.data);
+    }
+    cod = botCodigo;
+  } else { pararEspera(); botCodigo = ''; }
+  if (dlg2.tipo !== 'bot') return;
+  const linkTg = TG_BOT ? `https://t.me/${TG_BOT}${cod ? `?start=${cod}` : ''}` : '';
+  const linkWa = WA_BOT ? `https://wa.me/${WA_BOT}${cod ? `?text=${encodeURIComponent(msgWa(cod))}` : ''}` : '';
+  const canal = (id, nome, v, link, ic, cor, nota) => {
+    const topo = `<span class="ic">${ic}</span><span class="tx"><b>${nome}</b><small>${v ? `<span class="ok">✓ Conectado</span> · ` : ''}${v && id === 'whatsapp' && v.final ? `final ${esc(v.final)} · ` : ''}${nota}</small></span>`;
+    if (v) return `<div class="bot-canal" style="--c:${cor}">${topo}<button class="btn btn-ghost btn-sm" type="button" data-act="botDesligar" data-canal="${id}" aria-label="Desligar o ${nome}">Desligar</button></div>`;
+    if (!link) return `<div class="bot-canal off" style="--c:${cor}">${topo}<span class="tag tag-neutral">Em breve</span></div>`;
+    if (!cod) return `<div class="bot-canal" style="--c:${cor}">${topo}</div>`;
+    return `<a class="bot-canal" style="--c:${cor}" href="${link}" target="_blank" rel="noopener" data-canal="${id}">${topo}<span class="st ir">Conectar</span></a>`;
+  };
+  const lista = `<div class="bot-canais">
+      ${canal('telegram', 'Telegram', tgV, linkTg, BOT_IC_TG, '#2a9fd8', 'Sem limite de mensagens')}
+      ${canal('whatsapp', 'WhatsApp', waV, linkWa, BOT_IC_WA, '#1fa855', 'Até 300 mensagens por mês')}
+    </div>`;
+  const podeLigar = !!cod && ((!tgV && linkTg) || (!waV && linkWa));
+  const espera = podeLigar ? `<p class="hint" id="botEspera" style="margin:0;font-size:12.5px;">${lig.length ? 'Para ligar o outro canal, toque em <b>Conectar</b>.' : 'É só tocar, e na conversa tocar em <b>Iniciar</b> ou <b>Enviar</b>.'} Esta tela avisa sozinha quando conectar.</p>` : '';
+  if (lig.length){
+    const v = lig[0], outro = atual && atual.id !== v.controle_id;
+    const nomes = [tgV ? 'ao seu <b>Telegram</b>' : '', waV ? `ao WhatsApp com final <b>${esc(waV.final || '')}</b>` : ''].filter(Boolean).join(' e ');
+    const abrirTg = tgV && TG_BOT ? `https://t.me/${TG_BOT}` : '', abrirWa = waV && WA_BOT ? `https://wa.me/${WA_BOT}` : '';
+    const dois = abrirTg && abrirWa;
+    let saldo = '';
+    if (waV){   // WhatsApp tem saldo de mensagens por mês (cada resposta custa)
+      const r = await sb.rpc('bot_meu_saldo');
+      if (!r.error && r.data){
+        const { usadas, limite } = r.data, pct = Math.min(100, Math.round(usadas / limite * 100));
+        saldo = `<div class="bot-saldo"><div><span>Mensagens no WhatsApp este mês</span><b>${usadas} de ${limite}</b></div>
+          <span class="bar"><i style="width:${pct}%"></i></span>
+          <small>${usadas >= limite ? 'Acabou este mês. Continue pelo app ou pelo Telegram, que não têm limite. Volta no dia 1º.' : 'Zera no dia 1º. O app e o Telegram não têm limite.'}</small></div>`;
+      }
+    }
+    if (dlg2.tipo !== 'bot') return;
     $('dlg2Body').innerHTML = `
-      <p style="margin:0;font-size:15px;">✅ Conectado ${tg ? 'ao seu <b>Telegram</b>' : `ao WhatsApp com final <b>${esc(v.final || '')}</b>`}.</p>
-      <p class="hint" style="margin:0;">O Detetive anota tudo em <b>${esc(v.controle_nome || 'Meu controle')}</b>. Mande <b>ajuda</b> pra ele quando quiser ver o que ele sabe fazer.</p>
+      <p style="margin:0;font-size:15px;">✅ Conectado ${nomes}.</p>
+      <p class="hint" style="margin:0;">O Detetive anota tudo em <b>${esc(v.controle_nome || 'Meu controle')}</b>. Mande <b>Ajuda</b> para ele quando quiser ver o que ele sabe fazer.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        ${abrir ? `<a class="btn btn-primary btn-sm" href="${abrir}" target="_blank" rel="noopener">Abrir conversa</a>` : ''}
+        ${abrirTg ? `<a class="btn btn-primary btn-sm" href="${abrirTg}" target="_blank" rel="noopener">${dois ? 'Abrir Telegram' : 'Abrir conversa'}</a>` : ''}
+        ${abrirWa ? `<a class="btn ${abrirTg ? 'btn-secondary' : 'btn-primary'} btn-sm" href="${abrirWa}" target="_blank" rel="noopener">${dois ? 'Abrir WhatsApp' : 'Abrir conversa'}</a>` : ''}
         ${outro ? `<button class="btn btn-secondary btn-sm" type="button" data-act="botCtl">Anotar em "${esc(atual.nome)}"</button>` : ''}
-        <button class="btn btn-ghost btn-sm" type="button" data-act="botDesligar">Desligar</button>
-      </div>`;
-    return;
+      </div>
+      ${lista}${espera}${saldo}${botComoFunciona()}`;
+  } else {
+    if (!cod){ $('dlg2Body').innerHTML = '<p class="hint" style="margin:0;">Não foi possível gerar o código agora. Tente de novo em instantes.</p>'; return; }
+    $('dlg2Body').innerHTML = `
+      <div class="bot-topo">${DET_LOGO}
+        <div><b>Comece a lançar por mensagem</b><span>Mande <b>Mercado 50</b> ou <b>Uber 23,90 ontem</b> e o Detetive anota em <b>${esc(atual ? atual.nome : 'Meu controle')}</b>.</span></div></div>
+      <p class="bot-pergunta">Onde você quer conversar com ele?</p>
+      ${lista}${espera}${botComoFunciona()}`;
   }
-  if (!botCodigo){
-    const g = await sb.rpc('whatsapp_gerar_codigo', { cid: state.cid });
-    if (g.error){ $('dlg2Body').innerHTML = `<p class="hint" style="margin:0;">${esc(rpcMsg(g.error))}</p>`; return; }
-    botCodigo = String(g.data);
-  }
-  const cod = botCodigo;
-  const linkTg = TG_BOT ? `https://t.me/${TG_BOT}?start=${cod}` : '';
-  const linkWa = WA_BOT ? `https://wa.me/${WA_BOT}?text=${encodeURIComponent(msgWa(cod))}` : '';
-  const icTg = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4 3 11l6 2.5M21 4l-4 16-8-6.5M21 4 9 13.5V19l3-3.5"/></svg>';
-  const icWa = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4.1A8 8 0 1 1 20 11.5z"/><path d="M9 9.5c.3 1.6 1.9 3.6 3.6 4.3l1.3-1 1.6.7c-.2 1-1 1.6-2 1.5A6.5 6.5 0 0 1 8 10.5c0-1 .6-1.8 1.6-2l.7 1.6z"/></svg>';
-  const opcao = (canal, nome, link, ic, cor) => link
-    ? `<a class="bot-opcao" style="--c:${cor}" href="${link}" target="_blank" rel="noopener" data-canal="${canal}"><span class="bot-opcao-ic">${ic}</span><span><b>${nome}</b><small>Abrir conversa e começar</small></span><span class="bot-seta" aria-hidden="true">›</span></a>`
-    : `<div class="bot-opcao off" style="--c:${cor}"><span class="bot-opcao-ic">${ic}</span><span><b>${nome}</b><small>Chegando em breve</small></span><span class="tag tag-neutral">Em breve</span></div>`;
-  $('dlg2Body').innerHTML = `
-    <div class="bot-topo">${DET_LOGO}
-      <div><b>Comece a lançar por mensagem</b><span>Mande <b>mercado 50</b> ou <b>uber 23,90 ontem</b> e o Detetive anota em <b>${esc(atual ? atual.nome : 'Meu controle')}</b>.</span></div></div>
-    <p class="bot-pergunta">Onde você quer conversar com ele?</p>
-    <div class="bot-opcoes">
-      ${opcao('telegram', 'Telegram', linkTg, icTg, '#2a9fd8')}
-      ${opcao('whatsapp', 'WhatsApp', linkWa, icWa, '#1fa855')}
-    </div>
-    <p class="hint" id="botEspera" style="margin:0;font-size:12.5px;">É só tocar, e na conversa tocar em <b>Iniciar</b> ou <b>Enviar</b>. Esta tela avisa sozinha quando conectar.</p>`;
-  $('dlg2Body').querySelectorAll('a.bot-opcao').forEach(a => a.addEventListener('click', () => {
-    $('botEspera').innerHTML = `<span class="bot-girando" aria-hidden="true"></span> Esperando sua mensagem no <b>${a.dataset.canal === 'telegram' ? 'Telegram' : 'WhatsApp'}</b>… Se não abriu, toque de novo.`;
+  $('dlg2Body').querySelectorAll('a.bot-canal').forEach(a => a.addEventListener('click', () => {
+    if ($('botEspera')) $('botEspera').innerHTML = `<span class="bot-girando" aria-hidden="true"></span> Esperando sua mensagem no <b>${a.dataset.canal === 'telegram' ? 'Telegram' : 'WhatsApp'}</b>… Se não abriu, toque de novo.`;
   }));
   // fica conferindo se a pessoa já mandou a mensagem (até 5 minutos)
-  if (!botEspera){
+  if (podeLigar && !botEspera){
     let n = 0;
     botEspera = setInterval(async () => {
       if (dlg2.tipo !== 'bot' || $('dlg2').hidden || ++n > 100) return pararEspera();
       const { data } = await sb.rpc('whatsapp_meu');
-      if ((data || []).length){ pararEspera(); toast('🕵️ Detetive Grana conectado!', true); renderBot(); }
+      if ((data || []).length > botQtd){ pararEspera(); botCodigo = ''; toast('🕵️ Detetive Grana conectado!', true); renderBot(); }
     }, 3000);
   }
 }
@@ -3809,7 +4251,6 @@ $('dlg2Body').addEventListener('click', async e => {
     profile.foto = null; renderMe(); await loadMembers(); render(); openPerfil();
   }
   if (b.dataset.act === 'pfBaixar'){ $('export').click(); return; }
-  if (b.dataset.act === 'pfBotAbrir'){ openBot(); return; }
   if (b.dataset.act === 'botCtl'){
     b.disabled = true;
     const { error } = await sb.rpc('whatsapp_definir_controle', { cid: state.cid });
@@ -3819,9 +4260,11 @@ $('dlg2Body').addEventListener('click', async e => {
   }
   if (b.dataset.act === 'botDesligar'){
     b.disabled = true;
-    const { error } = await sb.rpc('whatsapp_desligar');
+    const canal = b.dataset.canal || '', nome = canal === 'whatsapp' ? 'WhatsApp' : 'Telegram';
+    let { error } = canal ? await sb.rpc('whatsapp_desligar', { p_canal: canal }) : await sb.rpc('whatsapp_desligar');
+    if (error && canal && /function|schema cache/i.test(error.message || '')) ({ error } = await sb.rpc('whatsapp_desligar'));
     if (error){ b.disabled = false; return toast(rpcMsg(error)); }
-    toast('Detetive Grana desligado da sua conta.', true);
+    toast(canal ? `Detetive desligado do ${nome}.` : 'Detetive Grana desligado da sua conta.', true);
     botCodigo = '';
     return renderBot();
   }
@@ -4303,6 +4746,14 @@ function renderAdmin(){
       if (u.status !== 'aprovado') actions += `<button class="btn btn-primary btn-sm" data-act="aprovado" data-id="${esc(u.id)}">${u.status === 'bloqueado' ? 'Desbloquear' : 'Aprovar'}</button>`;
       if (u.status !== 'bloqueado') actions += `<button class="btn btn-secondary btn-sm" data-act="bloqueado" data-id="${esc(u.id)}">${u.status === 'pendente' ? 'Recusar' : 'Bloquear'}</button>`;
       if (u.status === 'aprovado') actions += `<button class="btn ${u.fundador ? 'btn-primary' : 'btn-secondary'} btn-sm" data-act="fundador" data-id="${esc(u.id)}" data-sim="${u.fundador ? '0' : '1'}" title="${u.fundador ? 'Tirar de fundador' : 'Marcar como fundador (não paga mensalidade)'}">${u.fundador ? '⭐ Fundador' : '☆ Fundador'}</button>`;
+      if (u.status === 'aprovado' && u.wa_padrao != null){
+        const lim = u.wa_limite ?? u.wa_padrao;
+        actions += `<button class="btn btn-secondary btn-sm" data-act="walimite" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}" data-lim="${u.wa_limite ?? ''}" data-padrao="${u.wa_padrao}" title="Respostas do Detetive no WhatsApp por mês (cada uma custa). Usou ${u.wa_usadas || 0} este mês.">WhatsApp ${u.wa_usadas || 0}/${lim}${u.wa_limite != null ? ' ✎' : ''}</button>`;
+      }
+      if (u.status === 'aprovado' && u.ia_padrao != null){
+        const lim = u.ia_limite ?? u.ia_padrao;
+        actions += `<button class="btn btn-secondary btn-sm" data-act="ialimite" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}" data-lim="${u.ia_limite ?? ''}" data-padrao="${u.ia_padrao}" title="Leituras de foto, PDF e áudio pela IA por mês. Usou ${u.ia_usadas || 0} este mês.">IA ${u.ia_usadas || 0}/${lim}${u.ia_limite != null ? ' ✎' : ''}</button>`;
+      }
       actions += `<button class="btn btn-secondary btn-sm" data-act="senha" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Nova senha</button>`;
       actions += `<button class="btn btn-danger btn-sm" data-act="excluir" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Excluir</button>`;
     }
@@ -4404,6 +4855,32 @@ $('userRows').addEventListener('click', async e => {
     toast(`Senha de ${b.dataset.email} redefinida. Peça para a pessoa trocar em "Trocar senha" ao entrar.`, true);
     return;
   }
+  if (act === 'ialimite'){
+    const padrao = Number(b.dataset.padrao);
+    const v = await pedirTexto('Leituras de IA por mês', `Quantas fotos, PDFs e áudios ${b.dataset.email} pode mandar para a IA ler por mês. Cada leitura custa menos de 1 centavo. Deixe vazio para usar o padrão (${padrao}).`,
+      { rotulo: 'Leituras por mês', tipo: 'number', modo: 'numeric', valor: b.dataset.lim, placeholder: String(padrao), okTxt: 'Salvar', vazioOk: true });
+    if (v === null) return;
+    const n = String(v).trim() === '' ? null : Math.round(Number(v));
+    if (n !== null && !(n >= 0 && n <= 2000)) return toast('Use um número de 0 a 2000.');
+    b.disabled = true;
+    ({ error } = await sb.rpc('admin_definir_ia_limite', { alvo: id, p_limite: n }));
+    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+    toast(n === null ? `Voltou para o padrão (${padrao} por mês).` : `${b.dataset.email}: ${n} leituras de IA por mês.`, true);
+    return loadUsers();
+  }
+  if (act === 'walimite'){
+    const padrao = Number(b.dataset.padrao);
+    const v = await pedirTexto('Mensagens no WhatsApp por mês', `Quantas respostas do Detetive no WhatsApp ${b.dataset.email} pode receber por mês. Cada uma custa cerca de R$ 0,035. Deixe vazio para usar o padrão (${padrao}: ${padrao === 150 ? 'fundador' : 'assinante'}).`,
+      { rotulo: 'Respostas por mês', tipo: 'number', modo: 'numeric', valor: b.dataset.lim, placeholder: String(padrao), okTxt: 'Salvar', vazioOk: true });
+    if (v === null) return;
+    const n = String(v).trim() === '' ? null : Math.round(Number(v));
+    if (n !== null && !(n >= 0 && n <= 3000)) return toast('Use um número de 0 a 3000.');
+    b.disabled = true;
+    ({ error } = await sb.rpc('admin_definir_wa_limite', { alvo: id, p_limite: n }));
+    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+    toast(n === null ? `Voltou para o padrão (${padrao} por mês).` : `${b.dataset.email}: ${n} respostas por mês no WhatsApp.`, true);
+    return loadUsers();
+  }
   if (act === 'fundador'){
     b.disabled = true;
     ({ error } = await sb.rpc('admin_definir_fundador', { alvo: id, sim: b.dataset.sim === '1' }));
@@ -4445,3 +4922,10 @@ if (!sb){
 
 // ícones desenhados são só enfeite: o leitor de tela lê o texto do botão
 document.querySelectorAll('svg:not([aria-hidden])').forEach(s => s.setAttribute('aria-hidden', 'true'));
+
+// robozinho: no computador o aviso aparece ao passar o mouse; no celular, ao tocar
+document.addEventListener('click', e => {
+  const b = e.target.closest('.lorig');
+  document.querySelectorAll('.lorig.on').forEach(x => { if (x !== b) x.classList.remove('on'); });
+  if (b) b.classList.toggle('on');
+});

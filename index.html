@@ -175,6 +175,33 @@
   @media (min-width:900px){.bot-fab{right:28px;bottom:28px}}
   #viewApp:has(#botFab:not([hidden])){padding-bottom:72px}
   .bot-topo .det-logo{width:44px;height:44px;flex:none}
+  #dlg2.largo .dlg{width:min(880px,100%)}
+  .rp-abas{align-self:stretch;max-width:100%;overflow-x:auto;flex-wrap:nowrap}.rp-abas button{white-space:nowrap;flex:1}
+  .rp-texto{width:100%;min-height:96px;resize:vertical;font:inherit;line-height:1.45}
+  .rp-acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .rp-ouvindo{color:#d23b3b;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+  .rp-ouvindo::before{content:"";width:9px;height:9px;border-radius:50%;background:#d23b3b;animation:rpPulso 1s infinite}
+  @keyframes rpPulso{50%{opacity:.3}}
+  .rp-arquivo{display:flex;flex-direction:column;gap:8px;padding:16px;border:1.5px dashed var(--divider);border-radius:12px}
+  .rp-lista{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--divider)}
+  .rp-topo{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;font-size:13.5px;color:var(--muted)}
+  .rp-item{display:grid;grid-template-columns:22px 104px minmax(0,1fr) 108px 142px 150px;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--divider)}
+  .rp-item.off{opacity:.5}
+  .rp-item .input{min-height:36px;padding:6px 8px;font-size:13.5px}
+  .rp-item input[type=checkbox]{width:18px;height:18px;accent-color:var(--marca-q)}
+  .rp-dup{grid-column:2/-1;font-size:12px;color:#9a5b00;margin-top:-4px}
+  .rp-rodape{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;position:sticky;bottom:-1px;background:var(--surface);padding-top:10px}
+  @media (max-width:700px){
+    .rp-item{grid-template-columns:22px 1fr 1fr;row-gap:6px}
+    .rp-item .rp-desc{grid-column:2/-1;grid-row:1}
+    .rp-item .rp-tipo{grid-column:2}.rp-item .rp-valor{grid-column:3}
+    .rp-item .rp-data{grid-column:2}.rp-item .rp-cat{grid-column:3}
+    .rp-item input[type=checkbox]{grid-row:1/3}
+  }
+  .bot-saldo{display:flex;flex-direction:column;gap:6px;background:rgba(var(--fg-rgb),.04);border-radius:12px;padding:12px 14px}
+  .bot-saldo div{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--muted)}.bot-saldo div b{color:var(--text);white-space:nowrap}
+  .bot-saldo .bar{height:6px;border-radius:99px;background:rgba(var(--accent-rgb),.2);overflow:hidden}.bot-saldo .bar i{display:block;height:100%;background:var(--marca-q);border-radius:99px}
+  .bot-saldo small{font-size:12px;color:var(--muted)}
   .bot-topo{display:flex;gap:14px;align-items:flex-start;padding:14px;border-radius:14px;background:rgba(var(--accent-rgb),.14)}
   .bot-topo .bot-emoji{font-size:34px;line-height:1}
   .bot-topo b{display:block;font-size:16px;margin-bottom:4px}.bot-topo span{font-size:14px;color:var(--muted);line-height:1.45}.bot-topo span b{display:inline;font-size:inherit;color:var(--fg)}
@@ -189,9 +216,6 @@
   .bot-opcao.off{opacity:.6}.bot-opcao.off .bot-opcao-ic{filter:grayscale(1)}
   .bot-girando{display:inline-block;width:12px;height:12px;border:2px solid var(--divider);border-top-color:var(--accent);border-radius:50%;animation:girar .8s linear infinite;vertical-align:-2px;margin-right:4px}
   @keyframes girar{to{transform:rotate(360deg)}}
-  .bot-canal{border:1px solid var(--divider);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
-  .bot-canal h4{margin:0;font-size:15px}
-  .bot-canal .btn{min-height:44px;justify-content:center}
   #dlg2Body a.btn{text-decoration:none}
   .tag-neutral{background:rgba(var(--fg-rgb),.10);color:var(--text)}
   .tag-red{background:rgba(var(--red-rgb),.18);color:var(--alerta)}
@@ -926,6 +950,172 @@
     .kc-compra .kc-acao{grid-column:2 / -1;justify-self:end;margin:-4px -6px -6px 0}
     .kc-compra .kc-sub{max-width:150px;white-space:normal;line-height:1.3}
   }
+
+/* ===== capa nova ===== */
+#viewAuth.capa{display:block;place-items:initial;padding:0;min-height:100dvh;background:var(--bg);color:var(--text);overflow-x:clip}
+#viewAuth.capa[hidden]{display:none}
+#viewAuth.capa::before{display:none}
+.capa .cp-marca{display:flex;justify-content:center;align-items:center;gap:10px;padding:26px 20px 0}
+.capa .cp-marca img{width:44px;height:44px;display:block}
+.capa .cp-marca b{font-family:"Archivo",system-ui,sans-serif;font-weight:900;font-size:20px;letter-spacing:-.02em}
+.capa .cp-marca b i{font-style:normal;color:#e0a922}
+.capa .cp-topo{text-align:center;max-width:820px;margin:0 auto;padding:22px 20px 0}
+.capa .cp-kick{font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-text);margin:0 0 10px}
+.capa .cp-h1{font-family:"Archivo",system-ui,sans-serif;font-weight:900;font-size:clamp(38px,9.5vw,60px);line-height:1;letter-spacing:-.035em;margin:0;text-transform:none;color:var(--text)}
+.capa .cp-h1 em{font-style:normal;background:linear-gradient(transparent 62%,#fed13d 62%,#fed13d 92%,transparent 92%);padding:0 4px}
+.capa .cp-sub{font-size:16px;line-height:1.5;color:var(--muted);max-width:560px;margin:14px auto 0}
+.capa .cp-grid{display:grid;grid-template-columns:1fr;gap:22px;padding:24px 18px 32px;max-width:520px;margin:0 auto}
+.capa .cp-lista{order:2;list-style:none;margin:0;padding:0;border-top:1px solid var(--divider)}
+.capa .cp-lista li{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--divider)}
+.capa .cp-lista .n{flex:none;width:32px;height:32px;border-radius:6px;background:#0e1525;color:#fed13d;display:grid;place-items:center;font-weight:700;font-size:13px}
+html[data-tema="escuro"] .capa .cp-lista .n{background:#fed13d;color:#0e1525}
+.capa .cp-lista b{display:block;font-size:15.5px}
+.capa .cp-lista span:not(.n){font-size:14px;color:var(--muted)}
+.capa .cp-meio{display:none}
+.capa .cp-login{order:1;background:var(--surface);border:1px solid var(--divider);border-radius:14px;padding:22px;box-shadow:0 18px 44px rgba(14,21,37,.10)}
+.capa .cp-login .auth-card{padding:0;background:none;border:0;box-shadow:none}
+.capa .cp-login .seg{display:grid;grid-template-columns:1fr 1fr;width:100%;padding:0;gap:0;overflow:hidden;border-radius:8px;align-self:stretch !important}
+.capa .cp-login .seg button{border-radius:0 !important;min-height:42px;box-shadow:none}
+.capa .cp-login .seg button[aria-pressed="true"]{background:#0e1525;color:#fff}
+html[data-tema="escuro"] .capa .cp-login .seg button[aria-pressed="true"]{background:#fed13d;color:#0e1525}
+.capa .cp-login .input{min-height:46px;font-size:15px}
+.capa .cp-login #authSubmit{min-height:48px;font-size:15px}
+.capa .cp-seg{display:flex;gap:8px;align-items:flex-start;margin:14px 0 0;padding-top:13px;border-top:1px solid var(--divider);font-size:13px;color:var(--muted)}
+.capa .cp-seg svg{flex:none;color:var(--green);margin-top:1px}
+.capa .cp-fone{position:relative;width:270px;height:540px;border-radius:40px;background:#0b0f19;padding:11px;box-shadow:0 24px 60px rgba(14,21,37,.22)}
+.capa .cp-tela{height:100%;border-radius:30px;background:#f4f5f7;color:#1f1d1e;overflow:hidden}
+.capa .cp-ttop{padding:18px 16px 10px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#6b6b6b}.capa .cp-ttop b{font-size:16px;color:#1f1d1e}
+.capa .cp-saldo{margin:0 12px;background:#fed13d;border-radius:16px;padding:14px 16px;color:#0e1525}.capa .cp-saldo small,.capa .cp-saldo span{font-size:11.5px}.capa .cp-saldo b{display:block;font-family:"Archivo",sans-serif;font-weight:900;font-size:27px;letter-spacing:-.02em;margin:2px 0}
+.capa .cp-mini{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:9px 12px}.capa .cp-mini div{background:#fff;border-radius:12px;padding:9px 11px;font-size:11px;color:#6b6b6b}.capa .cp-mini b{display:block;font-size:13px;color:#1f1d1e}
+.capa .cp-rows{background:#fff;margin:0 12px;border-radius:14px;padding:2px 11px}
+.capa .cp-row{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #eee;font-size:12.5px}.capa .cp-row:last-child{border:0}
+.capa .cp-ri{width:28px;height:28px;border-radius:8px;background:#fff6d6;color:#8a6a00;display:grid;place-items:center;flex:none}
+.capa .cp-row>div{flex:1}.capa .cp-row b{display:block;font-weight:500}.capa .cp-row small{color:#8a8a8a;font-size:10.5px}
+.capa .cp-v{font-weight:700;font-size:12px;white-space:nowrap}.capa .cp-v.cp-ent{color:#1e7a3e}
+.capa .cp-bolha{position:absolute;left:-84px;bottom:-26px;width:220px;display:flex;flex-direction:column;gap:6px}
+.capa .cp-bolha .b1{align-self:flex-start;margin-left:28px;background:#fed13d;color:#0e1525;border-radius:12px 12px 12px 3px;padding:8px 12px;font-weight:500;font-size:13.5px;box-shadow:0 10px 24px rgba(14,21,37,.18)}
+.capa .cp-bolha .b2{display:flex;gap:6px;align-items:flex-end}.capa .cp-bolha .b2>svg{flex:none}
+.capa .cp-bolha .b2 div{background:#fff;color:#1f1d1e;border:1px solid #e4e0d6;border-radius:12px 12px 12px 3px;padding:8px 11px;font-size:12px;box-shadow:0 10px 24px rgba(14,21,37,.14)}.capa .cp-bolha .b2 div b{display:block;font-size:12.5px;color:#1e7a3e}
+.capa .cp-faixa{background:#0e1525;color:#f6f0df;padding:40px 18px 44px}
+html[data-tema="escuro"] .capa .cp-faixa{background:#141c2e;border-top:1px solid #243049;border-bottom:1px solid #243049}
+.capa .cp-wrap{max-width:1160px;margin:0 auto}
+.capa .cp-ftop{display:flex;align-items:flex-end;justify-content:space-between;gap:18px 32px;flex-wrap:wrap;margin-bottom:28px}
+.capa .cp-ftop h2{font-family:"Archivo",system-ui,sans-serif;font-weight:900;font-size:clamp(38px,8vw,56px);line-height:.98;letter-spacing:-.035em;margin:0;color:#fff;text-transform:none}
+.capa .cp-ftop h2 span{color:#fed13d}
+.capa .cp-ftop p{margin:0;max-width:380px;font-size:16px;line-height:1.5;color:#c9c6bc}.capa .cp-ftop p b{color:#fff;font-weight:500}
+.capa .cp-cols{display:grid;grid-template-columns:1fr;gap:16px}
+.capa .cp-c{background:#172036;border:1px solid #243049;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.capa .cp-c .q{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8f97aa}
+.capa .cp-in{min-height:110px;display:flex;align-items:center}.capa .cp-in.cp-col{flex-direction:column;align-items:stretch;justify-content:center}
+.capa .cp-msg{background:#f6f0df;color:#0e1525;border-radius:12px 12px 12px 3px;padding:10px 14px;font-size:17px;font-weight:500}
+.capa .cp-msg small{display:block;font-size:11px;color:#6b6a63;margin-top:2px;font-weight:400}
+.capa .cp-nota{width:120px;background:#fff;color:#333;border-radius:3px;padding:10px 10px 14px;font:10.5px/1.5 ui-monospace,Menlo,monospace;transform:rotate(-3deg);box-shadow:0 8px 20px rgba(0,0,0,.35);clip-path:polygon(0 0,100% 0,100% 92%,92% 100%,84% 92%,76% 100%,68% 92%,60% 100%,52% 92%,44% 100%,36% 92%,28% 100%,20% 92%,12% 100%,4% 92%,0 100%)}
+.capa .cp-nota b{display:block;text-align:center;font-size:11px;margin-bottom:4px}.capa .cp-nota i{font-style:normal;display:flex;justify-content:space-between}
+.capa .cp-audio{display:flex;align-items:center;gap:10px;background:#f6f0df;color:#0e1525;border-radius:12px;padding:10px 14px}
+.capa .cp-audio .play{width:30px;height:30px;border-radius:50%;background:#0e1525;display:grid;place-items:center;flex:none}
+.capa .cp-onda{display:flex;align-items:center;gap:2px;height:28px}.capa .cp-onda i{display:block;width:3px;border-radius:2px;background:#0e1525}
+.capa .cp-audio small{font-size:12px;color:#6b6a63}
+.capa .cp-fala{color:#8f97aa;font-size:12.5px;margin-top:8px}
+.capa .cp-seta{font-size:13px;color:#fed13d;font-weight:700;display:flex;align-items:center;gap:8px}.capa .cp-seta:after{content:"";flex:1;height:1px;background:#2c3954}
+.capa .cp-res{background:#fff;color:#1f1d1e;border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;gap:10px;font-size:14px}
+.capa .cp-res p{margin:0}.capa .cp-res span{color:#8a8a8a;font-size:12px;display:block}.capa .cp-res b{white-space:nowrap}
+.capa .cp-canais{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px;font-size:13.5px;color:#c9c6bc}
+.capa .cp-canais span{border:1px solid #2c3954;border-radius:6px;padding:7px 12px}.capa .cp-canais b{color:#fed13d}
+.capa .cp-foot{margin:0;padding:22px 20px 28px}
+@media (min-width:980px){
+ .capa .cp-grid{grid-template-columns:minmax(0,1fr) 270px minmax(0,1fr);gap:48px;align-items:center;padding:34px 40px 48px;max-width:1240px}
+ .capa .cp-lista{order:0;justify-self:end;width:100%;max-width:380px}
+ .capa .cp-meio{display:flex;justify-content:center;position:relative}
+ .capa .cp-login{order:0;justify-self:start;width:100%;max-width:400px}
+ .capa .cp-faixa{padding:56px 40px 60px}
+ .capa .cp-cols{grid-template-columns:repeat(3,1fr)}
+ .capa .cp-in{min-height:132px}
+}
+
+.capa .cp-h1,.capa .cp-ftop h2{font-family:"Archivo",system-ui,sans-serif !important;font-weight:900 !important;letter-spacing:-.035em !important;text-transform:none !important}
+.capa .cp-h1{line-height:1 !important}
+.capa .cp-ftop h2{font-size:clamp(38px,8vw,56px) !important;line-height:.98 !important}
+.capa .cp-login .seg{background:var(--surface) !important}
+.capa .cp-login .seg button[aria-pressed="false"]{background:transparent !important;color:var(--muted) !important}
+.capa .cp-login .seg button[aria-pressed="true"]{background:#0e1525 !important;color:#fff !important;box-shadow:none !important}
+html[data-tema="escuro"] .capa .cp-login .seg button[aria-pressed="true"]{background:#fed13d !important;color:#0e1525 !important}
+html[data-tema="escuro"] .capa .cp-h1 em{background:none;color:#fed13d}
+.capa .cp-marca{padding-top:34px}
+
+/* capa: celular e exemplos iguais ao app */
+.capa .cp-tela{background:#f5f6f8}
+.capa .cp-ttop b{font-size:19px;font-weight:700}
+.capa .cp-saldo{background:#fff;border:1px solid #e6e8ec;border-radius:10px;padding:12px 0 0;color:#1f1d1e}
+.capa .cp-saldo>small,.capa .cp-saldo>b,.capa .cp-saldo>span{padding:0 14px}
+.capa .cp-saldo>small{font-size:12px;font-weight:500}
+.capa .cp-saldo>b{font-family:Rubik,system-ui,sans-serif !important;font-weight:700;font-size:26px;color:#1e9e52;letter-spacing:-.02em}
+.capa .cp-saldo>span{display:block;font-size:11px;color:#6b6b6b;padding-bottom:10px}
+.capa .cp-saldo .cp-mini{margin:0;border-top:1px solid #e6e8ec;gap:0}
+.capa .cp-saldo .cp-mini div{background:none;border-radius:0;padding:9px 12px;color:#1f1d1e;font-size:11px}
+.capa .cp-saldo .cp-mini div+div{border-left:1px solid #e6e8ec}
+.capa .cp-mini i{font-style:normal;display:inline-grid;place-items:center;width:15px;height:15px;border-radius:4px;margin-right:5px;font-size:10px;font-weight:700}
+.capa .cp-mini i.up{background:#e3f5ea;color:#1e9e52}.capa .cp-mini i.dn{background:#fde8e8;color:#d93a3a}
+.capa .cp-rows{background:none;margin:8px 12px 0;padding:0;border-radius:0}
+.capa .cp-row{padding:9px 2px;border-bottom:1px solid #e6e8ec;align-items:flex-start}
+.capa .cp-row b{font-size:13px;font-weight:500;color:#1f1d1e}
+.capa .cp-row small{display:block;font-size:11px;color:#6b6b6b;margin-top:2px}
+.capa .cp-v{color:#d93a3a;font-size:12.5px}.capa .cp-v.cp-ent{color:#1e9e52}
+.capa .cp-res{display:block;padding:4px 14px;background:#f5f6f8}
+.capa .cp-res .cp-row{border:0;padding:10px 0}
+.capa .cp-res .cp-row b{font-size:15px}.capa .cp-res .cp-row small{font-size:12.5px}.capa .cp-res .cp-v{font-size:14.5px;color:#d93a3a}
+.capa .cp-seta{display:block;height:22px;position:relative}
+.capa .cp-seta:after{content:"";position:absolute;left:calc(50% - .75px);top:0;height:16px;width:1.5px;background:#fed13d;flex:none}
+.capa .cp-seta:before{content:"";position:absolute;left:calc(50% - 4.5px);bottom:2px;width:7px;height:7px;border-right:1.5px solid #fed13d;border-bottom:1.5px solid #fed13d;transform:rotate(45deg)}
+.capa .cp-c{gap:12px}
+.capa .cp-in{justify-content:center}
+.capa .cp-lista li{align-items:center;padding:16px 0}.capa .cp-lista b{font-size:17px}
+.capa .cp-esq{order:2;display:flex;flex-direction:column;gap:18px}
+.capa .cp-det{display:flex;gap:16px;align-items:flex-start;background:#0e1525;color:#f6f0df;border-radius:14px;padding:22px}
+.capa .cp-det>svg{flex:none}
+.capa .cp-det .tag{display:inline-block;background:#fed13d;color:#0e1525;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:4px;padding:3px 7px;margin-bottom:8px}
+.capa .cp-det b{display:block;font-family:"Archivo",system-ui,sans-serif;font-weight:900;font-size:28px;letter-spacing:-.03em;line-height:1;color:#fff}
+.capa .cp-det p{margin:8px 0 0;font-size:15px;color:#c9c6bc}
+.capa .cp-det .ch{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.capa .cp-det .ch span{border:1px solid #2c3954;border-radius:6px;padding:5px 10px;font-size:13px;color:#fff}
+@media (min-width:980px){.capa .cp-esq{order:0;justify-self:end;width:100%;max-width:400px}.capa .cp-esq .cp-lista{max-width:none}}
+
+/* Detetive: canais ligados e "Como funciona" */
+.bot-canais{display:flex;flex-direction:column;border:1.5px solid var(--divider);border-radius:12px;overflow:hidden}
+.bot-canal{display:flex;flex-direction:row;align-items:center;gap:12px;padding:12px 14px;min-height:60px;color:var(--fg);text-decoration:none;text-align:left;background:var(--card)}
+.bot-canal+.bot-canal{border-top:1px solid var(--divider)}
+a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
+.bot-canal .ic{width:36px;height:36px;border-radius:8px;display:grid;place-items:center;color:#fff;background:var(--c);flex:none}
+.bot-canal .tx{display:block;flex:1;min-width:0}
+.bot-canal b{display:block;font-size:15px}.bot-canal small{display:block;font-size:12.5px;color:var(--muted)}
+.bot-canal .st{font-size:13px;font-weight:700;white-space:nowrap}
+.bot-canal .st.ok{color:var(--green)}
+.bot-canal .st.ir{color:var(--fg);border:1.5px solid var(--divider);border-radius:var(--r-btn);padding:7px 12px}
+.bot-canal.off{opacity:.6}
+.bot-canal .btn{min-height:36px;padding:6px 10px;color:var(--muted)}
+.bot-info{border-radius:12px;background:rgba(var(--fg-rgb),.04);padding:14px 16px}
+.bot-info h4{margin:0 0 10px;font-size:14px}
+.bot-info dl{margin:0;font-size:13.5px}
+.bot-info dt{font-weight:700}.bot-info dd{margin:2px 0 0;color:var(--muted)}.bot-info dd+dt{margin-top:10px}
+.bot-canal small .ok{color:var(--green);font-weight:700}
+
+/* robozinho: lançamento feito pelo Detetive */
+.lorig{position:relative;display:inline-grid;place-items:center;width:24px;height:24px;margin-left:6px;vertical-align:-5px;border:0;border-radius:6px;background:rgba(var(--accent-rgb),.16);color:var(--accent-text);cursor:pointer;padding:0}
+.lorig .bal{display:none;position:absolute;left:-6px;top:calc(100% + 8px);width:max-content;max-width:230px;background:#0e1525;color:#fff;font-size:12.5px;font-weight:500;line-height:1.35;text-align:left;padding:8px 10px;border-radius:8px;box-shadow:0 8px 20px rgba(0,0,0,.2);z-index:20;white-space:normal}
+.lorig .bal:after{content:"";position:absolute;left:12px;bottom:100%;border:6px solid transparent;border-bottom-color:#0e1525}
+.lorig.on .bal,.lorig:focus-visible .bal{display:block}
+@media (hover:hover){.lorig:hover .bal{display:block}}
+.lorig-m{display:none}
+@media (max-width:560px){#rows .lorig-d{display:none}#rows .lorig-m{display:inline-grid}}
+
+/* Lançar rápido em destaque no topo do "Novo lançamento" */
+.rp-destaque{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:var(--r-cartao);background:rgba(var(--accent-rgb),.14);border:1.5px solid rgba(var(--accent-rgb),.55)}
+.rp-d-tx b{display:block;font-size:17px}.rp-d-tx span{font-size:13.5px;color:var(--muted)}
+.rp-d-bt{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.rp-d-op{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:76px;padding:10px 6px;border-radius:var(--r-btn);border:1.5px solid var(--divider);background:var(--card);color:var(--fg);font:600 13px var(--font-body);text-align:center;cursor:pointer}
+.rp-d-op:hover{border-color:var(--accent)}
+.rp-d-op svg{color:var(--accent-text)}
+.rp-d-bt.dois{grid-template-columns:repeat(2,1fr)}
+@media (min-width:900px){.rp-destaque{flex-direction:row;align-items:center;justify-content:space-between;gap:20px}.rp-d-bt{min-width:460px}.rp-d-op{min-height:58px;flex-direction:row;gap:8px}}
 </style>
 </head>
 <body>
@@ -947,17 +1137,24 @@
 </div>
 
 <!-- ============ LOGIN / CADASTRO ============ -->
-<div id="viewAuth" class="auth-page" hidden>
-  <div class="auth-grid">
-    <div class="auth-head">
-      <img class="auth-logo" src="logo/logo-simbolo.svg" alt="Pra Onde Foi?">
-      <span class="auth-kick">Controle financeiro</span>
-      <h1 class="auth-title">Pra onde<br>foi<span class="hl">?</span></h1>
-      <p class="auth-lead">Descubra para onde vai o seu dinheiro, <span class="hl">de qualquer lugar</span>.</p>
+<div id="viewAuth" class="auth-page capa" hidden>
+  <header class="cp-marca"><img src="logo/logo-simbolo.svg" alt="" width="44" height="44"><b>Pra Onde Foi<i>?</i></b></header>
+  <section class="cp-topo">
+    <p class="cp-kick">Controle financeiro</p>
+    <h1 class="cp-h1">Descubra para onde foi <em>seu dinheiro.</em></h1>
+    <p class="cp-sub">Anote em segundos, pelo app ou por mensagem, e veja no fim do mês para onde foi cada real.</p>
+  </section>
+  <div class="cp-grid">
+    <div class="cp-esq"><ol class="cp-lista">
+      <li><span class="n">01</span><div><b>Contas e cartões</b></div></li>
+      <li><span class="n">02</span><div><b>Metas e investimentos</b></div></li>
+      <li><span class="n">03</span><div><b>A dois ou em família</b></div></li>
+    </ol></div>
+    <div class="cp-meio" aria-hidden="true"><div class="cp-fone"><div class="cp-tela">
+      <div class="cp-ttop"><b>Lançamentos</b><span>Nov 2026</span></div><div class="cp-saldo"><small>Saldo do mês</small><b>R$ 4.983,70</b><span>Sobrou 59% do que entrou</span><div class="cp-mini"><div><i class="up">↑</i>Entradas<b>R$ 8.400,00</b></div><div><i class="dn">↓</i>Saídas<b>R$ 3.416,30</b></div></div></div><div class="cp-rows"><div class="cp-row"><div><b>Internet</b><small>11/11 · 🧾 Contas</small></div><span class="cp-v">− R$ 120,00</span></div><div class="cp-row"><div><b>Mercado do mês</b><small>11/11 · 🛒 Mercado</small></div><span class="cp-v">− R$ 820,00</span></div><div class="cp-row"><div><b>Salário</b><small>11/11 · 💰 Salário</small></div><span class="cp-v cp-ent">+ R$ 4.800,00</span></div><div class="cp-row"><div><b>Uber</b><small>10/11 · 🚗 Transporte</small></div><span class="cp-v">− R$ 45,90</span></div><div class="cp-row"><div><b>Aluguel</b><small>10/11 · 🏠 Moradia</small></div><span class="cp-v">− R$ 1.500,00</span></div></div></div></div>
+    
     </div>
-    <div class="feats-wrap"><ul class="auth-feats nova-lista"><li><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg></span><div><b>Cartões de crédito</b><span>Faturas e parcelas, sem pedir dados do cartão.</span></div></li><li><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="3"/><path d="M3 10h18M8 2.5v4M16 2.5v4"/></svg></span><div><b>Contas a pagar</b><span>Aviso antes de vencer.</span></div></li><li><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg></span><div><b>Metas</b><span>Guarde dinheiro para o que importa.</span></div></li><li><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span><div><b>Investimentos</b><span>Quanto rende, mês a mês.</span></div></li><li><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16 14.2a5 5 0 0 1 6 4.8"/></svg></span><div><b>A dois ou em família</b><span>Cada um lança, todos veem.</span></div></li><li><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><div><b>Planilha no Excel</b><span>Baixe tudo quando quiser.</span></div></li></ul><div class="auth-selos"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18h2"/></svg>Celular e PC</span><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>Não conecta no seu banco</span></div></div>
-    <div class="auth-side">
-    <div class="auth-preview" aria-hidden="true"><span class="k">Saldo do mês</span><span class="v">R$ 3.787,65</span><span class="n">Sobrou 73% do que entrou</span></div>
+    <div class="cp-login">
     <div class="blueprint auth-card">
       <div class="seg" id="authSeg" role="group" aria-label="Acesso" style="align-self:flex-start;">
         <button type="button" data-mode="entrar" aria-pressed="true">Entrar</button>
@@ -986,18 +1183,12 @@
         <button class="btn btn-ghost btn-sm" id="forgot" type="button">Esqueci minha senha</button>
         <button class="btn btn-ghost btn-sm" id="backLogin" type="button" hidden>Voltar para entrar</button>
       </div>
-      <div class="auth-seguro">
-        <b class="as-tit"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/></svg>Seu dinheiro, suas regras</b>
-        <ul>
-          <li>Não conecta na sua conta do banco</li>
-          <li>Nunca pede CPF, cartão ou senha do banco</li>
-          <li>Você lança só o que quiser e apaga quando quiser</li>
-        </ul>
-      </div>
+      <p class="cp-seg"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Não se conecta ao seu banco e nunca pede CPF nem senha bancária.</p>
     </div>
-    <p class="auth-foot" style="margin:14px 0 0;"><a href="privacidade.html">Política de privacidade</a> · <a href="termos.html">Termos de uso</a></p>
     </div>
   </div>
+  
+  <p class="auth-foot cp-foot"><a href="privacidade.html">Política de privacidade</a> · <a href="termos.html">Termos de uso</a></p>
 </div>
 
 <!-- ============ AGUARDANDO / BLOQUEADO ============ -->
@@ -1119,6 +1310,14 @@
       <div class="seg" id="typeSeg" role="group" aria-label="Tipo">
         <button type="button" data-type="exp" aria-pressed="true">Saída</button>
         <button type="button" data-type="inc" aria-pressed="false">Entrada</button>
+      </div>
+    </div>
+    <div class="rp-destaque" id="rpDestaque">
+      <div class="rp-d-tx"><b>Lançar rápido</b><span>Fale, escreva ou mande a foto da nota. Vários lançamentos de uma vez.</span></div>
+      <div class="rp-d-bt dois">
+        <button type="button" class="rp-d-op" data-rp-abrir="texto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>Falar ou escrever</span></button>
+        <button type="button" class="rp-d-op" data-rp-abrir="ia" id="rpAbrirIa" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Foto, PDF ou áudio</span></button>
+        <button type="button" class="rp-d-op" data-rp-abrir="extrato"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg><span>Extrato do banco</span></button>
       </div>
     </div>
     <div class="vinc-row">
@@ -1495,7 +1694,7 @@
       <button class="drawer-item" id="drControles" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Meus controles</button>
       <button class="drawer-item" id="drCategorias" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Minhas categorias</button>
       <button class="drawer-item" id="drPerfil" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Meu perfil</button>
-      <button class="drawer-item" id="drBot" type="button" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg>Detetive Grana <span class="tag tag-neutral" style="margin-left:auto;">teste</span></button>
+      <button class="drawer-item" id="drLimites" type="button" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-5"/></svg>Limites</button>
       <button class="drawer-item" id="drDados" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>Seus dados e privacidade</button>
       <button class="drawer-item" data-changepass type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/></svg>Trocar senha</button>
       <button class="drawer-item sair" data-logout type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>Sair</button>
@@ -1519,6 +1718,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="app.js?v=100"></script>
+<script src="entender.js?v=3"></script>
+<script src="app.js?v=111"></script>
 </body>
 </html>
