@@ -1352,12 +1352,21 @@ $('impCard').addEventListener('click', e => { if (e.target.closest('#impComoBtn'
 
 /* ======================= FILTRO ENTRADAS / SAÍDAS ======================= */
 state.filtro = null;
-function toggleFiltro(f){ state.filtro = state.filtro === f ? null : f; render(); }
+function toggleFiltro(f){ state.filtro = state.filtro === f ? null : f; state.filtroCat = null; render(); }
 document.querySelectorAll('.stat-filtro').forEach(el => {
   el.addEventListener('click', () => toggleFiltro(el.dataset.filtro));
   el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleFiltro(el.dataset.filtro); } });
 });
-$('filtroLimpar').onclick = () => { state.filtro = null; render(); };
+$('filtroLimpar').onclick = () => { state.filtro = null; state.filtroCat = null; render(); };
+// "Para onde foi": tocar numa categoria mostra só os lançamentos dela (tocar de novo volta a mostrar tudo)
+state.filtroCat = null;
+$('cats').addEventListener('click', e => {
+  const b = e.target.closest('[data-cat-filtro]'); if (!b) return;
+  state.filtroCat = state.filtroCat === b.dataset.catFiltro ? null : b.dataset.catFiltro;
+  state.filtro = null;
+  render();
+  if (state.filtroCat && innerWidth <= 900) $('tableWrap').closest('div.span2').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 
 /* ======================= NAVEGAÇÃO ======================= */
 function shift(n){ const d = new Date(state.y, state.m + n, 1); state.y = d.getFullYear(); state.m = d.getMonth(); render(); refresh(); }
@@ -1607,12 +1616,13 @@ function render(){
     const on = el.dataset.filtro === f;
     el.classList.toggle('on', on); el.setAttribute('aria-pressed', String(on));
   });
-  $('filtroInfo').hidden = !f;
-  $('filtroNome').textContent = f === 'inc' ? 'entradas' : 'saídas';
-  const shown = f ? month.filter(e => e.type === f) : month;
+  const fc = state.filtroCat;
+  $('filtroInfo').hidden = !f && !fc;
+  $('filtroNome').textContent = fc ? rotuloCat(fc) : f === 'inc' ? 'entradas' : 'saídas';
+  const shown = month.filter(e => (!f || e.type === f) && (!fc || (e.cat === fc && e.type === 'exp')));
   $('tableWrap').hidden = shown.length === 0;
   $('empty').hidden = shown.length > 0;
-  $('empty').textContent = !f ? 'Nenhum lançamento neste mês. Use o formulário acima para adicionar o primeiro.'
+  $('empty').textContent = fc ? `Nenhum gasto em ${rotuloCat(fc)} neste mês.` : !f ? 'Nenhum lançamento neste mês. Use o formulário acima para adicionar o primeiro.'
     : f === 'inc' ? 'Nenhuma entrada neste mês.' : 'Nenhuma saída neste mês.';
   $('rows').innerHTML = shown.map(e => {
     const mine = currentUser && e.uid === currentUser.id;
@@ -1642,14 +1652,16 @@ function render(){
   renderInvest();
   vincOpcoes();
   pagComOpcoes();
+  const fcat = state.filtroCat;
+  $('cats').classList.toggle('filtrando', !!fcat);
   $('cats').innerHTML = list.length ? list.map(([name,v]) => `
-    <div style="display:flex;flex-direction:column;gap:5px;">
+    <button type="button" class="cat-filtro${fcat === name ? ' on' : ''}" data-cat-filtro="${esc(name)}" aria-pressed="${fcat === name}" aria-label="Mostrar só ${esc(name)}">
       <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
         <span>${esc(rotuloCat(name))}</span>
         <span style="font-variant-numeric:tabular-nums;color:var(--muted);">${brl(v)} · ${Math.round(totalGastos ? v/totalGastos*100 : 0)}%</span>
       </div>
       <div style="height:6px;background:var(--track);border-radius:999px;overflow:hidden;"><div style="height:100%;width:${max ? v/max*100 : 0}%;background:var(--accent);border-radius:999px;"></div></div>
-    </div>`).join('') : '<span style="font-size:14px;color:var(--muted);">Sem gastos neste mês.</span>';
+    </button>`).join('') : '<span style="font-size:14px;color:var(--muted);">Sem gastos neste mês.</span>';
   if (guardadoMes > 0) $('cats').insertAdjacentHTML('beforeend', `
     <div class="guardado-mes">
       <div style="display:flex;justify-content:space-between;gap:var(--space-3);font-size:14px;">
