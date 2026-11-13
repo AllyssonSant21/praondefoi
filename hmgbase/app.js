@@ -4030,6 +4030,7 @@ async function openPerfil(){
       <p class="hint" style="margin:0 0 10px;">Lance gastos mandando mensagem no WhatsApp ou Telegram.</p>
       <button class="btn btn-secondary btn-sm" type="button" data-act="pfBotAbrir">Abrir Detetive Grana</button>
     </div>
+    <div class="dlg-sec" id="pfLimites" style="border-top:1px solid var(--divider);padding-top:14px;" hidden></div>
     <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
       <h3>Formas de entrar</h3>
       <div class="person"><span>Usuário e senha</span>${temSenha ? '<span class="tag tag-neutral">Ativo</span>' : '<span class="by" style="margin:0;">não usa</span>'}</div>
@@ -4046,6 +4047,34 @@ async function openPerfil(){
       </div>
     </div>`, { tipo: 'perfil' });
   if (botDisponivel) $('pfBot').hidden = false;
+  renderLimites();
+}
+
+// Meu perfil → Limites: o que tem limite por mês (custa para o app) e o que é à vontade
+async function renderLimites(){
+  const [ia, wa, meu] = await Promise.all([
+    sb.rpc('ia_meu_saldo').then(r => r.error ? null : r.data, () => null),
+    BOT_LIGADO ? sb.rpc('bot_meu_saldo').then(r => r.error ? null : r.data, () => null) : null,
+    BOT_LIGADO ? sb.rpc('whatsapp_meu').then(r => r.error ? null : (r.data || [])[0] || null, () => null) : null,
+  ]);
+  const el = $('pfLimites'); if (!el || dlg2.tipo !== 'perfil' || (!ia && !wa)) return;
+  const hoje = new Date(), prox = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
+  const renova = `1º de ${MONTHS[prox.getMonth()].toLowerCase()}`;
+  const barra = (titulo, usadas, limite, extra) => {
+    const pct = limite > 0 ? Math.min(100, Math.round(usadas / limite * 100)) : 100;
+    return `<div class="bot-saldo"><div><span>${titulo}</span><b>${usadas} de ${limite}</b></div>
+      <span class="bar"><i style="width:${pct}%${pct >= 100 ? ';background:#d23b3b' : ''}"></i></span>
+      <small>${usadas >= limite ? 'Acabou este mês. ' : ''}${extra}</small></div>`;
+  };
+  const canalTg = meu && meu.canal === 'telegram';
+  el.innerHTML = `<h3>Limites do mês</h3>
+    <p class="hint" style="margin:0 0 10px;">Algumas coisas têm um limite por mês porque custam para o app. Renova em <b>${renova}</b>.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      ${ia ? barra('📷 Leituras de foto, PDF e áudio', ia.usadas, ia.limite, 'Feitas pela IA no app e no Detetive.') : ''}
+      ${wa && !canalTg ? barra('💬 Mensagens do Detetive no WhatsApp', wa.usadas, wa.limite, 'Cada resposta do Detetive no WhatsApp conta 1.') : ''}
+    </div>
+    <p class="hint" style="margin:10px 0 0;">✅ <b>Sem limite:</b> lançar pelo app, texto, voz, extrato do banco${BOT_LIGADO ? ' e o Detetive no Telegram' : ''}.</p>`;
+  el.hidden = false;
 }
 
 /* ---------- Detetive Grana (bot do WhatsApp e do Telegram) ---------- */
