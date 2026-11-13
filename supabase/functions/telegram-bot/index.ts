@@ -23,6 +23,7 @@ const temPalavra = (t: string, w: string) => new RegExp(`(^|[^a-z0-9])${esc(w)}(
 
 // palavras → categoria (as categorias padrão do app). Tudo sem acento e minúsculo.
 const REGRAS_SAIDA: [string, string[]][] = [
+  ['Alimentação', ['restaurante', 'almoco', 'almocei', 'almoco no', 'almoco na', 'janta', 'jantar', 'jantei', 'jantar no', 'jantar na', 'janta no', 'lanche', 'lanchei', 'lanche no', 'lanche na', 'lanchonete', 'cafe', 'cafezinho', 'cafe da manha', 'cafe da tarde', 'cafe no', 'cafe na', 'cafe com leite', 'cafeteria', 'starbucks', 'padoca', 'pao de queijo', 'pao na chapa', 'misto quente', 'misto', 'ifood', 'i food', 'rappi', 'delivery', 'aiqfome', 'pizza', 'pizzaria', 'hamburguer', 'hamburgueria', 'burger', 'x tudo', 'x salada', 'x bacon', 'mcdonalds', 'mc donalds', 'mequi', 'bk', 'burger king', 'subway', 'habibs', 'outback', 'giraffas', 'spoleto', 'china in box', 'kfc', 'popeyes', 'coco bambu', 'madero', 'sushi', 'japones', 'comida japonesa', 'temaki', 'poke', 'yakisoba', 'comida chinesa', 'acai', 'sorvete', 'sorveteria', 'picole', 'milkshake', 'milk shake', 'gelato', 'doce', 'doces', 'docinho', 'bolo', 'brigadeiro', 'chocolate', 'bombom', 'torta', 'sobremesa', 'confeitaria', 'doceria', 'salgado', 'salgados', 'coxinha', 'esfiha', 'esfirra', 'empada', 'pastel', 'pastelaria', 'kibe', 'quibe', 'pao de batata', 'tapioca', 'crepe', 'cachorro quente', 'hot dog', 'sanduiche', 'sanduba', 'wrap', 'tacos', 'kebab', 'espetinho', 'churrasco', 'churrascaria', 'rodizio', 'buffet', 'self service', 'por quilo', 'comida a quilo', 'marmita', 'marmitex', 'quentinha', 'prato feito', 'pf', 'refeicao', 'comida', 'petisco', 'porcao', 'tira gosto', 'food truck', 'bandejao', 'cantina', 'refrigerante', 'refri', 'suco', 'agua de coco', 'caldo de cana', 'vale refeicao', 'vale alimentacao']],
   ['Mercado', ['mercado', 'supermercado', 'mercadinho', 'super', 'hiper', 'feira', 'feirinha', 'atacadao', 'atacado', 'assai', 'carrefour',
     'extra', 'pao de acucar', 'big', 'comper', 'fort', 'atacadista', 'tenda', 'sams', 'makro', 'padaria', 'pao', 'paes', 'acougue',
     'carne', 'frango', 'peixe', 'peixaria', 'hortifruti', 'sacolao', 'quitanda', 'mercearia', 'verdura', 'verduras', 'fruta', 'frutas',
@@ -50,10 +51,7 @@ const REGRAS_SAIDA: [string, string[]][] = [
     'fisioterapia', 'fisio', 'nutricionista', 'academia', 'smartfit', 'smart fit', 'bluefit', 'crossfit', 'pilates', 'personal',
     'suplemento', 'whey', 'creatina', 'vitamina', 'vacina', 'oculos', 'otica', 'lente', 'veterinario', 'vet', 'petshop', 'pet shop', 'racao']],
   ['Lazer', ['cinema', 'filme', 'bar', 'boteco', 'cerveja', 'chopp', 'bebida', 'drink', 'balada', 'show', 'ingresso', 'festa', 'aniversario',
-    'restaurante', 'almoco', 'janta', 'jantar', 'lanche', 'lanchonete', 'ifood', 'i food', 'rappi', 'ze delivery', 'delivery', 'pizza',
-    'pizzaria', 'hamburguer', 'hamburgueria', 'burger', 'x tudo', 'mcdonalds', 'mc donalds', 'mequi', 'bk', 'burger king', 'subway',
-    'habibs', 'outback', 'sushi', 'japones', 'temaki', 'acai', 'sorvete', 'sorveteria', 'cafe', 'cafeteria', 'starbucks', 'doce', 'doces',
-    'bolo', 'salgado', 'pastel', 'espetinho', 'churrasco', 'churrascaria', 'rodizio', 'marmita', 'quentinha', 'self service', 'viagem',
+    'ze delivery', 'viagem',
     'hotel', 'pousada', 'airbnb', 'passeio', 'praia', 'parque', 'clube', 'jogo', 'game', 'games', 'steam', 'playstation', 'psn', 'xbox',
     'nintendo', 'presente', 'presentes', 'roupa', 'roupas', 'camisa', 'calca', 'sapato', 'tenis', 'shopping', 'shein', 'shopee', 'amazon',
     'mercado livre', 'magalu', 'renner', 'riachuelo', 'cea', 'salao', 'cabelo', 'cabeleireiro', 'barbearia', 'barbeiro', 'unha', 'manicure',
@@ -161,7 +159,7 @@ const DIAS_SEMANA: [RegExp, number][] = [[/domingo/, 0], [/segunda/, 1], [/terca
 
 export type Lanc = { tipo: 'exp' | 'inc'; valor: number; data: string; categoria: string; descricao: string; duvida?: string | null };
 export type Dic = { termo: string; tipo: string; categoria: string }[];
-export const CATS_PADRAO = { exp: ['Mercado', 'Moradia', 'Contas', 'Transporte', 'Saúde', 'Lazer', 'Educação', 'Outros'], inc: ['Salário', 'Renda extra', 'Outros'] };
+export const CATS_PADRAO = { exp: ['Mercado', 'Alimentação', 'Moradia', 'Contas', 'Transporte', 'Saúde', 'Lazer', 'Educação', 'Outros'], inc: ['Salário', 'Renda extra', 'Outros'] };
 export type Conta = { nome: string; categoria: string; valor: number; dia: number; tipo: 'fixa' | 'unica' | 'parcelada'; parcelas: number | null; duvida?: string | null };
 export type Comando =
   | { tipo: 'ajuda' } | { tipo: 'desfazer' } | { tipo: 'desligar' } | { tipo: 'cancelar' }
@@ -456,7 +454,7 @@ export function completarPendente(p: { texto: string; falta: string }, resposta:
 
 // ------------------------------------------------------------------ respostas
 
-const ICONES: Record<string, string> = { Mercado: '🛒', Moradia: '🏠', Contas: '💡', Transporte: '🚗', 'Saúde': '💊', Lazer: '🎉', 'Educação': '📚', 'Salário': '💰', 'Renda extra': '💸', Outros: '📌' };
+const ICONES: Record<string, string> = { Mercado: '🛒', 'Alimentação': '🍽️', Moradia: '🏠', Contas: '💡', Transporte: '🚗', 'Saúde': '💊', Lazer: '🎉', 'Educação': '📚', 'Salário': '💰', 'Renda extra': '💸', Outros: '📌' };
 export const AJUDA = [
   '🕵️ *Detetive Grana* na área! Sou o assistente do *Pra Onde Foi?* e minha missão é descobrir pra onde vai o seu dinheiro.',
   '',

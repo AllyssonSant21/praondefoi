@@ -14,7 +14,7 @@ const KEY = 'cf-lancamentos-v1';        // dados antigos, salvos só neste apare
 const IMPORTED_KEY = 'cf-importado-v1';
 const BKEY = 'cf-orcamento-v1';
 const CATS = {
-  exp: ['Mercado','Moradia','Contas','Transporte','Saúde','Lazer','Educação','Outros'],
+  exp: ['Mercado','Alimentação','Moradia','Contas','Transporte','Saúde','Lazer','Educação','Outros'],
   inc: ['Salário','Renda extra','Outros']
 };
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -676,7 +676,7 @@ async function loadCategorias(){
   return true;
 }
 // emoji de cada categoria do app (as personalizadas usam o emoji que a pessoa escolheu)
-const ICONE_APP = { 'Mercado':'🛒', 'Moradia':'🏠', 'Contas':'🧾', 'Transporte':'🚗', 'Saúde':'💊', 'Lazer':'🎉', 'Educação':'📚',
+const ICONE_APP = { 'Mercado':'🛒', 'Alimentação':'🍽️', 'Moradia':'🏠', 'Contas':'🧾', 'Transporte':'🚗', 'Saúde':'💊', 'Lazer':'🎉', 'Educação':'📚',
   'Outros':'📦', 'Salário':'💰', 'Renda extra':'💸', 'Metas':'🎯', 'Cartão de crédito':'💳' };
 const iconeCat = nome => { const c = categorias.find(x => x.nome === nome); return (c && c.icone) || ICONE_APP[nome] || ''; };
 // rótulo com o emoji, valor só com o nome (é o que fica gravado no lançamento)
@@ -1290,7 +1290,7 @@ $('dlg2Body').addEventListener('keydown', e => { if (dlg2.tipo === 'rapido' && e
    Revisar as médias de tempos em tempos (reforma tributária muda as alíquotas até 2033). */
 // Médias com base nas tabelas do IBPT/Impostômetro (ex.: arroz/feijão 17%, carne 29%, higiene ~40%, luz 48%,
 // telefone 46%, água 24%, restaurante 32%, cinema 21%, ônibus 34%, remédio 34%, escola 26%).
-const IMPOSTO_CAT = { 'Mercado': .25, 'Lazer': .30, 'Contas': .40, 'Transporte': .35, 'Saúde': .30, 'Moradia': .07,
+const IMPOSTO_CAT = { 'Mercado': .25, 'Alimentação': .32, 'Lazer': .30, 'Contas': .40, 'Transporte': .35, 'Saúde': .30, 'Moradia': .07,
   'Educação': .26, 'Cartão de crédito': .30, 'Outros': .27 };
 const IMPOSTO_PADRAO = .27;   // categorias criadas pela pessoa
 const IMPOSTO_FORA = new Set(['Metas']);   // guardar em meta não é gasto
