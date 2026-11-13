@@ -41,6 +41,7 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   30. `supabase-bot7.sql` — Detetive no Telegram e no WhatsApp ao mesmo tempo (um de cada por conta).
   31. `supabase-alimentacao.sql` — junta categorias próprias "alimentação" na nova categoria padrão Alimentação (HMG e prod).
   32. `supabase-bot8.sql` — guarda de onde veio cada lançamento do Detetive (Telegram, WhatsApp, leitura por IA).
+  33. `supabase-liberacoes.sql` — o admin libera, conta por conta, a leitura por IA e o Detetive (botão ⋮ no painel).
 - **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os 15 scripts na ordem; ative pg_net e pg_cron antes e rode uma vez só.
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.
 - **Marca:** pasta `logo/` (SVG e PNG).

@@ -716,6 +716,7 @@ async function lerArquivoBot(c: Canal) {
   if (!env('GEMINI_KEY')) return c.enviar('🕵️ Ainda não estou lendo fotos e áudios. Por enquanto, mande por texto, tipo *mercado 50*.');
   const s = await rpc('ia_consumir_wa', { p_wa: c.id });
   if (s?.erro === 'sem_saldo') return c.enviar(`🕵️ Suas ${s.limite} leituras de foto/áudio deste mês acabaram. Mande por texto (sem limite) ou espere o dia 1º.`);
+  if (s?.erro === 'nao_liberado') return c.enviar('🕵️ A leitura de foto, PDF e áudio ainda não foi liberada pra sua conta. Por enquanto, mande por texto, tipo *mercado 50*.');
   if (s?.erro) return c.enviar('Não consegui ler agora 😕 Tente de novo daqui a pouco.');
   const hoje = hojeEm(c.fuso, momentoDaMensagem(c.enviadaEm));
   const cats = { exp: [...new Set([...CATS_PADRAO.exp, ...(ctx.categorias || []).filter((x: any) => x.tipo !== 'inc').map((x: any) => x.nome)])],
@@ -811,6 +812,7 @@ export async function tratar(c: Canal) {
   if (cmd.tipo === 'codigo') {
     const r = await rpc('bot_vincular', { p_wa: c.id, p_msg: c.msgId, p_codigo: cmd.codigo });
     if (r?.ok) return c.enviar(BOAS_VINDAS(r.nome ? r.nome.split(' ')[0] : '', r.controle_nome));
+    if (r?.erro === 'nao_liberado') return c.enviar('🕵️ O Detetive Grana ainda não foi liberado pra sua conta. Fale com o administrador do app.');
     if (r?.erro === 'outro_numero') return c.enviar('🕵️ Esse código foi pedido pra outro celular. Confira o número no app (bolinha do *Detetive*, no canto da tela) e tente de novo.');
     if (r?.erro === 'bloqueado') return c.enviar('⏳ Muitas tentativas com código errado. Espere 1 hora e gere um código novo no app.');
     return c.enviar('❌ Esse código não vale (errado ou passou dos 15 minutos). Abra o app, toque na bolinha do *Detetive* e em *Conectar* de novo.');

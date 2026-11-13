@@ -1126,6 +1126,21 @@ a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
 .cat-filtro.on{border-color:var(--accent);background:rgba(var(--accent-rgb),.12)}
 #cats.filtrando .cat-filtro:not(.on){opacity:.5}
 #cats{gap:var(--space-2) !important;margin:0 -10px}
+
+/* admin: ⋮ de cada conta */
+.adm-mais{color:var(--muted)}
+.adm-sec{display:flex;flex-direction:column;gap:8px}
+.adm-sec+.adm-sec{border-top:1px solid var(--divider);padding-top:14px}
+.adm-sec h4{margin:0;font-size:13px;color:var(--muted);font-weight:600}
+.adm-chave{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;min-height:56px;padding:10px 12px;border:1.5px solid var(--divider);border-radius:var(--r-cartao);background:var(--card);color:var(--fg);text-align:left;font:inherit;cursor:pointer}
+.adm-chave b{display:block;font-size:15px}.adm-chave small{display:block;font-size:12.5px;color:var(--muted)}
+.adm-chave i{flex:none;position:relative;width:42px;height:24px;border-radius:99px;background:rgba(var(--fg-rgb),.18);transition:background .15s}
+.adm-chave i:after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
+.adm-chave[aria-checked="true"]{border-color:rgba(var(--accent-rgb),.7)}
+.adm-chave[aria-checked="true"] i{background:var(--green)}
+.adm-chave[aria-checked="true"] i:after{transform:translateX(18px)}
+.adm-linha{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:8px 12px;border:1.5px solid var(--divider);border-radius:var(--r-cartao);background:var(--card);color:var(--fg);font:inherit;font-size:14px;cursor:pointer;text-align:left}
+.adm-linha span{flex:1}.adm-linha em{font-style:normal;font-size:13px;font-weight:600;color:var(--accent-text)}
 </style>
 </head>
 <body>
@@ -1620,6 +1635,8 @@ a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
         <button type="button" data-filter="aprovado" aria-pressed="false">Com acesso</button>
         <button type="button" data-filter="bloqueado" aria-pressed="false">Bloqueados</button>
         <button type="button" data-filter="fundador" aria-pressed="false">Fundadores</button>
+        <button type="button" data-filter="ia" aria-pressed="false">IA</button>
+        <button type="button" data-filter="bot" aria-pressed="false">Detetive</button>
         <button type="button" data-filter="todos" aria-pressed="false">Todos</button>
       </div>
       <button class="btn btn-secondary btn-sm" type="button" id="adminFundadores" title="Marca como fundadoras todas as contas com acesso hoje">⭐ Marcar todos os atuais como fundadores</button>
@@ -1741,6 +1758,6 @@ a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=3"></script>
-<script src="app.js?v=113"></script>
+<script src="app.js?v=114"></script>
 </body>
 </html>
