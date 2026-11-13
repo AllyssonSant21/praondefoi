@@ -106,7 +106,15 @@ function toast(msg, ok){
 const configured = !SUPABASE_URL.startsWith('COLE') && !SUPABASE_ANON_KEY.startsWith('COLE');
 // veio do link "Esqueci a senha"? Guardado antes do Supabase ler e apagar o endereço
 const VEIO_DO_RESET = /(^|[#&?])type=recovery(&|$)/.test(location.hash) || /[?&]type=recovery(&|$)/.test(location.search);
-const sb = configured && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+// ponte para o painel: no mesmo aparelho ficam duas sessões guardadas, a da sua conta e a da conta master.
+// Trocar entre elas só recarrega a página com a outra (sem digitar senha de novo)
+const lsLer = k => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsGravar = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} };
+const CHAVE_ADMIN = 'pof-admin-auth';
+const CHAVE_PADRAO = configured ? `sb-${new URL(SUPABASE_URL).hostname.split('.')[0]}-auth-token` : '';
+const MODO_ADMIN = lsLer('pof-modo') === 'admin';
+const sb = configured && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, MODO_ADMIN ? { auth: { storageKey: CHAVE_ADMIN } } : undefined) : null;
+function irPara(modo){ lsGravar('pof-modo', modo === 'admin' ? 'admin' : null); location.reload(); }
 
 const now = new Date();
 const state = {
@@ -318,7 +326,8 @@ document.querySelectorAll('[data-changepass]').forEach(b => b.addEventListener('
 }));
 
 document.querySelectorAll('[data-logout]').forEach(b => b.addEventListener('click', async () => {
-  await sb.auth.signOut();
+  await sb.auth.signOut({ scope: 'local' });   // só este aparelho; a outra sessão guardada (sua conta / master) continua
+  if (MODO_ADMIN) irPara('');
 }));
 
 /* ======================= SESSÃO ======================= */
@@ -400,8 +409,12 @@ async function handleSession(session, force){
   renderMe();
   marcarAcesso();
   $('adminEmail').textContent = displayName(profile.email);
+  // entrou com a conta comum no modo do painel: devolve a sessão para o lugar normal
+  if (MODO_ADMIN && !profile.is_admin && CHAVE_PADRAO){ lsGravar(CHAVE_PADRAO, lsLer(CHAVE_ADMIN)); lsGravar(CHAVE_ADMIN, null); return irPara(''); }
   if (profile.is_admin){
-    // conta master: só administração, sem controle financeiro
+    // conta master: só administração, sem controle financeiro.
+    // Guarda a sessão dela à parte, para poder ir e voltar da sua conta sem digitar senha
+    if (!MODO_ADMIN && CHAVE_PADRAO && lsLer(CHAVE_PADRAO)){ lsGravar(CHAVE_ADMIN, lsLer(CHAVE_PADRAO)); lsGravar(CHAVE_PADRAO, null); return irPara('admin'); }
     show('viewAdmin');
     renderAdmin();
     loadUsers().then(loadUso);
@@ -414,6 +427,7 @@ async function handleSession(session, force){
   render();
   startRealtime();
   checarBot(); checarIA();
+  $('drPainel').hidden = !lsLer(CHAVE_ADMIN);   // este aparelho já entrou na conta master: atalho para o painel
   modoSemInternet = false;
   gravarFoto();
   enviarFila();
@@ -4981,3 +4995,6 @@ document.addEventListener('click', e => {
   document.querySelectorAll('.lorig.on').forEach(x => { if (x !== b) x.classList.remove('on'); });
   if (b) b.classList.toggle('on');
 });
+
+$('drPainel').addEventListener('click', () => irPara('admin'));
+$('adminMinhaConta').addEventListener('click', () => irPara(''));
