@@ -931,7 +931,7 @@ setInterval(() => { if (navigator.onLine && (modoSemInternet || lerFila().length
    Nada é salvo sem a pessoa conferir a lista. Grátis: nada sai do aparelho além do lançamento. */
 const PE = () => window.PofEntender;
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let rp = { aba: 'texto', itens: [], aviso: '', ouvindo: null, arquivo: '' };
+let rp = { aba: 'texto', itens: [], aviso: '', ouvindo: null, arquivo: '', ia: null, lendo: false, gravador: null };
 let dicDetetive = null;
 async function carregarDic(){
   if (dicDetetive) return dicDetetive;
@@ -946,10 +946,11 @@ function rpItem(o){ return { nota: o.nota || '', sel: !o.dup && !o.nota, type: o
 function openRapido(){
   if (!PE()) return toast('Não deu para abrir agora. Atualize a página.');
   if (!state.cid) return toast('Escolha um controle primeiro.');
-  rp = { aba: 'texto', itens: [], aviso: '', ouvindo: null, arquivo: '' };
-  openDlg2('Lançar rápido', 'Voz, texto ou extrato', '', { tipo: 'rapido', largo: true });
+  rp = { aba: 'texto', itens: [], aviso: '', ouvindo: null, arquivo: '', ia: null, lendo: false, gravador: null };
+  openDlg2('Lançar rápido', 'Do jeito mais fácil pra você', '', { tipo: 'rapido', largo: true });
   renderRapido();
   carregarDic();
+  sb.rpc('ia_meu_saldo').then(r => { if (!r.error && r.data){ rp.ia = r.data; if (rp.aba === 'ia') renderRapido(); } }, () => {});
 }
 $('btnRapido').onclick = openRapido;
 
@@ -959,8 +960,9 @@ function renderRapido(){
   const cel = (tipo, atual) => listaCats(tipo, atual).map(c => `<option value="${esc(c)}"${c === atual ? ' selected' : ''}>${esc(rotuloCat(c))}</option>`).join('');
   $('dlg2Body').innerHTML = `
     <div class="seg rp-abas" role="group" aria-label="Como lançar">
-      <button type="button" data-rp-aba="texto" aria-pressed="${rp.aba === 'texto'}">Falar ou escrever</button>
-      <button type="button" data-rp-aba="extrato" aria-pressed="${rp.aba === 'extrato'}">Importar extrato</button>
+      <button type="button" data-rp-aba="texto" aria-pressed="${rp.aba === 'texto'}">Texto ou voz</button>
+      <button type="button" data-rp-aba="extrato" aria-pressed="${rp.aba === 'extrato'}">Extrato</button>
+      <button type="button" data-rp-aba="ia" aria-pressed="${rp.aba === 'ia'}">Foto, PDF, áudio</button>
     </div>
     ${rp.aba === 'texto' ? `
       <div style="display:flex;flex-direction:column;gap:10px;">
@@ -972,6 +974,19 @@ function renderRapido(){
           <button class="btn btn-primary btn-sm" type="button" data-rp="entender">Entender</button>
         </div>
         ${SR ? '' : '<p class="hint">Para falar, toque no microfone do teclado do celular.</p>'}
+      </div>` : rp.aba === 'ia' ? `
+      <div class="rp-arquivo">
+        <b style="font-size:15px;">Foto da nota, print, PDF ou áudio</b>
+        <span class="hint">A IA lê e mostra o que achou para você conferir. O arquivo não fica guardado.</span>
+        <div class="rp-acoes">
+          <button class="btn btn-secondary btn-sm" type="button" data-rp="ia-foto"${rp.lendo || rp.gravador ? ' disabled' : ''}>📷 Foto ou print</button>
+          <button class="btn btn-secondary btn-sm" type="button" data-rp="ia-pdf"${rp.lendo || rp.gravador ? ' disabled' : ''}>📄 PDF</button>
+          <button class="btn ${rp.gravador ? 'btn-danger' : 'btn-secondary'} btn-sm" type="button" data-rp="ia-gravar"${rp.lendo ? ' disabled' : ''}>${rp.gravador ? '⏹ Parar e ler' : '🎙️ Gravar áudio'}</button>
+          <input type="file" id="rpIaArq" hidden>
+        </div>
+        ${rp.gravador ? '<span class="rp-ouvindo" role="status">Gravando… fale os gastos (até 1 minuto)</span>' : ''}
+        ${rp.lendo ? '<span class="hint" role="status">🕵️ Lendo… isso leva alguns segundos.</span>' : ''}
+        ${rp.ia ? `<span class="hint">Leituras este mês: <b>${rp.ia.usadas} de ${rp.ia.limite}</b>. Leitura feita por IA (Google Gemini).</span>` : ''}
       </div>` : `
       <div class="rp-arquivo">
         <b style="font-size:15px;">Extrato do banco (OFX ou CSV)</b>
@@ -1141,6 +1156,87 @@ async function rpArquivo(file){
   renderRapido();
 }
 
+/* ---------- foto, PDF e áudio pela IA (função "leitor" no Supabase) ---------- */
+async function reduzirImagem(file){
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, erro) => { const i = new Image(); i.onload = () => ok(i); i.onerror = erro; i.src = url; });
+    const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise(r => c.toBlob(r, 'image/jpeg', 0.82));
+  } catch { return null; }
+  finally { URL.revokeObjectURL(url); }
+}
+// áudio gravado → WAV 16 kHz mono (formato que a IA lê em qualquer celular)
+async function paraWav(blob){
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  try {
+    const dec = await ctx.decodeAudioData(await blob.arrayBuffer());
+    const taxa = 16000, n = Math.ceil(dec.duration * taxa);
+    const off = new OfflineAudioContext(1, n, taxa); const src = off.createBufferSource(); src.buffer = dec; src.connect(off.destination); src.start();
+    const pcm = (await off.startRendering()).getChannelData(0);
+    const buf = new ArrayBuffer(44 + pcm.length * 2), v = new DataView(buf);
+    const txt = (o, t) => [...t].forEach((ch, i) => v.setUint8(o + i, ch.charCodeAt(0)));
+    txt(0, 'RIFF'); v.setUint32(4, 36 + pcm.length * 2, true); txt(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, taxa, true); v.setUint32(28, taxa * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); txt(36, 'data'); v.setUint32(40, pcm.length * 2, true);
+    for (let i = 0; i < pcm.length; i++){ const x = Math.max(-1, Math.min(1, pcm[i])); v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
+    return new Blob([buf], { type: 'audio/wav' });
+  } finally { ctx.close && ctx.close(); }
+}
+const paraB64 = blob => new Promise((ok, erro) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = erro; r.readAsDataURL(blob); });
+
+async function rpEnviarIA(blob, mime){
+  if (!blob || !blob.size) return toast('Não consegui abrir esse arquivo.');
+  if (blob.size > 5 * 1024 * 1024) return toast('Arquivo grande demais (máximo 5 MB).');
+  rp.lendo = true; rp.aviso = ''; renderRapido();
+  try {
+    const cats = { exp: listaCats('exp'), inc: listaCats('inc') };
+    const { data, error } = await sb.functions.invoke('leitor', { body: { mime, dados: await paraB64(blob), hoje: todayISO(), cats } });
+    let r = data;
+    if (error){ try { r = await error.context.json(); } catch { r = { erro: ehRede(error) ? 'rede' : 'falhou' }; } }
+    if (r && r.limite != null && r.restam != null) rp.ia = { usadas: r.limite - r.restam, limite: r.limite };
+    const MSG = { sem_saldo: `Suas ${r?.limite ?? ''} leituras de IA deste mês acabaram. Use texto ou extrato (sem limite) ou espere o dia 1º.`,
+      sem_ia: 'A leitura por IA ainda não está ligada. Por enquanto, use texto ou extrato.', login: 'Sua sessão expirou. Entre de novo.',
+      nao_aprovado: 'Sua conta ainda não foi liberada.', tipo: 'Esse tipo de arquivo não dá para ler. Use foto, PDF ou áudio.',
+      tamanho: 'Arquivo grande demais (máximo 5 MB).', rede: 'Sem internet. A leitura por IA precisa de conexão.' };
+    if (!r || r.erro){ rp.aviso = MSG[r?.erro] || 'Não consegui ler agora. Tente de novo daqui a pouco.'; return; }
+    if (!r.itens.length){ rp.aviso = 'Não achei nenhum valor. Tente uma foto mais nítida, ou escreva o gasto (não gastou sua leitura).'; return; }
+    rp.itens.push(...r.itens.map(i => rpItem({ type: i.tipo, desc: i.descricao, amount: i.valor, date: i.data, cat: i.categoria,
+      nota: i.confianca === 'baixa' ? 'A IA ficou em dúvida aqui: confira valor e data.' : '' })).map(i => ({ ...i, sel: true })));
+    rp.aviso = `🕵️ A IA leu ${r.itens.length > 1 ? `${r.itens.length} lançamentos` : '1 lançamento'}. Confira antes de lançar.`;
+  } catch { rp.aviso = 'Não consegui ler agora. Tente de novo daqui a pouco.'; }
+  finally { rp.lendo = false; renderRapido(); }
+}
+async function rpIaArquivo(file){
+  if (!file) return;
+  if (file.type === 'application/pdf') return rpEnviarIA(file, 'application/pdf');
+  if (file.type.startsWith('image/')){
+    const menor = await reduzirImagem(file);
+    return menor ? rpEnviarIA(menor, 'image/jpeg') : rpEnviarIA(file, file.type);   // HEIC que o navegador não abre vai como está
+  }
+  toast('Use foto, print ou PDF.');
+}
+async function rpGravar(){
+  if (rp.gravador){ if (rp.gravador.state === 'recording') rp.gravador.stop(); return; }
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return toast('Este navegador não grava áudio. Use o microfone do teclado na aba "Texto ou voz".');
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch { return toast('Libere o microfone para o app nas configurações do navegador.'); }
+  const rec = new MediaRecorder(stream), partes = [];
+  rec.ondataavailable = e => { if (e.data.size) partes.push(e.data); };
+  rec.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop()); clearTimeout(rp.gravaFim); rp.gravador = null;
+    const bruto = new Blob(partes, { type: (rec.mimeType || 'audio/webm').split(';')[0] });
+    if (bruto.size < 2000){ renderRapido(); return toast('Não ouvi nada. Tente de novo falando perto do celular.'); }
+    let wav = null; try { wav = await paraWav(bruto); } catch {}
+    rpEnviarIA(wav || bruto, wav ? 'audio/wav' : bruto.type);
+  };
+  rec.start(); rp.gravador = rec;
+  rp.gravaFim = setTimeout(() => { if (rec.state === 'recording') rec.stop(); }, 60000);
+  renderRapido();
+}
+
 async function rpLancar(){
   const sel = rp.itens.filter(i => i.sel);
   const ruim = sel.find(i => !i.desc.trim() || !(i.amount > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(i.date));
@@ -1159,8 +1255,12 @@ async function rpLancar(){
 $('dlg2Body').addEventListener('click', e => {
   if (dlg2.tipo !== 'rapido') return;
   const aba = e.target.closest('[data-rp-aba]');
-  if (aba){ if (rp.ouvindo) try { rp.ouvindo.stop(); } catch {} rp.aba = aba.dataset.rpAba; rp.aviso = ''; return renderRapido(); }
+  if (aba){ if (rp.ouvindo) try { rp.ouvindo.stop(); } catch {} if (rp.gravador || rp.lendo) return; rp.aba = aba.dataset.rpAba; rp.aviso = ''; return renderRapido(); }
   const b = e.target.closest('[data-rp]'); if (!b) return;
+  if (b.dataset.rp === 'ia-foto' || b.dataset.rp === 'ia-pdf'){
+    const inp = $('rpIaArq'); inp.accept = b.dataset.rp === 'ia-pdf' ? 'application/pdf,.pdf' : 'image/*'; inp.value = ''; inp.click(); return;
+  }
+  if (b.dataset.rp === 'ia-gravar') return rpGravar();
   if (b.dataset.rp === 'entender') rpEntender();
   else if (b.dataset.rp === 'falar') rpFalar();
   else if (b.dataset.rp === 'lancar') rpLancar();
@@ -1169,6 +1269,7 @@ $('dlg2Body').addEventListener('click', e => {
 $('dlg2Body').addEventListener('change', e => {
   if (dlg2.tipo !== 'rapido') return;
   if (e.target.id === 'rpArquivo') return rpArquivo(e.target.files[0]);
+  if (e.target.id === 'rpIaArq') return rpIaArquivo(e.target.files[0]);
   const row = e.target.closest('.rp-item'); if (!row) return;
   const i = rp.itens[Number(row.dataset.k)], f = e.target.dataset.f; if (!i || !f) return;
   // atualiza só o que mudou (redesenhar tudo faria perder o toque no próximo campo)
@@ -4577,6 +4678,10 @@ function renderAdmin(){
         const lim = u.wa_limite ?? u.wa_padrao;
         actions += `<button class="btn btn-secondary btn-sm" data-act="walimite" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}" data-lim="${u.wa_limite ?? ''}" data-padrao="${u.wa_padrao}" title="Respostas do Detetive no WhatsApp por mês (cada uma custa). Usou ${u.wa_usadas || 0} este mês.">WhatsApp ${u.wa_usadas || 0}/${lim}${u.wa_limite != null ? ' ✎' : ''}</button>`;
       }
+      if (u.status === 'aprovado' && u.ia_padrao != null){
+        const lim = u.ia_limite ?? u.ia_padrao;
+        actions += `<button class="btn btn-secondary btn-sm" data-act="ialimite" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}" data-lim="${u.ia_limite ?? ''}" data-padrao="${u.ia_padrao}" title="Leituras de foto, PDF e áudio pela IA por mês. Usou ${u.ia_usadas || 0} este mês.">IA ${u.ia_usadas || 0}/${lim}${u.ia_limite != null ? ' ✎' : ''}</button>`;
+      }
       actions += `<button class="btn btn-secondary btn-sm" data-act="senha" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Nova senha</button>`;
       actions += `<button class="btn btn-danger btn-sm" data-act="excluir" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Excluir</button>`;
     }
@@ -4677,6 +4782,19 @@ $('userRows').addEventListener('click', async e => {
     if (error) return toast(rpcMsg(error));
     toast(`Senha de ${b.dataset.email} redefinida. Peça para a pessoa trocar em "Trocar senha" ao entrar.`, true);
     return;
+  }
+  if (act === 'ialimite'){
+    const padrao = Number(b.dataset.padrao);
+    const v = await pedirTexto('Leituras de IA por mês', `Quantas fotos, PDFs e áudios ${b.dataset.email} pode mandar para a IA ler por mês. Cada leitura custa menos de 1 centavo. Deixe vazio para usar o padrão (${padrao}).`,
+      { rotulo: 'Leituras por mês', tipo: 'number', modo: 'numeric', valor: b.dataset.lim, placeholder: String(padrao), okTxt: 'Salvar', vazioOk: true });
+    if (v === null) return;
+    const n = String(v).trim() === '' ? null : Math.round(Number(v));
+    if (n !== null && !(n >= 0 && n <= 2000)) return toast('Use um número de 0 a 2000.');
+    b.disabled = true;
+    ({ error } = await sb.rpc('admin_definir_ia_limite', { alvo: id, p_limite: n }));
+    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+    toast(n === null ? `Voltou para o padrão (${padrao} por mês).` : `${b.dataset.email}: ${n} leituras de IA por mês.`, true);
+    return loadUsers();
   }
   if (act === 'walimite'){
     const padrao = Number(b.dataset.padrao);

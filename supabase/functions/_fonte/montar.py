@@ -7,7 +7,7 @@ aqui = os.path.dirname(os.path.abspath(__file__))
 raiz = os.path.dirname(aqui)
 nucleo = open(os.path.join(aqui, 'nucleo.ts'), encoding='utf-8').read()
 nucleo = nucleo[nucleo.index('// ------------------------------------------------------------------ texto'):]
-for canal, pasta in (('whatsapp', 'whatsapp-bot'), ('telegram', 'telegram-bot')):
+for canal, pasta in (('whatsapp', 'whatsapp-bot'), ('telegram', 'telegram-bot'), ('leitor', 'leitor')):
     modelo = open(os.path.join(aqui, canal + '.ts'), encoding='utf-8').read()
     assert modelo.count('%%NUCLEO%%') == 1
     os.makedirs(os.path.join(raiz, pasta), exist_ok=True)

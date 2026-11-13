@@ -20,7 +20,8 @@ const TG_API = () => `${env('TG_API') || 'https://api.telegram.org'}/bot${env('T
 
 // o texto do bot usa *negrito* (estilo WhatsApp); no Telegram vira HTML, que não quebra com _ ou * soltos
 export const paraHtml = (t: string) =>
-  t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\*([^*\n]+)\*/g, '<b>$1</b>');
+  t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\*([^*\n]+)\*/g, '<b>$1</b>')
+   .replace(/(^|\n)_([^_\n]+)_(?=\n|$)/g, '$1<i>$2</i>');   // linha inteira em _itálico_
 
 async function enviarTg(chat: number, texto: string) {
   const r = await fetch(`${TG_API()}/sendMessage`, {
@@ -28,6 +29,31 @@ async function enviarTg(chat: number, texto: string) {
     body: JSON.stringify({ chat_id: chat, text: paraHtml(texto), parse_mode: 'HTML', disable_web_page_preview: true }),
   });
   if (!r.ok) console.error('envio falhou', r.status, (await r.text()).slice(0, 300));
+}
+
+// foto, PDF, áudio de voz ou arquivo de áudio: o bot baixa só quando for ler
+function arquivoTg(m: any): Canal['arquivo'] {
+  let f: any = null, mime = '';
+  if (Array.isArray(m.photo) && m.photo.length) {
+    const fotos = m.photo.filter((p: any) => !p.file_size || p.file_size <= IA_MAX_BYTES);
+    f = fotos[fotos.length - 1] || m.photo[0]; mime = 'image/jpeg';
+  } else if (m.document) { f = m.document; mime = String(m.document.mime_type || '').toLowerCase(); }
+  else if (m.voice) { f = m.voice; mime = String(m.voice.mime_type || 'audio/ogg').toLowerCase(); }
+  else if (m.audio) { f = m.audio; mime = String(m.audio.mime_type || 'audio/mpeg').toLowerCase(); }
+  if (!f?.file_id) return undefined;
+  return {
+    mime, tamanho: Number(f.file_size || 0),
+    baixar: async () => {
+      const r = await fetch(`${TG_API()}/getFile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ file_id: f.file_id }) });
+      const j = await r.json();
+      if (!j?.ok || !j.result?.file_path) throw new Error('getFile falhou');
+      const arq = await fetch(`${env('TG_API') || 'https://api.telegram.org'}/file/bot${env('TG_TOKEN')}/${j.result.file_path}`);
+      if (!arq.ok) throw new Error('download falhou ' + arq.status);
+      const b = new Uint8Array(await arq.arrayBuffer());
+      if (b.length > IA_MAX_BYTES) throw new Error('grande demais');
+      return b;
+    },
+  };
 }
 
 const igual = (a: string, b: string) => {
@@ -76,6 +102,7 @@ if (Deno_?.serve) Deno_.serve(async (req: Request) => {
       await tratar({ nome: 'Telegram', id: 'tg' + String(m.from.id), msgId: 'tg' + String(u.update_id),
                      fuso: env('BOT_FUSO') || 'America/Sao_Paulo', enviadaEm: Number(m.date),
                      texto: typeof m.text === 'string' ? m.text : null,
+                     arquivo: typeof m.text === 'string' ? undefined : arquivoTg(m),
                      enviar: (t: string) => enviarTg(chat, t) });
     }
   } catch (err) { console.error('webhook', err); }

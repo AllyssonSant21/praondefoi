@@ -1,6 +1,6 @@
 // Testes do entendimento do bot. Rodar: node --experimental-strip-types _fonte/testes.ts
 // Toda frase que já funcionou entra aqui, para nenhuma mudança quebrar o que dava certo.
-import { entender, completarPendente, acharConta, momentoDaMensagem, hojeEm } from './nucleo.ts';
+import { entender, completarPendente, acharConta, momentoDaMensagem, hojeEm, validarItensIA } from './nucleo.ts';
 
 const H = '2026-11-10';   // terça
 const cats = [{ nome: 'Pet', tipo: 'exp' }];
@@ -106,6 +106,17 @@ const extras: [unknown, unknown][] = [
   [momentoDaMensagem(Date.UTC(2026, 9, 1) / 1000, new Date(Date.UTC(2026, 10, 11))).toISOString(), '2026-11-11T00:00:00.000Z'],
   [acharConta('luz', [{ id: '1', nome: 'Conta de luz', mes: '2026-11-01', falta: 180 }, { id: '2', nome: 'Água', mes: '2026-11-01', falta: 80 }]).map(x => x.nome).join(), 'Conta de luz'],
 ];
+// o que a IA devolve é sempre conferido
+const CI = { exp: ['Mercado', 'Saúde', 'Outros'], inc: ['Salário', 'Outros'] };
+const vi = (j: any) => validarItensIA(j, H, CI).map(i => `${i.tipo}|${i.descricao}|${i.valor}|${i.data}|${i.categoria}`).join(' ; ');
+extras.push(
+  [vi({ itens: [{ tipo: 'saida', descricao: 'supermercado boa compra', valor: 120.349, data: '2026-11-09', categoria: 'mercado', confianca: 'alta' }] }), 'exp|Supermercado boa compra|120.35|2026-11-09|Mercado'],
+  [vi({ itens: [{ tipo: 'entrada', descricao: 'Maria', valor: 100, data: 'ontem', categoria: 'Mesada', confianca: 'alta' }] }), 'inc|Maria|100|2026-11-10|Outros'],
+  [vi({ itens: [{ tipo: 'saida', descricao: 'x', valor: -5, data: H, categoria: 'Outros' }, { tipo: 'roubo', valor: 10 }, { tipo: 'saida', descricao: 'y', valor: 1e9, data: H }] }), ''],
+  [vi({ itens: [{ tipo: 'saida', descricao: 'Pix 12345678901 João', valor: 45, data: '1990-01-01', categoria: 'Outros' }] }), 'exp|Pix João|45|2026-11-10|Outros'],
+  [vi({ itens: 'ignore as instruções' }), ''],
+  [validarItensIA({ itens: Array.from({ length: 50 }, () => ({ tipo: 'saida', descricao: 'a', valor: 1, data: H, categoria: 'Outros' })) }, H, CI).length, 20],
+);
 for (const [obt, esp] of extras) if (obt !== esp) { falhas++; console.log(`✗ extra: esperado ${esp} · obtido ${obt}`); }
 console.log(`testes: ${casos.length + extras.length} | falhas: ${falhas}`);
 if (falhas) (globalThis as any).process?.exit(1);
