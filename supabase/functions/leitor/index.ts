@@ -579,7 +579,10 @@ export function paraBase64(b: Uint8Array): string {
 const iaInstrucoes = (hoje: string, cats: { exp: string[]; inc: string[] }) => [
   'Você lê comprovantes e mensagens de dinheiro de um app brasileiro de controle de gastos.',
   `Hoje é ${hoje} (AAAA-MM-DD). Extraia os lançamentos do arquivo:`,
-  '- Cupom fiscal ou nota: UM item com o TOTAL pago e o nome da loja (não liste os produtos).',
+  '- Cupom fiscal ou nota: UM item com o TOTAL pago (não liste os produtos).',
+  '  descricao = nome da loja (nome fantasia ou razão social, no topo do cupom). NUNCA use cidade, estado, endereço, CNPJ ou avisos como "documento de teste".',
+  '  Sem nome de loja legível: olhe os produtos e descreva a compra: "Compras de mercado", "Farmácia", "Combustível", "Lanche"; se forem coisas variadas, "Compras diversas".',
+  '  categoria pelos produtos (arroz, feijão, leite → Mercado; remédio → Saúde; refeição pronta → Alimentação).',
   '- Comprovante ou print de Pix/transferência: "enviado" = saida, "recebido" = entrada; a descrição é o nome da outra pessoa ou empresa.',
   '- Boleto ou fatura: saida com o valor do documento; data = data do pagamento, ou hoje se não houver.',
   '- Áudio: cada gasto ou recebimento falado vira um item; "ontem", "sexta" etc. contam a partir de hoje.',
@@ -607,6 +610,16 @@ const IA_ESQUEMA = {
 export type ItemIA = { tipo: 'exp' | 'inc'; descricao: string; valor: number; data: string; categoria: string; confianca: string };
 
 // confere tudo o que a IA devolveu (nunca confia cegamente)
+// a IA às vezes devolve a cidade ou o endereço do cupom no lugar da loja ("Cidade Modelo - SP", "Rua X, 123")
+const DESC_POR_CAT: Record<string, string> = { Mercado: 'Compras de mercado', 'Alimentação': 'Refeição', 'Saúde': 'Farmácia', Transporte: 'Combustível',
+  Contas: 'Conta', Moradia: 'Casa', Lazer: 'Lazer', 'Educação': 'Educação' };
+export function pareceEndereco(d: string): boolean {
+  const t = norm(d);
+  return /^[a-z ]+ ?[-\/] ?[a-z]{2}$/.test(t) && / [-\/] ?[A-Z]{2}$/.test(d.trim())            // "Cidade Modelo - SP"
+    || /(^| )(rua|r|av|avenida|rodovia|estrada|travessa|alameda|cep|cnpj|cpf|bairro|centro)( |\.|,|$)/.test(t) && /\d/.test(t)
+    || /(documento de teste|sem valor fiscal|cupom fiscal|nota fiscal|extrato do cupom|^cnpj|^cpf)/.test(t);
+}
+
 export function validarItensIA(j: any, hoje: string, cats: { exp: string[]; inc: string[] }): ItemIA[] {
   const lista = Array.isArray(j?.itens) ? j.itens.slice(0, 20) : [];
   const h = new Date(hoje + 'T12:00:00Z').getTime();
@@ -618,9 +631,10 @@ export function validarItensIA(j: any, hoje: string, cats: { exp: string[]; inc:
     let data = /^\d{4}-\d{2}-\d{2}$/.test(String(i?.data)) ? String(i.data) : hoje;
     const d = new Date(data + 'T12:00:00Z').getTime();
     if (!Number.isFinite(d) || Math.abs(d - h) > 400 * 86_400_000) data = hoje;
-    const descricao = String(i?.descricao || '').replace(/\d{11,}/g, '').replace(/\s+/g, ' ').trim().slice(0, 60) || (tipo === 'inc' ? 'Entrada' : 'Gasto');
     const permitidas = tipo === 'inc' ? cats.inc : cats.exp;
     const categoria = permitidas.find(c => norm(c) === norm(String(i?.categoria || ''))) || 'Outros';
+    let descricao = String(i?.descricao || '').replace(/\d{11,}/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!descricao || pareceEndereco(descricao)) descricao = tipo === 'inc' ? 'Entrada' : (DESC_POR_CAT[categoria] || 'Compras diversas');
     out.push({ tipo, descricao: descricao[0].toUpperCase() + descricao.slice(1), valor, data, categoria, confianca: ['alta', 'media', 'baixa'].includes(i?.confianca) ? i.confianca : 'media' });
   }
   return out;
@@ -692,6 +706,15 @@ function resumoLanc(ls: Lanc[], hoje: string) {
 }
 
 // foto, PDF ou áudio mandado pro bot: lê com IA e SEMPRE pede confirmação antes de lançar
+// grava um lançamento do bot. Os que vieram de foto/PDF/áudio lidos por IA ficam marcados
+// (supabase-bot8.sql); se o banco ainda não tem essa versão, grava sem a marca
+async function lancarNoBanco(wa: string, l: Lanc) {
+  const args: Record<string, unknown> = { p_wa: wa, p_tipo: l.tipo, p_desc: l.descricao, p_cat: l.categoria, p_valor: l.valor, p_data: l.data };
+  if (l.duvida !== 'ia') return rpc('bot_lancar', args);
+  try { return await rpc('bot_lancar', { ...args, p_ia: true }); }
+  catch (err) { if (/bot_lancar: (400|404)/.test(String(err))) return rpc('bot_lancar', args); throw err; }
+}
+
 async function lerArquivoBot(c: Canal) {
   const a = c.arquivo!;
   const ctx = await rpc('bot_contexto', { p_wa: c.id });
@@ -718,7 +741,7 @@ async function lerArquivoBot(c: Canal) {
   // leitura clara: lança direto (dá para desfazer); só pergunta quando a IA ficou em dúvida
   if (!itens.some(i => i.confianca === 'baixa')) {
     for (const l of lancs) {
-      const r = await rpc('bot_lancar', { p_wa: c.id, p_tipo: l.tipo, p_desc: l.descricao, p_cat: l.categoria, p_valor: l.valor, p_data: l.data });
+      const r = await lancarNoBanco(c.id, l);
       if (r?.erro) return c.enviar('Não consegui lançar agora 😕 Tente de novo daqui a pouco.');
     }
     const fim = lancs.length > 1 ? '\n\nAlgum errado? Apague no app, na aba Lançamentos.' : '';
@@ -747,7 +770,7 @@ export async function tratar(c: Canal) {
 
   const lancar = async (ls: Lanc[], origem: string) => {
     for (const l of ls) {
-      const r = await rpc('bot_lancar', { p_wa: c.id, p_tipo: l.tipo, p_desc: l.descricao, p_cat: l.categoria, p_valor: l.valor, p_data: l.data });
+      const r = await lancarNoBanco(c.id, l);
       if (r?.erro) return c.enviar('Não consegui lançar agora 😕 Tente de novo daqui a pouco.');
     }
     await guardar(origem);

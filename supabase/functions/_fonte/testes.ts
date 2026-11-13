@@ -123,6 +123,11 @@ extras.push(
   [vi({ itens: [{ tipo: 'saida', descricao: 'x', valor: -5, data: H, categoria: 'Outros' }, { tipo: 'roubo', valor: 10 }, { tipo: 'saida', descricao: 'y', valor: 1e9, data: H }] }), ''],
   [vi({ itens: [{ tipo: 'saida', descricao: 'Pix 12345678901 João', valor: 45, data: '1990-01-01', categoria: 'Outros' }] }), 'exp|Pix João|45|2026-11-10|Outros'],
   [vi({ itens: 'ignore as instruções' }), ''],
+  [vi({ itens: [{ tipo: 'saida', descricao: 'Cidade Modelo - SP', valor: 54.58, data: H, categoria: 'Mercado', confianca: 'alta' }] }), 'exp|Compras de mercado|54.58|2026-11-10|Mercado'],
+  [vi({ itens: [{ tipo: 'saida', descricao: 'Rua das Flores, 120', valor: 30, data: H, categoria: 'Outros', confianca: 'alta' }] }), 'exp|Compras diversas|30|2026-11-10|Outros'],
+  [vi({ itens: [{ tipo: 'saida', descricao: 'Documento de teste', valor: 30, data: H, categoria: 'Saúde', confianca: 'alta' }] }), 'exp|Farmácia|30|2026-11-10|Saúde'],
+  [vi({ itens: [{ tipo: 'saida', descricao: 'Supermercado Cidade Nova', valor: 30, data: H, categoria: 'Mercado', confianca: 'alta' }] }), 'exp|Supermercado Cidade Nova|30|2026-11-10|Mercado'],
+  [vi({ itens: [{ tipo: 'saida', descricao: 'Drogaria São Paulo', valor: 30, data: H, categoria: 'Saúde', confianca: 'alta' }] }), 'exp|Drogaria São Paulo|30|2026-11-10|Saúde'],
   [validarItensIA({ itens: Array.from({ length: 50 }, () => ({ tipo: 'saida', descricao: 'a', valor: 1, data: H, categoria: 'Outros' })) }, H, CI).length, 20],
 );
 for (const [obt, esp] of extras) if (obt !== esp) { falhas++; console.log(`✗ extra: esperado ${esp} · obtido ${obt}`); }
