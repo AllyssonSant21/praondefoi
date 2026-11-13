@@ -966,7 +966,7 @@ function rpItem(o){ return { nota: o.nota || '', sel: !o.dup && !o.nota, type: o
 function openRapido(aba){
   if (!PE()) return toast('Não deu para abrir agora. Atualize a página.');
   if (!state.cid) return toast('Escolha um controle primeiro.');
-  rp = { aba: ['texto', 'extrato', iaDisponivel ? 'ia' : ''].includes(aba) ? aba : 'texto', itens: [], aviso: '', ouvindo: null, arquivo: '', ia: null, lendo: false, gravador: null };
+  rp = { aba: aba === 'ia' && iaDisponivel ? 'ia' : 'extrato', itens: [], aviso: '', ouvindo: null, arquivo: '', ia: null, lendo: false, gravador: null };
   openDlg2('Lançar rápido', 'Do jeito mais fácil pra você', '', { tipo: 'rapido', largo: true });
   renderRapido();
   carregarDic();
@@ -979,11 +979,10 @@ function renderRapido(){
   const texto = $('rpTexto') ? $('rpTexto').value : '';
   const cel = (tipo, atual) => listaCats(tipo, atual).map(c => `<option value="${esc(c)}"${c === atual ? ' selected' : ''}>${esc(rotuloCat(c))}</option>`).join('');
   $('dlg2Body').innerHTML = `
-    <div class="seg rp-abas" role="group" aria-label="Como lançar">
-      <button type="button" data-rp-aba="texto" aria-pressed="${rp.aba === 'texto'}">Texto ou voz</button>
+    ${iaDisponivel ? `<div class="seg rp-abas" role="group" aria-label="Como lançar">
+      <button type="button" data-rp-aba="ia" aria-pressed="${rp.aba === 'ia'}">Foto, PDF, áudio</button>
       <button type="button" data-rp-aba="extrato" aria-pressed="${rp.aba === 'extrato'}">Extrato</button>
-      ${iaDisponivel ? `<button type="button" data-rp-aba="ia" aria-pressed="${rp.aba === 'ia'}">Foto, PDF, áudio</button>` : ''}
-    </div>
+    </div>` : ''}
     ${rp.aba === 'texto' ? `
       <div style="display:flex;flex-direction:column;gap:10px;">
         <label for="rpTexto" class="hint">Fale, escreva ou cole a notificação do banco. Pode ser mais de um gasto.</label>
@@ -4121,7 +4120,8 @@ async function checarIA(){
   const { error } = await sb.rpc('ia_meu_saldo');
   iaDisponivel = !error;
   $('rpAbrirIa').hidden = !iaDisponivel;
-  document.querySelector('.rp-d-bt').classList.toggle('dois', !iaDisponivel);
+  document.querySelector('.rp-d-bt').classList.toggle('um', !iaDisponivel);
+  $('rpDestTx').textContent = iaDisponivel ? 'Mande a foto da nota ou o extrato do banco. Vários lançamentos de uma vez.' : 'Importe o extrato do banco e lance o mês inteiro de uma vez.';
   $('drLimites').hidden = !iaDisponivel && !BOT_LIGADO;
 }
 async function checarBot(){
