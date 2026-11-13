@@ -926,6 +926,263 @@ addEventListener('online', () => enviarFila());
 addEventListener('offline', () => atualizarFaixa());
 setInterval(() => { if (navigator.onLine && (modoSemInternet || lerFila().length)) enviarFila(); }, 30000);
 
+/* ======================= LANÇAR RÁPIDO (voz, texto colado, extrato do banco) =======================
+   Usa o mesmo "entendedor" do Detetive Grana (entender.js, gerado de supabase/functions/_fonte).
+   Nada é salvo sem a pessoa conferir a lista. Grátis: nada sai do aparelho além do lançamento. */
+const PE = () => window.PofEntender;
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rp = { aba: 'texto', itens: [], aviso: '', ouvindo: null, arquivo: '' };
+let dicDetetive = null;
+async function carregarDic(){
+  if (dicDetetive) return dicDetetive;
+  try { const { data, error } = await sb.from('bot_dicionario').select('termo,tipo,categoria').limit(300); dicDetetive = error ? [] : (data || []); }
+  catch { dicDetetive = []; }
+  return dicDetetive;
+}
+const catsCtl = () => categorias.filter(c => !c.oculta).map(c => ({ nome: c.nome, tipo: c.tipo }));
+const catValida = (tipo, nome) => listaCats(tipo).includes(nome) ? nome : 'Outros';
+function rpItem(o){ return { nota: o.nota || '', sel: !o.dup && !o.nota, type: o.type, desc: String(o.desc || '').slice(0, 200), amount: Math.round(o.amount * 100) / 100, date: o.date, cat: catValida(o.type, o.cat), dup: !!o.dup }; }
+
+function openRapido(){
+  if (!PE()) return toast('Não deu para abrir agora. Atualize a página.');
+  if (!state.cid) return toast('Escolha um controle primeiro.');
+  rp = { aba: 'texto', itens: [], aviso: '', ouvindo: null, arquivo: '' };
+  openDlg2('Lançar rápido', 'Voz, texto ou extrato', '', { tipo: 'rapido', largo: true });
+  renderRapido();
+  carregarDic();
+}
+$('btnRapido').onclick = openRapido;
+
+function renderRapido(){
+  if (dlg2.tipo !== 'rapido') return;
+  const texto = $('rpTexto') ? $('rpTexto').value : '';
+  const cel = (tipo, atual) => listaCats(tipo, atual).map(c => `<option value="${esc(c)}"${c === atual ? ' selected' : ''}>${esc(rotuloCat(c))}</option>`).join('');
+  $('dlg2Body').innerHTML = `
+    <div class="seg rp-abas" role="group" aria-label="Como lançar">
+      <button type="button" data-rp-aba="texto" aria-pressed="${rp.aba === 'texto'}">Falar ou escrever</button>
+      <button type="button" data-rp-aba="extrato" aria-pressed="${rp.aba === 'extrato'}">Importar extrato</button>
+    </div>
+    ${rp.aba === 'texto' ? `
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <label for="rpTexto" class="hint">Fale, escreva ou cole a notificação do banco. Pode ser mais de um gasto.</label>
+        <textarea class="input rp-texto" id="rpTexto" placeholder="gastei 50 no mercado e 20 de uber ontem">${esc(texto)}</textarea>
+        <div class="rp-acoes">
+          ${SR ? `<button class="btn btn-secondary btn-sm" type="button" data-rp="falar">${rp.ouvindo ? 'Parar' : '🎤 Falar'}</button>` : ''}
+          ${rp.ouvindo ? '<span class="rp-ouvindo" role="status">Ouvindo…</span>' : ''}
+          <button class="btn btn-primary btn-sm" type="button" data-rp="entender">Entender</button>
+        </div>
+        ${SR ? '' : '<p class="hint">Para falar, toque no microfone do teclado do celular.</p>'}
+      </div>` : `
+      <div class="rp-arquivo">
+        <b style="font-size:15px;">Extrato do banco (OFX ou CSV)</b>
+        <span class="hint">No app do seu banco, exporte o extrato em OFX ou CSV e escolha o arquivo aqui. Ele é lido só neste aparelho.</span>
+        <input type="file" id="rpArquivo" accept=".ofx,.csv,.txt,text/csv,application/x-ofx" class="input" style="padding:8px;">
+        ${rp.arquivo ? `<span class="hint">Arquivo: <b>${esc(rp.arquivo)}</b></span>` : ''}
+      </div>`}
+    ${rp.aviso ? `<p class="hint" role="status" style="color:var(--text);">${rp.aviso}</p>` : ''}
+    ${rp.itens.length ? `
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="rp-topo"><span>Confira antes de lançar. Toque para corrigir.</span>
+          ${rp.aba === 'extrato' ? '<button class="btn btn-ghost btn-sm" type="button" data-rp="inverter">Inverter entradas e saídas</button>' : ''}</div>
+        <div class="rp-lista">${rp.itens.map((i, k) => `
+          <div class="rp-item${i.sel ? '' : ' off'}" data-k="${k}">
+            <input type="checkbox" data-f="sel" aria-label="Lançar ${esc(i.desc)}"${i.sel ? ' checked' : ''}>
+            <select class="input rp-tipo" data-f="type" aria-label="Tipo"><option value="exp"${i.type === 'exp' ? ' selected' : ''}>Saída</option><option value="inc"${i.type === 'inc' ? ' selected' : ''}>Entrada</option></select>
+            <input class="input rp-desc" data-f="desc" value="${esc(i.desc)}" maxlength="200" aria-label="Descrição">
+            <input class="input rp-valor" data-f="amount" inputmode="decimal" value="${esc(i.amount.toFixed(2).replace('.', ','))}" aria-label="Valor">
+            <input class="input rp-data" data-f="date" type="date" value="${esc(i.date)}" aria-label="Data">
+            <select class="input rp-cat" data-f="cat" aria-label="Categoria">${cel(i.type, i.cat)}</select>
+            ${i.dup ? '<span class="rp-dup">Parece já lançado (mesmo valor e data). Marque se quiser lançar mesmo assim.</span>' : i.nota ? `<span class="rp-dup">${esc(i.nota)}</span>` : ''}
+          </div>`).join('')}</div>
+        <div class="rp-rodape" id="rpRodape"></div>
+      </div>` : ''}`;
+  rpRodape();
+}
+function rpRodape(){
+  const el = $('rpRodape'); if (!el) return;
+  const tot = rp.itens.filter(i => i.sel);
+  const soma = tot.reduce((a, i) => a + (i.type === 'exp' ? -i.amount : i.amount), 0);
+  el.innerHTML = `<span class="hint">${plural(tot.length, 'lançamento')} · saldo ${soma < 0 ? '−' : '+'}${brl(Math.abs(soma))}</span>
+    <button class="btn btn-primary" type="button" data-rp="lancar"${tot.length ? '' : ' disabled'}>Lançar ${tot.length || ''}</button>`;
+}
+
+// texto → itens (frase inteira; se não der, linha por linha)
+async function rpEntender(){
+  const texto = ($('rpTexto').value || '').trim();
+  if (!texto) return toast('Fale ou escreva o que quer lançar.');
+  const E = PE(), hoje = todayISO(), dic = await carregarDic(), cats = catsCtl();
+  let lancs = [], faltou = [], ignorados = 0;
+  const tentar = t => {
+    const r = E.entender(t, hoje, cats, dic);
+    if (r.tipo === 'lancar') { lancs.push(...r.lancs); return true; }
+    if (r.tipo === 'perguntar' && r.falta === 'valor') faltou.push(r.rotulo);
+    return false;
+  };
+  if (!tentar(texto)) for (const l of texto.split(/\n+/).map(x => x.trim()).filter(Boolean)) if (!tentar(l)) ignorados++;
+  rp.itens.push(...lancs.map(l => rpItem({ type: l.tipo, desc: l.descricao, amount: l.valor, date: l.data, cat: l.categoria })));
+  rp.aviso = !lancs.length
+    ? (faltou.length ? `Faltou o valor de <b>${esc(faltou.join(', '))}</b>. Tente "${esc(faltou[0].toLowerCase())} 50".` : 'Não entendi. Tente algo como <b>mercado 50</b> ou <b>recebi 200 de freela</b>.')
+    : (ignorados ? `Entendi ${plural(lancs.length, 'lançamento')}. Algumas partes ficaram de fora.` : '');
+  if (lancs.length) $('rpTexto').value = '';
+  renderRapido();
+}
+
+function rpFalar(){
+  if (rp.ouvindo){ try { rp.ouvindo.stop(); } catch {} return; }
+  const rec = new SR(); rec.lang = 'pt-BR'; rec.interimResults = false; rec.continuous = false;
+  rec.onresult = e => {
+    const t = [...e.results].map(r => r[0].transcript).join(' ').trim();
+    const ta = $('rpTexto'); if (ta && t) ta.value = (ta.value ? ta.value.trim() + '\n' : '') + t;
+  };
+  rec.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast('Libere o microfone para o app nas configurações do navegador.'); };
+  rec.onend = () => { const tinha = $('rpTexto') && $('rpTexto').value.trim(); rp.ouvindo = null; renderRapido(); if (tinha) rpEntender(); };
+  rp.ouvindo = rec; renderRapido();
+  try { rec.start(); } catch { rp.ouvindo = null; renderRapido(); }
+}
+
+/* ---------- leitura de extrato ---------- */
+function numBanco(v){
+  let s = String(v || '').replace(/R\$|\s| /g, '');
+  if (!s) return NaN;
+  let neg = /^-|^\(.*\)$|-$|D$/i.test(s);
+  s = s.replace(/[()\-+CD]/gi, '');
+  const ul = Math.max(s.lastIndexOf(','), s.lastIndexOf('.'));
+  if (s.includes(',') && s.includes('.')) s = s.slice(0, ul).replace(/[.,]/g, '') + '.' + s.slice(ul + 1);
+  else if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  const n = parseFloat(s);
+  return isNaN(n) ? NaN : (neg ? -n : n);
+}
+function dataBanco(v){
+  const s = String(v || '').trim();
+  let m = s.match(/^(\d{4})-?(\d{2})-?(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+  if (m){ const a = m[3].length === 2 ? '20' + m[3] : m[3]; return `${a}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; }
+  return '';
+}
+function descBonita(d){
+  let t = String(d || '').replace(/\s+/g, ' ').trim();
+  // "Compra no débito - UBER *TRIP" → "UBER *TRIP"
+  const m = t.match(/^(compra no (debito|débito|credito|crédito)|compra|transfer[eê]ncia (recebida|enviada)( pelo pix)?|pagamento de boleto efetuado|pagamento efetuado|pix (enviado|recebido)|d[eé]bito autom[aá]tico|pagamento)\s+-\s+(.+)$/i);
+  if (m) t = m[m.length - 1];
+  t = t.slice(0, 80);
+  if (t && t === t.toUpperCase()) t = t.toLowerCase().replace(/(^|[\s*\/-])([a-zà-ú])/g, (x, a, b) => a + b.toUpperCase());
+  return t || 'Sem descrição';
+}
+function lerOFX(txt){
+  return txt.split(/<STMTTRN>/i).slice(1).map(b => {
+    const tag = n => ((b.match(new RegExp(`<${n}>([^<\\r\\n]*)`, 'i')) || [])[1] || '').trim();
+    const v = numBanco(tag('TRNAMT').replace(',', '.'));
+    return { valor: v, data: dataBanco(tag('DTPOSTED')), desc: tag('MEMO') || tag('NAME') || tag('PAYEE') };
+  });
+}
+function linhasCSV(txt, sep){
+  const out = []; let lin = [], cel = '', q = false;
+  for (let i = 0; i < txt.length; i++){
+    const c = txt[i];
+    if (q){ if (c === '"'){ if (txt[i + 1] === '"'){ cel += '"'; i++; } else q = false; } else cel += c; continue; }
+    if (c === '"') q = true; else if (c === sep){ lin.push(cel); cel = ''; }
+    else if (c === '\n' || c === '\r'){ if (c === '\r' && txt[i + 1] === '\n') i++; lin.push(cel); out.push(lin); lin = []; cel = ''; }
+    else cel += c;
+  }
+  if (cel || lin.length){ lin.push(cel); out.push(lin); }
+  return out.filter(l => l.some(x => x.trim()));
+}
+function lerCSV(txt){
+  const l1 = txt.split(/\r?\n/).slice(0, 5).join('\n');
+  const sep = (l1.match(/;/g) || []).length > (l1.match(/,/g) || []).length ? ';' : ((l1.match(/\t/g) || []).length > 2 ? '\t' : ',');
+  const rows = linhasCSV(txt, sep);
+  const n = x => PE().norm(x || '');
+  let h = rows.findIndex(r => r.some(c => /^(data|date|dt)/.test(n(c))) && r.some(c => /(valor|amount|value|quantia)/.test(n(c))));
+  if (h < 0) return { itens: [], cartao: false };
+  const cab = rows[h].map(n);
+  const iData = cab.findIndex(c => /^(data|date|dt)/.test(c));
+  const iValor = cab.findIndex(c => /(valor|amount|value|quantia)/.test(c) && !/saldo/.test(c));
+  // coluna da descrição: na ordem de preferência (Nubank tem "Identificador" antes de "Descrição"; Inter tem "Histórico" e "Descrição")
+  const achar = re => cab.findIndex(c => re.test(c) && !/^(data|date)/.test(c));
+  const iDesc = [/descri/, /title|titulo/, /estabelecimento/, /memo/, /histor/, /lancamento|detalhe|nome/].map(achar).find(i => i >= 0) ?? -1;
+  const iHist = achar(/histor/);
+  const itens = rows.slice(h + 1).map(r => ({ valor: numBanco(r[iValor]), data: dataBanco(r[iData]),
+    desc: (iDesc >= 0 && (r[iDesc] || '').trim()) ? r[iDesc] : (iHist >= 0 ? r[iHist] : '') }));
+  const cartao = cab.includes('title') || cab.some(c => /fatura|cartao/.test(c)) || !itens.some(i => i.valor < 0);
+  return { itens, cartao };
+}
+async function rpArquivo(file){
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) return toast('Arquivo grande demais (máximo 5 MB).');
+  rp.arquivo = file.name; rp.aviso = 'Lendo o extrato…'; renderRapido();
+  const buf = await file.arrayBuffer();
+  let txt = new TextDecoder('utf-8').decode(buf);
+  if (txt.includes('�')) txt = new TextDecoder('windows-1252').decode(buf);   // extrato antigo em Latin-1
+  const ofx = /<OFX>|<STMTTRN>/i.test(txt);
+  let { itens, cartao } = ofx ? { itens: lerOFX(txt), cartao: false } : lerCSV(txt);
+  itens = itens.filter(i => i.data && isFinite(i.valor) && i.valor !== 0);
+  if (!itens.length){ rp.itens = []; rp.aviso = 'Não consegui ler esse arquivo. Exporte o extrato em <b>OFX</b> ou <b>CSV</b> no app do banco e tente de novo.'; return renderRapido(); }
+  let cortados = 0;
+  if (itens.length > 300){ itens.sort((a, b) => b.data.localeCompare(a.data)); cortados = itens.length - 300; itens = itens.slice(0, 300); }
+  const dic = await carregarDic(), cats = catsCtl(), E = PE();
+  // o que já está lançado no controle (mesmo tipo, valor e data com até 1 dia de diferença)
+  const datas = itens.map(i => i.data).sort();
+  const dia = (iso, d) => { const x = new Date(iso + 'T12:00:00'); x.setDate(x.getDate() + d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
+  const { data: ja } = await sb.from('lancamentos').select('tipo,valor,data').eq('controle_id', state.cid).gte('data', dia(datas[0], -1)).lte('data', dia(datas[datas.length - 1], 1)).limit(2000);
+  const usados = new Set();
+  rp.itens = itens.map(i => {
+    const type = cartao ? (i.valor > 0 ? 'exp' : 'inc') : (i.valor < 0 ? 'exp' : 'inc');
+    const amount = Math.abs(i.valor), desc = descBonita(i.desc);
+    const k = (ja || []).findIndex((r, j) => !usados.has(j) && r.tipo === type && Math.abs(Number(r.valor) - amount) < 0.005 &&
+      Math.abs((new Date(r.data) - new Date(i.data)) / 864e5) <= 1);
+    if (k >= 0) usados.add(k);
+    // na fatura do cartão, o pagamento da própria fatura não é entrada de dinheiro
+    const nota = cartao && type === 'inc' && /pagamento|pgto/i.test(desc) ? 'Pagamento da fatura: normalmente não precisa lançar.' : '';
+    return rpItem({ type, desc, amount, date: i.data, cat: E.categorizar(desc, type, cats, dic), dup: k >= 0, nota });
+  }).sort((a, b) => b.date.localeCompare(a.date));
+  const dups = rp.itens.filter(i => i.dup).length;
+  rp.aviso = `${rp.itens.length} ${rp.itens.length === 1 ? 'movimentação' : 'movimentações'} no extrato${dups ? ` · ${dups} parece${dups > 1 ? 'm' : ''} já lançada${dups > 1 ? 's' : ''} (desmarcada${dups > 1 ? 's' : ''})` : ''}${cortados ? ` · só as 300 mais recentes (${cortados} ficaram de fora)` : ''}.`;
+  renderRapido();
+}
+
+async function rpLancar(){
+  const sel = rp.itens.filter(i => i.sel);
+  const ruim = sel.find(i => !i.desc.trim() || !(i.amount > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(i.date));
+  if (ruim) return toast(`Confira "${ruim.desc || 'sem descrição'}": falta descrição, valor ou data.`);
+  const rows = sel.map(i => ({ ...toRow({ type: i.type, desc: i.desc.trim(), cat: i.cat, amount: i.amount, date: i.date }), id: novoId(), controle_id: state.cid }));
+  const b = document.querySelector('[data-rp="lancar"]'); if (b) b.disabled = true;
+  for (let k = 0; k < rows.length; k += 200){
+    const { error } = await sb.from('lancamentos').insert(rows.slice(k, k + 200));
+    if (error){ if (b) b.disabled = false; return showError(`Não deu para lançar${k ? ` (${k} já foram)` : ''}. ${ehRede(error) ? 'Sem internet.' : 'Tente de novo.'}`); }
+  }
+  closeDlg2();
+  toast(`${plural(rows.length, 'lançamento')} ${rows.length > 1 ? 'feitos' : 'feito'} ✅`, true);
+  await refresh();
+}
+
+$('dlg2Body').addEventListener('click', e => {
+  if (dlg2.tipo !== 'rapido') return;
+  const aba = e.target.closest('[data-rp-aba]');
+  if (aba){ if (rp.ouvindo) try { rp.ouvindo.stop(); } catch {} rp.aba = aba.dataset.rpAba; rp.aviso = ''; return renderRapido(); }
+  const b = e.target.closest('[data-rp]'); if (!b) return;
+  if (b.dataset.rp === 'entender') rpEntender();
+  else if (b.dataset.rp === 'falar') rpFalar();
+  else if (b.dataset.rp === 'lancar') rpLancar();
+  else if (b.dataset.rp === 'inverter'){ rp.itens.forEach(i => { i.type = i.type === 'exp' ? 'inc' : 'exp'; i.cat = catValida(i.type, PE().categorizar(i.desc, i.type, catsCtl(), dicDetetive || [])); }); renderRapido(); }
+});
+$('dlg2Body').addEventListener('change', e => {
+  if (dlg2.tipo !== 'rapido') return;
+  if (e.target.id === 'rpArquivo') return rpArquivo(e.target.files[0]);
+  const row = e.target.closest('.rp-item'); if (!row) return;
+  const i = rp.itens[Number(row.dataset.k)], f = e.target.dataset.f; if (!i || !f) return;
+  // atualiza só o que mudou (redesenhar tudo faria perder o toque no próximo campo)
+  if (f === 'sel'){ i.sel = e.target.checked; row.classList.toggle('off', !i.sel); }
+  else if (f === 'amount'){ const v = PE().lerValor(e.target.value) ?? numBanco(e.target.value); i.amount = v > 0 ? Math.round(v * 100) / 100 : 0; e.target.value = i.amount.toFixed(2).replace('.', ','); }
+  else if (f === 'type'){
+    i.type = e.target.value; i.cat = catValida(i.type, PE().categorizar(i.desc, i.type, catsCtl(), dicDetetive || []));
+    row.querySelector('[data-f="cat"]').innerHTML = listaCats(i.type, i.cat).map(c => `<option value="${esc(c)}"${c === i.cat ? ' selected' : ''}>${esc(rotuloCat(c))}</option>`).join('');
+  }
+  else i[f] = e.target.value;
+  rpRodape();
+});
+$('dlg2Body').addEventListener('keydown', e => { if (dlg2.tipo === 'rapido' && e.target.id === 'rpTexto' && e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); rpEntender(); } });
+
 /* ======================= IMPOSTÔMETRO =======================
    Estimativa do imposto embutido nos gastos do mês, por média de cada categoria.
    É aproximado: o imposto real muda de produto para produto e de estado para estado.
@@ -1561,6 +1818,7 @@ function openDlg2(kicker, title, html, ctx){
   $('dlg2Title').textContent = title;
   $('dlg2Body').innerHTML = html;
   $('dlg2').hidden = false;
+  $('dlg2').classList.toggle('largo', !!(ctx && ctx.largo));
   dlg2 = ctx || {};
 }
 function closeDlg2(){ $('dlg2').hidden = true; dlg2 = {}; if (typeof pararEspera === 'function') pararEspera(); }

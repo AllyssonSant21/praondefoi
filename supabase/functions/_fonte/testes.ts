@@ -54,6 +54,11 @@ const casos: [string, string][] = [
   ['oi', 'ajuda'], ['bom dia', 'ajuda'], ['desfazer', 'desfazer'], ['cancela', 'cancelar'], ['sim', 'sim'], ['não', 'nao'],
   ['123456', 'codigo'],
   ['Oi, Detetive Grana! 🕵️ Quero ativar meu bot. Código: 482 913', 'codigo'],
+  // textos de notificação colados no app
+  ['Pix enviado R$ 45,00 para João', 'lancar exp|João|Outros|45|2026-11-10 ?categoria'],
+  ['Pix recebido de Maria R$ 100,00', 'lancar inc|Maria|Renda extra|100|2026-11-10'],
+  ['Compra aprovada no cartão final 1234: R$ 32,90 em IFOOD', 'lancar exp|Ifood|Lazer|32.9|2026-11-10'],
+  ['Você recebeu uma transferência de R$ 250,00', 'lancar inc|Outros|Outros|250|2026-11-10'],
   // edição
   ['o último era 45', 'editar_ultimo valor=45'],
   ['era 45', 'editar_ultimo valor=45'],

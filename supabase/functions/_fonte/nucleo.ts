@@ -63,14 +63,18 @@ const REGRAS_ENTRADA: [string, string[]][] = [
 // palavras que indicam ENTRADA de dinheiro
 const PALAVRAS_ENTRADA = ['recebi', 'recebido', 'recebida', 'recebimento', 'ganhei', 'entrou', 'entrada', 'caiu', 'salario', 'vendi', 'freela',
   'freelance', 'reembolso', 'renda', 'comissao', 'holerite', 'pix recebido', 'me pagou', 'me pagaram', 'me deu', 'me deram', 'rendimento',
-  'dividendo', 'dividendos', 'cashback', 'restituicao', 'adiantamento', 'plr', 'bonus', 'premio', 'mesada', 'gorjeta'];
+  'dividendo', 'dividendos', 'cashback', 'restituicao', 'adiantamento', 'plr', 'bonus', 'premio', 'mesada', 'gorjeta',
+  'recebeu', 'voce recebeu', 'transferencia recebida', 'deposito recebido', 'credito em conta', 'estorno'];
 // palavras que somem de qualquer lugar da descrição (verbos de lançar, dinheiro, forma de pagamento)
 const SOMEM = ['add', 'adiciona', 'adicionar', 'adicione', 'lanca', 'lancar', 'lance', 'lancamento', 'anota', 'anotar', 'anote', 'registra',
   'registrar', 'registre', 'coloca', 'colocar', 'coloque', 'bota', 'botar', 'poe', 'por favor', 'pfv', 'pf', 'favor', 'gastei', 'gasto',
   'gastos', 'paguei', 'pagando', 'comprei', 'compra', 'recebi', 'ganhei', 'entrou', 'caiu', 'saida', 'saidas', 'despesa', 'entrada', 'custou',
   'deu', 'saiu', 'foi', 'tive', 'hoje', 'hj', 'agora', 'ontem', 'anteontem', 'reais', 'real', 'conto', 'contos', 'pila', 'pilas', 'mangos',
   'pratas', 'r$', 'valor', 'total', 'ai', 'aqui', 'cedo', 'noite', 'tarde', 'manha', 'vence', 'vencimento', 'vencer', 'vai vencer',
-  'todo mes', 'mensal', 'fixa', 'fixo', 'so esse mes', 'so este mes', 'unica', 'avulsa', 'me pagou', 'me pagaram', 'me deu', 'me deram'];
+  'todo mes', 'mensal', 'fixa', 'fixo', 'so esse mes', 'so este mes', 'unica', 'avulsa', 'me pagou', 'me pagaram', 'me deu', 'me deram',
+  // textos de notificação/comprovante do banco ("Pix enviado…", "Compra aprovada…", "Você recebeu uma transferência…")
+  'enviado', 'enviada', 'enviei', 'recebido', 'recebida', 'recebeu', 'voce', 'aprovada', 'aprovado', 'realizada', 'realizado',
+  'transferencia', 'transferi', 'efetuada', 'efetuado', 'comprovante', 'estabelecimento', 'valor de'];
 // conectores que só caem do começo/fim ("gastei 50 no mercado" → "mercado"; "lanche no shopping" fica)
 const PONTAS = new Set(['de', 'do', 'da', 'dos', 'das', 'no', 'na', 'nos', 'nas', 'em', 'com', 'o', 'a', 'os', 'as', 'um', 'uma', 'uns', 'umas',
   'pra', 'pro', 'para', 'por', 'e', 'todo', 'toda', 'vai', 'ira', 'meu', 'minha', 'meus', 'minhas', 'que', 'ja', 'mais', 'de novo', 'dia', 'mes', 'conta']);
@@ -201,6 +205,7 @@ function tirarData(resto: string, hoje: string): [string, string, number | null]
 // o que sobra vira a descrição
 function limparDescricao(s: string): string {
   let t = ' ' + s.replace(/[,.;:!?()"']+/g, ' ').replace(/\s+/g, ' ').trim() + ' ';
+  t = t.replace(/ (com )?(final|terminado em|terminada em) \d{2,4}(?= )/g, ' ');   // "cartão final 1234"
   t = t.replace(FORMA_PAGTO, ' ');
   for (const w of SOMEM) t = t.replace(new RegExp(` ${esc(w)}(?= )`, 'g'), ' ');
   let p = t.trim().split(' ').filter(w => w && /[a-z0-9]/.test(w));
@@ -232,6 +237,11 @@ function acharCategoria(base: string, tipo: 'exp' | 'inc', cats: { nome: string;
     for (const w of ws) if (w.length > tam && temPalavra(base, w)) { melhor = cat; tam = w.length; }
   }
   return melhor || 'Outros';
+}
+
+// categoria de uma descrição solta (usado pelo app na importação de extrato)
+export function categorizar(descricao: string, tipo: 'exp' | 'inc', cats: { nome: string; tipo: string }[] = [], dic: Dic = []): string {
+  return acharCategoria(norm(descricao), tipo, cats, dic);
 }
 
 // entende UMA frase

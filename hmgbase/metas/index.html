@@ -175,6 +175,30 @@
   @media (min-width:900px){.bot-fab{right:28px;bottom:28px}}
   #viewApp:has(#botFab:not([hidden])){padding-bottom:72px}
   .bot-topo .det-logo{width:44px;height:44px;flex:none}
+  #dlg2.largo .dlg{width:min(880px,100%)}
+  .rp-abrir{display:flex;justify-content:flex-start}
+  .rp-abas{align-self:flex-start}
+  .rp-texto{width:100%;min-height:96px;resize:vertical;font:inherit;line-height:1.45}
+  .rp-acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .rp-ouvindo{color:#d23b3b;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+  .rp-ouvindo::before{content:"";width:9px;height:9px;border-radius:50%;background:#d23b3b;animation:rpPulso 1s infinite}
+  @keyframes rpPulso{50%{opacity:.3}}
+  .rp-arquivo{display:flex;flex-direction:column;gap:8px;padding:16px;border:1.5px dashed var(--divider);border-radius:12px}
+  .rp-lista{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--divider)}
+  .rp-topo{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;font-size:13.5px;color:var(--muted)}
+  .rp-item{display:grid;grid-template-columns:22px 104px minmax(0,1fr) 108px 142px 150px;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--divider)}
+  .rp-item.off{opacity:.5}
+  .rp-item .input{min-height:36px;padding:6px 8px;font-size:13.5px}
+  .rp-item input[type=checkbox]{width:18px;height:18px;accent-color:var(--marca-q)}
+  .rp-dup{grid-column:2/-1;font-size:12px;color:#9a5b00;margin-top:-4px}
+  .rp-rodape{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;position:sticky;bottom:-1px;background:var(--surface);padding-top:10px}
+  @media (max-width:700px){
+    .rp-item{grid-template-columns:22px 1fr 1fr;row-gap:6px}
+    .rp-item .rp-desc{grid-column:2/-1;grid-row:1}
+    .rp-item .rp-tipo{grid-column:2}.rp-item .rp-valor{grid-column:3}
+    .rp-item .rp-data{grid-column:2}.rp-item .rp-cat{grid-column:3}
+    .rp-item input[type=checkbox]{grid-row:1/3}
+  }
   .bot-saldo{display:flex;flex-direction:column;gap:6px;background:rgba(var(--fg-rgb),.04);border-radius:12px;padding:12px 14px}
   .bot-saldo div{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--muted)}.bot-saldo div b{color:var(--text);white-space:nowrap}
   .bot-saldo .bar{height:6px;border-radius:99px;background:rgba(var(--accent-rgb),.2);overflow:hidden}.bot-saldo .bar i{display:block;height:100%;background:var(--marca-q);border-radius:99px}
@@ -1162,6 +1186,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Adicionar
       </button>
     </form>
+    <div class="rp-abrir"><button class="btn btn-secondary btn-sm" id="btnRapido" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Lançar por voz, texto ou extrato</button></div>
     <span id="kcHint" class="by kc-hint" hidden></span>
     <span id="error" style="font-size:13px;color:var(--alerta);" hidden></span>
   </section>
@@ -1526,6 +1551,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=101"></script>
+<script src="entender.js?v=1"></script>
+<script src="app.js?v=103"></script>
 </body>
 </html>
