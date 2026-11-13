@@ -175,6 +175,10 @@
   @media (min-width:900px){.bot-fab{right:28px;bottom:28px}}
   #viewApp:has(#botFab:not([hidden])){padding-bottom:72px}
   .bot-topo .det-logo{width:44px;height:44px;flex:none}
+  .bot-saldo{display:flex;flex-direction:column;gap:6px;background:rgba(var(--fg-rgb),.04);border-radius:12px;padding:12px 14px}
+  .bot-saldo div{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--muted)}.bot-saldo div b{color:var(--text);white-space:nowrap}
+  .bot-saldo .bar{height:6px;border-radius:99px;background:rgba(var(--accent-rgb),.2);overflow:hidden}.bot-saldo .bar i{display:block;height:100%;background:var(--marca-q);border-radius:99px}
+  .bot-saldo small{font-size:12px;color:var(--muted)}
   .bot-topo{display:flex;gap:14px;align-items:flex-start;padding:14px;border-radius:14px;background:rgba(var(--accent-rgb),.14)}
   .bot-topo .bot-emoji{font-size:34px;line-height:1}
   .bot-topo b{display:block;font-size:16px;margin-bottom:4px}.bot-topo span{font-size:14px;color:var(--muted);line-height:1.45}.bot-topo span b{display:inline;font-size:inherit;color:var(--fg)}
@@ -1522,6 +1526,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="app.js?v=100"></script>
+<script src="app.js?v=101"></script>
 </body>
 </html>

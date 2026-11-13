@@ -776,6 +776,22 @@ async function assinaturaOk(corpo: string, cabecalho: string | null): Promise<bo
   return dif === 0;
 }
 
+// ------------------------------------------------------------------ saldo do mês (cada resposta no WhatsApp custa)
+
+const SALDO_ACABOU = '🕵️ *Seu saldo de mensagens do Detetive no WhatsApp acabou este mês.*\n\nContinue lançando pelo app ou pelo Telegram, que não têm limite. O saldo volta no dia 1º.';
+
+// responde contando o saldo; aos 80% junta um aviso na própria resposta (sem gastar uma mensagem a mais)
+function enviarContando(wa: string) {
+  return async (texto: string) => {
+    let extra = '';
+    try {
+      const s = await rpc('bot_contar_resposta', { p_wa: wa });
+      if (s?.aviso80) extra = `\n\n_⚠️ Restam ${s.restam} mensagens do Detetive no WhatsApp este mês. O app e o Telegram não têm limite._`;
+    } catch (err) { console.error('saldo', err); }
+    await enviarWa(wa, texto + extra);
+  };
+}
+
 // ------------------------------------------------------------------ servidor
 
 const Deno_ = (globalThis as any).Deno;
@@ -803,9 +819,15 @@ if (Deno_?.serve) Deno_.serve(async (req: Request) => {
         const wa = String(m.from || '');
         if (!/^\d{8,15}$/.test(wa)) continue;
         try {
+          // saldo acabou: avisa uma vez e depois fica em silêncio até o mês virar (nada é lançado)
+          const saldo = await rpc('bot_saldo', { p_wa: wa }).catch(() => null);
+          if (saldo?.esgotado) {
+            if (!saldo.avisou_fim) { await rpc('bot_marcar_fim', { p_wa: wa }); await enviarWa(wa, SALDO_ACABOU); }
+            continue;
+          }
           await tratar({ nome: 'WhatsApp', id: wa, msgId: String(m.id), fuso: fusoDoNumero(wa), enviadaEm: Number(m.timestamp),
                          texto: m.type === 'text' ? String(m.text?.body || '') : null,
-                         enviar: (t: string) => enviarWa(wa, t) });
+                         enviar: enviarContando(wa) });
         } catch (err) { console.error('mensagem', err); }
       }
     }

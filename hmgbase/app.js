@@ -3739,9 +3739,20 @@ async function renderBot(){
     const tg = v.canal === 'telegram';
     const abrir = tg ? (TG_BOT ? `https://t.me/${TG_BOT}` : '') : (WA_BOT ? `https://wa.me/${WA_BOT}` : '');
     const outro = atual && atual.id !== v.controle_id;
+    let saldo = '';
+    if (!tg){   // WhatsApp tem saldo de mensagens por mês (cada resposta custa)
+      const r = await sb.rpc('bot_meu_saldo');
+      if (!r.error && r.data){
+        const { usadas, limite } = r.data, pct = Math.min(100, Math.round(usadas / limite * 100));
+        saldo = `<div class="bot-saldo"><div><span>Mensagens este mês</span><b>${usadas} de ${limite}</b></div>
+          <span class="bar"><i style="width:${pct}%"></i></span>
+          <small>${usadas >= limite ? 'Acabou este mês. Continue pelo app ou pelo Telegram, que não têm limite. Volta no dia 1º.' : 'Zera no dia 1º. O app e o Telegram não têm limite.'}</small></div>`;
+      }
+    }
     $('dlg2Body').innerHTML = `
       <p style="margin:0;font-size:15px;">✅ Conectado ${tg ? 'ao seu <b>Telegram</b>' : `ao WhatsApp com final <b>${esc(v.final || '')}</b>`}.</p>
       <p class="hint" style="margin:0;">O Detetive anota tudo em <b>${esc(v.controle_nome || 'Meu controle')}</b>. Mande <b>ajuda</b> pra ele quando quiser ver o que ele sabe fazer.</p>
+      ${saldo}
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         ${abrir ? `<a class="btn btn-primary btn-sm" href="${abrir}" target="_blank" rel="noopener">Abrir conversa</a>` : ''}
         ${outro ? `<button class="btn btn-secondary btn-sm" type="button" data-act="botCtl">Anotar em "${esc(atual.nome)}"</button>` : ''}
@@ -3759,16 +3770,16 @@ async function renderBot(){
   const linkWa = WA_BOT ? `https://wa.me/${WA_BOT}?text=${encodeURIComponent(msgWa(cod))}` : '';
   const icTg = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4 3 11l6 2.5M21 4l-4 16-8-6.5M21 4 9 13.5V19l3-3.5"/></svg>';
   const icWa = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4.1A8 8 0 1 1 20 11.5z"/><path d="M9 9.5c.3 1.6 1.9 3.6 3.6 4.3l1.3-1 1.6.7c-.2 1-1 1.6-2 1.5A6.5 6.5 0 0 1 8 10.5c0-1 .6-1.8 1.6-2l.7 1.6z"/></svg>';
-  const opcao = (canal, nome, link, ic, cor) => link
-    ? `<a class="bot-opcao" style="--c:${cor}" href="${link}" target="_blank" rel="noopener" data-canal="${canal}"><span class="bot-opcao-ic">${ic}</span><span><b>${nome}</b><small>Abrir conversa e começar</small></span><span class="bot-seta" aria-hidden="true">›</span></a>`
+  const opcao = (canal, nome, link, ic, cor, nota) => link
+    ? `<a class="bot-opcao" style="--c:${cor}" href="${link}" target="_blank" rel="noopener" data-canal="${canal}"><span class="bot-opcao-ic">${ic}</span><span><b>${nome}</b><small>${nota}</small></span><span class="bot-seta" aria-hidden="true">›</span></a>`
     : `<div class="bot-opcao off" style="--c:${cor}"><span class="bot-opcao-ic">${ic}</span><span><b>${nome}</b><small>Chegando em breve</small></span><span class="tag tag-neutral">Em breve</span></div>`;
   $('dlg2Body').innerHTML = `
     <div class="bot-topo">${DET_LOGO}
       <div><b>Comece a lançar por mensagem</b><span>Mande <b>mercado 50</b> ou <b>uber 23,90 ontem</b> e o Detetive anota em <b>${esc(atual ? atual.nome : 'Meu controle')}</b>.</span></div></div>
     <p class="bot-pergunta">Onde você quer conversar com ele?</p>
     <div class="bot-opcoes">
-      ${opcao('telegram', 'Telegram', linkTg, icTg, '#2a9fd8')}
-      ${opcao('whatsapp', 'WhatsApp', linkWa, icWa, '#1fa855')}
+      ${opcao('telegram', 'Telegram', linkTg, icTg, '#2a9fd8', 'Sem limite de mensagens')}
+      ${opcao('whatsapp', 'WhatsApp', linkWa, icWa, '#1fa855', 'Até 300 mensagens por mês')}
     </div>
     <p class="hint" id="botEspera" style="margin:0;font-size:12.5px;">É só tocar, e na conversa tocar em <b>Iniciar</b> ou <b>Enviar</b>. Esta tela avisa sozinha quando conectar.</p>`;
   $('dlg2Body').querySelectorAll('a.bot-opcao').forEach(a => a.addEventListener('click', () => {
