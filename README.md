@@ -38,6 +38,8 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   27. `supabase-bot5.sql` — saldo de 300 respostas por mês no WhatsApp do bot (zera na virada do mês).
   28. `supabase-bot6.sql` — saldo do WhatsApp por conta (assinante 300, fundador 150, admin ajusta no painel).
   29. `supabase-ia.sql` — leitura por IA (foto, PDF, áudio): 30 leituras por mês por conta, admin ajusta no painel.
+  30. `supabase-bot7.sql` — Detetive no Telegram e no WhatsApp ao mesmo tempo (um de cada por conta).
+  31. `supabase-alimentacao.sql` — junta categorias próprias "alimentação" na nova categoria padrão Alimentação (HMG e prod).
 - **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os 15 scripts na ordem; ative pg_net e pg_cron antes e rode uma vez só.
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.
 - **Marca:** pasta `logo/` (SVG e PNG).

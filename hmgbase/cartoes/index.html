@@ -217,9 +217,6 @@
   .bot-opcao.off{opacity:.6}.bot-opcao.off .bot-opcao-ic{filter:grayscale(1)}
   .bot-girando{display:inline-block;width:12px;height:12px;border:2px solid var(--divider);border-top-color:var(--accent);border-radius:50%;animation:girar .8s linear infinite;vertical-align:-2px;margin-right:4px}
   @keyframes girar{to{transform:rotate(360deg)}}
-  .bot-canal{border:1px solid var(--divider);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
-  .bot-canal h4{margin:0;font-size:15px}
-  .bot-canal .btn{min-height:44px;justify-content:center}
   #dlg2Body a.btn{text-decoration:none}
   .tag-neutral{background:rgba(var(--fg-rgb),.10);color:var(--text)}
   .tag-red{background:rgba(var(--red-rgb),.18);color:var(--alerta)}
@@ -1084,6 +1081,25 @@ html[data-tema="escuro"] .capa .cp-h1 em{background:none;color:#fed13d}
 .capa .cp-det .ch{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
 .capa .cp-det .ch span{border:1px solid #2c3954;border-radius:6px;padding:5px 10px;font-size:13px;color:#fff}
 @media (min-width:980px){.capa .cp-esq{order:0;justify-self:end;width:100%;max-width:400px}.capa .cp-esq .cp-lista{max-width:none}}
+
+/* Detetive: canais ligados e "Como funciona" */
+.bot-canais{display:flex;flex-direction:column;border:1.5px solid var(--divider);border-radius:12px;overflow:hidden}
+.bot-canal{display:flex;flex-direction:row;align-items:center;gap:12px;padding:12px 14px;min-height:60px;color:var(--fg);text-decoration:none;text-align:left;background:var(--card)}
+.bot-canal+.bot-canal{border-top:1px solid var(--divider)}
+a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
+.bot-canal .ic{width:36px;height:36px;border-radius:8px;display:grid;place-items:center;color:#fff;background:var(--c);flex:none}
+.bot-canal .tx{display:block;flex:1;min-width:0}
+.bot-canal b{display:block;font-size:15px}.bot-canal small{display:block;font-size:12.5px;color:var(--muted)}
+.bot-canal .st{font-size:13px;font-weight:700;white-space:nowrap}
+.bot-canal .st.ok{color:var(--green)}
+.bot-canal .st.ir{color:var(--fg);border:1.5px solid var(--divider);border-radius:var(--r-btn);padding:7px 12px}
+.bot-canal.off{opacity:.6}
+.bot-canal .btn{min-height:36px;padding:6px 10px;color:var(--muted)}
+.bot-info{border-radius:12px;background:rgba(var(--fg-rgb),.04);padding:14px 16px}
+.bot-info h4{margin:0 0 10px;font-size:14px}
+.bot-info dl{margin:0;font-size:13.5px}
+.bot-info dt{font-weight:700}.bot-info dd{margin:2px 0 0;color:var(--muted)}.bot-info dd+dt{margin-top:10px}
+.bot-canal small .ok{color:var(--green);font-weight:700}
 </style>
 </head>
 <body>
@@ -1667,7 +1683,7 @@ html[data-tema="escuro"] .capa .cp-h1 em{background:none;color:#fed13d}
       <button class="drawer-item" id="drControles" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Meus controles</button>
       <button class="drawer-item" id="drCategorias" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Minhas categorias</button>
       <button class="drawer-item" id="drPerfil" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Meu perfil</button>
-      <button class="drawer-item" id="drBot" type="button" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg>Detetive Grana <span class="tag tag-neutral" style="margin-left:auto;">teste</span></button>
+      <button class="drawer-item" id="drLimites" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-5"/></svg>Limites</button>
       <button class="drawer-item" id="drDados" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>Seus dados e privacidade</button>
       <button class="drawer-item" data-changepass type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/></svg>Trocar senha</button>
       <button class="drawer-item sair" data-logout type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>Sair</button>
@@ -1693,6 +1709,6 @@ html[data-tema="escuro"] .capa .cp-h1 em{background:none;color:#fed13d}
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=3"></script>
-<script src="app.js?v=109"></script>
+<script src="app.js?v=110"></script>
 </body>
 </html>

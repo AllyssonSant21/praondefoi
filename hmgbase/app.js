@@ -4025,12 +4025,6 @@ async function openPerfil(){
       <p class="hint" style="margin:-6px 0 0;">Os avisos por e-mail começam a sair quando o domínio do app estiver pronto.</p>
       <button class="btn btn-primary" type="submit" id="pfSalvar" style="min-height:44px;">Salvar</button>
     </form>
-    <div class="dlg-sec" id="pfBot" style="border-top:1px solid var(--divider);padding-top:14px;" hidden>
-      <h3>🕵️ Detetive Grana <span class="tag tag-neutral">teste</span></h3>
-      <p class="hint" style="margin:0 0 10px;">Lance gastos mandando mensagem no WhatsApp ou Telegram.</p>
-      <button class="btn btn-secondary btn-sm" type="button" data-act="pfBotAbrir">Abrir Detetive Grana</button>
-    </div>
-    <div class="dlg-sec" id="pfLimites" style="border-top:1px solid var(--divider);padding-top:14px;" hidden></div>
     <div class="dlg-sec" style="border-top:1px solid var(--divider);padding-top:14px;">
       <h3>Formas de entrar</h3>
       <div class="person"><span>Usuário e senha</span>${temSenha ? '<span class="tag tag-neutral">Ativo</span>' : '<span class="by" style="margin:0;">não usa</span>'}</div>
@@ -4046,18 +4040,21 @@ async function openPerfil(){
         <button class="btn btn-danger btn-sm" type="button" data-act="pfExcluir">Excluir minha conta</button>
       </div>
     </div>`, { tipo: 'perfil' });
-  if (botDisponivel) $('pfBot').hidden = false;
-  renderLimites();
 }
 
 // Meu perfil → Limites: o que tem limite por mês (custa para o app) e o que é à vontade
+function openLimites(){
+  openDlg2('Sua conta', 'Limites', '<p class="hint" style="margin:0;">Carregando…</p>', { tipo: 'limites' });
+  renderLimites();
+}
 async function renderLimites(){
-  const [ia, wa, meu] = await Promise.all([
+  const [ia, wa] = await Promise.all([
     sb.rpc('ia_meu_saldo').then(r => r.error ? null : r.data, () => null),
     BOT_LIGADO ? sb.rpc('bot_meu_saldo').then(r => r.error ? null : r.data, () => null) : null,
-    BOT_LIGADO ? sb.rpc('whatsapp_meu').then(r => r.error ? null : (r.data || [])[0] || null, () => null) : null,
   ]);
-  const el = $('pfLimites'); if (!el || dlg2.tipo !== 'perfil' || (!ia && !wa)) return;
+  if (dlg2.tipo !== 'limites') return;
+  const el = $('dlg2Body');
+  if (!ia && !wa){ el.innerHTML = '<p class="hint" style="margin:0;">Não foi possível ver seus limites agora. Tente de novo em instantes.</p>'; return; }
   const hoje = new Date(), prox = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
   const renova = `1º de ${MONTHS[prox.getMonth()].toLowerCase()}`;
   const barra = (titulo, usadas, limite, extra) => {
@@ -4066,15 +4063,12 @@ async function renderLimites(){
       <span class="bar"><i style="width:${pct}%${pct >= 100 ? ';background:#d23b3b' : ''}"></i></span>
       <small>${usadas >= limite ? 'Acabou este mês. ' : ''}${extra}</small></div>`;
   };
-  const canalTg = meu && meu.canal === 'telegram';
-  el.innerHTML = `<h3>Limites do mês</h3>
-    <p class="hint" style="margin:0 0 10px;">Algumas coisas têm um limite por mês porque custam para o app. Renova em <b>${renova}</b>.</p>
+  el.innerHTML = `<p class="hint" style="margin:0;">Algumas coisas têm limite por mês porque custam para o app. Renova em <b>${renova}</b>.</p>
     <div style="display:flex;flex-direction:column;gap:10px;">
       ${ia ? barra('📷 Leituras de foto, PDF e áudio', ia.usadas, ia.limite, 'Feitas pela IA no app e no Detetive.') : ''}
-      ${wa && !canalTg ? barra('💬 Mensagens do Detetive no WhatsApp', wa.usadas, wa.limite, 'Cada resposta do Detetive no WhatsApp conta 1.') : ''}
+      ${wa ? barra('💬 Mensagens do Detetive no WhatsApp', wa.usadas, wa.limite, 'Cada resposta do Detetive no WhatsApp conta 1.') : ''}
     </div>
-    <p class="hint" style="margin:10px 0 0;">✅ <b>Sem limite:</b> lançar pelo app, texto, voz, extrato do banco${BOT_LIGADO ? ' e o Detetive no Telegram' : ''}.</p>`;
-  el.hidden = false;
+    <p class="hint" style="margin:0;">✅ <b>Sem limite:</b> lançar pelo app, texto, voz, extrato do banco${BOT_LIGADO ? ' e o Detetive no Telegram' : ''}.</p>`;
 }
 
 /* ---------- Detetive Grana (bot do WhatsApp e do Telegram) ---------- */
@@ -4093,7 +4087,6 @@ async function checarBot(){
   if (!BOT_LIGADO) return;   // prod: o bot ainda não foi lançado
   const { data, error } = await sb.rpc('whatsapp_meu');
   botDisponivel = !error;
-  $('drBot').hidden = !botDisponivel;
   $('botFab').hidden = !botDisponivel;
   let visto = false; try { visto = localStorage.getItem(botFabKey()) === '1'; } catch {}
   const novo = botDisponivel && !visto && !(data || []).length;
@@ -4108,7 +4101,7 @@ function botVisto(){
   $('botFabNovo').hidden = true; $('botFabBal').hidden = true;
   try { localStorage.setItem(botFabKey(), '1'); } catch {}
 }
-$('drBot').addEventListener('click', () => { if (typeof closeDrawer === 'function') closeDrawer(); botVisto(); openBot(); });
+$('drLimites').addEventListener('click', () => { if (typeof closeDrawer === 'function') closeDrawer(); openLimites(); });
 $('botFab').addEventListener('click', () => { botVisto(); openBot(); });
 
 function pararEspera(){ if (botEspera){ clearInterval(botEspera); botEspera = null; } }
@@ -4117,69 +4110,90 @@ async function openBot(){
   openDlg2('Novo', 'Detetive Grana', '<p class="hint" style="margin:0;">Carregando…</p>', { tipo: 'bot' });
   await renderBot();
 }
+const BOT_IC_TG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4 3 11l6 2.5M21 4l-4 16-8-6.5M21 4 9 13.5V19l3-3.5"/></svg>';
+const BOT_IC_WA = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4.1A8 8 0 1 1 20 11.5z"/></svg>';
+// explica os limites de cada canal (fica embaixo dos botões do Detetive)
+const botComoFunciona = () => `<div class="bot-info"><h4>Como funciona</h4><dl>
+  <dt>Telegram</dt><dd>Sem limite. Mande quantas mensagens quiser.</dd>
+  <dt>WhatsApp</dt><dd>300 respostas do Detetive por mês. O saldo vale o mês inteiro e zera no dia 1º. Avisamos quando chegar em 80%.</dd>
+  <dt>Foto, PDF e áudio</dt><dd>Lidos com IA: 30 leituras por mês, em qualquer canal.</dd>
+  <dt>No app</dt><dd>Sem limite.</dd></dl></div>`;
+let botQtd = 0;   // quantos canais estavam ligados quando a tela abriu (para saber quando ligou mais um)
 async function renderBot(){
   if (dlg2.tipo !== 'bot') return pararEspera();
   const { data, error } = await sb.rpc('whatsapp_meu');
   if (error){ $('dlg2Body').innerHTML = '<p class="hint" style="margin:0;">O Detetive Grana ainda não está disponível.</p>'; return; }
-  const v = (data || [])[0], atual = current();
-  if (v){
-    pararEspera(); botCodigo = '';
-    const tg = v.canal === 'telegram';
-    const abrir = tg ? (TG_BOT ? `https://t.me/${TG_BOT}` : '') : (WA_BOT ? `https://wa.me/${WA_BOT}` : '');
-    const outro = atual && atual.id !== v.controle_id;
+  const lig = data || [], atual = current();
+  const tgV = lig.find(x => x.canal === 'telegram'), waV = lig.find(x => x.canal === 'whatsapp');
+  botQtd = lig.length;
+  // código para conectar o canal que falta
+  let cod = '';
+  if (!tgV || !waV){
+    if (!botCodigo){
+      const g = await sb.rpc('whatsapp_gerar_codigo', { cid: (lig[0] && lig[0].controle_id) || state.cid });
+      if (!g.error) botCodigo = String(g.data);
+    }
+    cod = botCodigo;
+  } else { pararEspera(); botCodigo = ''; }
+  if (dlg2.tipo !== 'bot') return;
+  const linkTg = TG_BOT ? `https://t.me/${TG_BOT}${cod ? `?start=${cod}` : ''}` : '';
+  const linkWa = WA_BOT ? `https://wa.me/${WA_BOT}${cod ? `?text=${encodeURIComponent(msgWa(cod))}` : ''}` : '';
+  const canal = (id, nome, v, link, ic, cor, nota) => {
+    const topo = `<span class="ic">${ic}</span><span class="tx"><b>${nome}</b><small>${v ? `<span class="ok">✓ Conectado</span> · ` : ''}${v && id === 'whatsapp' && v.final ? `final ${esc(v.final)} · ` : ''}${nota}</small></span>`;
+    if (v) return `<div class="bot-canal" style="--c:${cor}">${topo}<button class="btn btn-ghost btn-sm" type="button" data-act="botDesligar" data-canal="${id}" aria-label="Desligar o ${nome}">Desligar</button></div>`;
+    if (!link) return `<div class="bot-canal off" style="--c:${cor}">${topo}<span class="tag tag-neutral">Em breve</span></div>`;
+    if (!cod) return `<div class="bot-canal" style="--c:${cor}">${topo}</div>`;
+    return `<a class="bot-canal" style="--c:${cor}" href="${link}" target="_blank" rel="noopener" data-canal="${id}">${topo}<span class="st ir">Conectar</span></a>`;
+  };
+  const lista = `<div class="bot-canais">
+      ${canal('telegram', 'Telegram', tgV, linkTg, BOT_IC_TG, '#2a9fd8', 'Sem limite de mensagens')}
+      ${canal('whatsapp', 'WhatsApp', waV, linkWa, BOT_IC_WA, '#1fa855', 'Até 300 mensagens por mês')}
+    </div>`;
+  const podeLigar = !!cod && ((!tgV && linkTg) || (!waV && linkWa));
+  const espera = podeLigar ? `<p class="hint" id="botEspera" style="margin:0;font-size:12.5px;">${lig.length ? 'Para ligar o outro canal, toque em <b>Conectar</b>.' : 'É só tocar, e na conversa tocar em <b>Iniciar</b> ou <b>Enviar</b>.'} Esta tela avisa sozinha quando conectar.</p>` : '';
+  if (lig.length){
+    const v = lig[0], outro = atual && atual.id !== v.controle_id;
+    const nomes = [tgV ? 'ao seu <b>Telegram</b>' : '', waV ? `ao WhatsApp com final <b>${esc(waV.final || '')}</b>` : ''].filter(Boolean).join(' e ');
+    const abrirTg = tgV && TG_BOT ? `https://t.me/${TG_BOT}` : '', abrirWa = waV && WA_BOT ? `https://wa.me/${WA_BOT}` : '';
+    const dois = abrirTg && abrirWa;
     let saldo = '';
-    if (!tg){   // WhatsApp tem saldo de mensagens por mês (cada resposta custa)
+    if (waV){   // WhatsApp tem saldo de mensagens por mês (cada resposta custa)
       const r = await sb.rpc('bot_meu_saldo');
       if (!r.error && r.data){
         const { usadas, limite } = r.data, pct = Math.min(100, Math.round(usadas / limite * 100));
-        saldo = `<div class="bot-saldo"><div><span>Mensagens este mês</span><b>${usadas} de ${limite}</b></div>
+        saldo = `<div class="bot-saldo"><div><span>Mensagens no WhatsApp este mês</span><b>${usadas} de ${limite}</b></div>
           <span class="bar"><i style="width:${pct}%"></i></span>
           <small>${usadas >= limite ? 'Acabou este mês. Continue pelo app ou pelo Telegram, que não têm limite. Volta no dia 1º.' : 'Zera no dia 1º. O app e o Telegram não têm limite.'}</small></div>`;
       }
     }
+    if (dlg2.tipo !== 'bot') return;
     $('dlg2Body').innerHTML = `
-      <p style="margin:0;font-size:15px;">✅ Conectado ${tg ? 'ao seu <b>Telegram</b>' : `ao WhatsApp com final <b>${esc(v.final || '')}</b>`}.</p>
-      <p class="hint" style="margin:0;">O Detetive anota tudo em <b>${esc(v.controle_nome || 'Meu controle')}</b>. Mande <b>ajuda</b> pra ele quando quiser ver o que ele sabe fazer.</p>
-      ${saldo}
+      <p style="margin:0;font-size:15px;">✅ Conectado ${nomes}.</p>
+      <p class="hint" style="margin:0;">O Detetive anota tudo em <b>${esc(v.controle_nome || 'Meu controle')}</b>. Mande <b>Ajuda</b> para ele quando quiser ver o que ele sabe fazer.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        ${abrir ? `<a class="btn btn-primary btn-sm" href="${abrir}" target="_blank" rel="noopener">Abrir conversa</a>` : ''}
+        ${abrirTg ? `<a class="btn btn-primary btn-sm" href="${abrirTg}" target="_blank" rel="noopener">${dois ? 'Abrir Telegram' : 'Abrir conversa'}</a>` : ''}
+        ${abrirWa ? `<a class="btn ${abrirTg ? 'btn-secondary' : 'btn-primary'} btn-sm" href="${abrirWa}" target="_blank" rel="noopener">${dois ? 'Abrir WhatsApp' : 'Abrir conversa'}</a>` : ''}
         ${outro ? `<button class="btn btn-secondary btn-sm" type="button" data-act="botCtl">Anotar em "${esc(atual.nome)}"</button>` : ''}
-        <button class="btn btn-ghost btn-sm" type="button" data-act="botDesligar">Desligar</button>
-      </div>`;
-    return;
+      </div>
+      ${lista}${espera}${saldo}${botComoFunciona()}`;
+  } else {
+    if (!cod){ $('dlg2Body').innerHTML = '<p class="hint" style="margin:0;">Não foi possível gerar o código agora. Tente de novo em instantes.</p>'; return; }
+    $('dlg2Body').innerHTML = `
+      <div class="bot-topo">${DET_LOGO}
+        <div><b>Comece a lançar por mensagem</b><span>Mande <b>Mercado 50</b> ou <b>Uber 23,90 ontem</b> e o Detetive anota em <b>${esc(atual ? atual.nome : 'Meu controle')}</b>.</span></div></div>
+      <p class="bot-pergunta">Onde você quer conversar com ele?</p>
+      ${lista}${espera}${botComoFunciona()}`;
   }
-  if (!botCodigo){
-    const g = await sb.rpc('whatsapp_gerar_codigo', { cid: state.cid });
-    if (g.error){ $('dlg2Body').innerHTML = `<p class="hint" style="margin:0;">${esc(rpcMsg(g.error))}</p>`; return; }
-    botCodigo = String(g.data);
-  }
-  const cod = botCodigo;
-  const linkTg = TG_BOT ? `https://t.me/${TG_BOT}?start=${cod}` : '';
-  const linkWa = WA_BOT ? `https://wa.me/${WA_BOT}?text=${encodeURIComponent(msgWa(cod))}` : '';
-  const icTg = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4 3 11l6 2.5M21 4l-4 16-8-6.5M21 4 9 13.5V19l3-3.5"/></svg>';
-  const icWa = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4.1A8 8 0 1 1 20 11.5z"/><path d="M9 9.5c.3 1.6 1.9 3.6 3.6 4.3l1.3-1 1.6.7c-.2 1-1 1.6-2 1.5A6.5 6.5 0 0 1 8 10.5c0-1 .6-1.8 1.6-2l.7 1.6z"/></svg>';
-  const opcao = (canal, nome, link, ic, cor, nota) => link
-    ? `<a class="bot-opcao" style="--c:${cor}" href="${link}" target="_blank" rel="noopener" data-canal="${canal}"><span class="bot-opcao-ic">${ic}</span><span><b>${nome}</b><small>${nota}</small></span><span class="bot-seta" aria-hidden="true">›</span></a>`
-    : `<div class="bot-opcao off" style="--c:${cor}"><span class="bot-opcao-ic">${ic}</span><span><b>${nome}</b><small>Chegando em breve</small></span><span class="tag tag-neutral">Em breve</span></div>`;
-  $('dlg2Body').innerHTML = `
-    <div class="bot-topo">${DET_LOGO}
-      <div><b>Comece a lançar por mensagem</b><span>Mande <b>Mercado 50</b> ou <b>Uber 23,90 ontem</b> e o Detetive anota em <b>${esc(atual ? atual.nome : 'Meu controle')}</b>.</span></div></div>
-    <p class="bot-pergunta">Onde você quer conversar com ele?</p>
-    <div class="bot-opcoes">
-      ${opcao('telegram', 'Telegram', linkTg, icTg, '#2a9fd8', 'Sem limite de mensagens')}
-      ${opcao('whatsapp', 'WhatsApp', linkWa, icWa, '#1fa855', 'Até 300 mensagens por mês')}
-    </div>
-    <p class="hint" id="botEspera" style="margin:0;font-size:12.5px;">É só tocar, e na conversa tocar em <b>Iniciar</b> ou <b>Enviar</b>. Esta tela avisa sozinha quando conectar.</p>`;
-  $('dlg2Body').querySelectorAll('a.bot-opcao').forEach(a => a.addEventListener('click', () => {
-    $('botEspera').innerHTML = `<span class="bot-girando" aria-hidden="true"></span> Esperando sua mensagem no <b>${a.dataset.canal === 'telegram' ? 'Telegram' : 'WhatsApp'}</b>… Se não abriu, toque de novo.`;
+  $('dlg2Body').querySelectorAll('a.bot-canal').forEach(a => a.addEventListener('click', () => {
+    if ($('botEspera')) $('botEspera').innerHTML = `<span class="bot-girando" aria-hidden="true"></span> Esperando sua mensagem no <b>${a.dataset.canal === 'telegram' ? 'Telegram' : 'WhatsApp'}</b>… Se não abriu, toque de novo.`;
   }));
   // fica conferindo se a pessoa já mandou a mensagem (até 5 minutos)
-  if (!botEspera){
+  if (podeLigar && !botEspera){
     let n = 0;
     botEspera = setInterval(async () => {
       if (dlg2.tipo !== 'bot' || $('dlg2').hidden || ++n > 100) return pararEspera();
       const { data } = await sb.rpc('whatsapp_meu');
-      if ((data || []).length){ pararEspera(); toast('🕵️ Detetive Grana conectado!', true); renderBot(); }
+      if ((data || []).length > botQtd){ pararEspera(); botCodigo = ''; toast('🕵️ Detetive Grana conectado!', true); renderBot(); }
     }, 3000);
   }
 }
@@ -4209,7 +4223,6 @@ $('dlg2Body').addEventListener('click', async e => {
     profile.foto = null; renderMe(); await loadMembers(); render(); openPerfil();
   }
   if (b.dataset.act === 'pfBaixar'){ $('export').click(); return; }
-  if (b.dataset.act === 'pfBotAbrir'){ openBot(); return; }
   if (b.dataset.act === 'botCtl'){
     b.disabled = true;
     const { error } = await sb.rpc('whatsapp_definir_controle', { cid: state.cid });
@@ -4219,9 +4232,11 @@ $('dlg2Body').addEventListener('click', async e => {
   }
   if (b.dataset.act === 'botDesligar'){
     b.disabled = true;
-    const { error } = await sb.rpc('whatsapp_desligar');
+    const canal = b.dataset.canal || '', nome = canal === 'whatsapp' ? 'WhatsApp' : 'Telegram';
+    let { error } = canal ? await sb.rpc('whatsapp_desligar', { p_canal: canal }) : await sb.rpc('whatsapp_desligar');
+    if (error && canal && /function|schema cache/i.test(error.message || '')) ({ error } = await sb.rpc('whatsapp_desligar'));
     if (error){ b.disabled = false; return toast(rpcMsg(error)); }
-    toast('Detetive Grana desligado da sua conta.', true);
+    toast(canal ? `Detetive desligado do ${nome}.` : 'Detetive Grana desligado da sua conta.', true);
     botCodigo = '';
     return renderBot();
   }
