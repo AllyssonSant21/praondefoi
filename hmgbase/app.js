@@ -4573,6 +4573,10 @@ function renderAdmin(){
       if (u.status !== 'aprovado') actions += `<button class="btn btn-primary btn-sm" data-act="aprovado" data-id="${esc(u.id)}">${u.status === 'bloqueado' ? 'Desbloquear' : 'Aprovar'}</button>`;
       if (u.status !== 'bloqueado') actions += `<button class="btn btn-secondary btn-sm" data-act="bloqueado" data-id="${esc(u.id)}">${u.status === 'pendente' ? 'Recusar' : 'Bloquear'}</button>`;
       if (u.status === 'aprovado') actions += `<button class="btn ${u.fundador ? 'btn-primary' : 'btn-secondary'} btn-sm" data-act="fundador" data-id="${esc(u.id)}" data-sim="${u.fundador ? '0' : '1'}" title="${u.fundador ? 'Tirar de fundador' : 'Marcar como fundador (não paga mensalidade)'}">${u.fundador ? '⭐ Fundador' : '☆ Fundador'}</button>`;
+      if (u.status === 'aprovado' && u.wa_padrao != null){
+        const lim = u.wa_limite ?? u.wa_padrao;
+        actions += `<button class="btn btn-secondary btn-sm" data-act="walimite" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}" data-lim="${u.wa_limite ?? ''}" data-padrao="${u.wa_padrao}" title="Respostas do Detetive no WhatsApp por mês (cada uma custa). Usou ${u.wa_usadas || 0} este mês.">WhatsApp ${u.wa_usadas || 0}/${lim}${u.wa_limite != null ? ' ✎' : ''}</button>`;
+      }
       actions += `<button class="btn btn-secondary btn-sm" data-act="senha" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Nova senha</button>`;
       actions += `<button class="btn btn-danger btn-sm" data-act="excluir" data-id="${esc(u.id)}" data-email="${esc(displayName(u.email))}">Excluir</button>`;
     }
@@ -4673,6 +4677,19 @@ $('userRows').addEventListener('click', async e => {
     if (error) return toast(rpcMsg(error));
     toast(`Senha de ${b.dataset.email} redefinida. Peça para a pessoa trocar em "Trocar senha" ao entrar.`, true);
     return;
+  }
+  if (act === 'walimite'){
+    const padrao = Number(b.dataset.padrao);
+    const v = await pedirTexto('Mensagens no WhatsApp por mês', `Quantas respostas do Detetive no WhatsApp ${b.dataset.email} pode receber por mês. Cada uma custa cerca de R$ 0,035. Deixe vazio para usar o padrão (${padrao}: ${padrao === 150 ? 'fundador' : 'assinante'}).`,
+      { rotulo: 'Respostas por mês', tipo: 'number', modo: 'numeric', valor: b.dataset.lim, placeholder: String(padrao), okTxt: 'Salvar', vazioOk: true });
+    if (v === null) return;
+    const n = String(v).trim() === '' ? null : Math.round(Number(v));
+    if (n !== null && !(n >= 0 && n <= 3000)) return toast('Use um número de 0 a 3000.');
+    b.disabled = true;
+    ({ error } = await sb.rpc('admin_definir_wa_limite', { alvo: id, p_limite: n }));
+    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+    toast(n === null ? `Voltou para o padrão (${padrao} por mês).` : `${b.dataset.email}: ${n} respostas por mês no WhatsApp.`, true);
+    return loadUsers();
   }
   if (act === 'fundador'){
     b.disabled = true;

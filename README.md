@@ -36,6 +36,7 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   25. `supabase-despertador.sql` — função "despertar" que o robô do GitHub chama todo dia para o Supabase grátis não pausar (rodar no HMG e no prod).
   26. `supabase-tema.sql` — tema claro/escuro salvo na conta (vale em todos os aparelhos).
   27. `supabase-bot5.sql` — saldo de 300 respostas por mês no WhatsApp do bot (zera na virada do mês).
+  28. `supabase-bot6.sql` — saldo do WhatsApp por conta (assinante 300, fundador 150, admin ajusta no painel).
 - **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os 15 scripts na ordem; ative pg_net e pg_cron antes e rode uma vez só.
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.
 - **Marca:** pasta `logo/` (SVG e PNG).
