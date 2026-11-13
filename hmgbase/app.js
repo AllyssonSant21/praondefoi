@@ -14,7 +14,7 @@ const KEY = 'cf-lancamentos-v1';        // dados antigos, salvos só neste apare
 const IMPORTED_KEY = 'cf-importado-v1';
 const BKEY = 'cf-orcamento-v1';
 const CATS = {
-  exp: ['Mercado','Alimentação','Moradia','Contas','Transporte','Saúde','Lazer','Educação','Outros'],
+  exp: ['Mercado','Alimentação','Moradia','Contas','Transporte','Saúde','Lazer','Educação','Dívidas','Outros'],
   inc: ['Salário','Renda extra','Outros']
 };
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -710,7 +710,7 @@ async function loadCategorias(){
   return true;
 }
 // emoji de cada categoria do app (as personalizadas usam o emoji que a pessoa escolheu)
-const ICONE_APP = { 'Mercado':'🛒', 'Alimentação':'🍽️', 'Moradia':'🏠', 'Contas':'🧾', 'Transporte':'🚗', 'Saúde':'💊', 'Lazer':'🎉', 'Educação':'📚',
+const ICONE_APP = { 'Mercado':'🛒', 'Alimentação':'🍽️', 'Dívidas':'📉', 'Moradia':'🏠', 'Contas':'🧾', 'Transporte':'🚗', 'Saúde':'💊', 'Lazer':'🎉', 'Educação':'📚',
   'Outros':'📦', 'Salário':'💰', 'Renda extra':'💸', 'Metas':'🎯', 'Cartão de crédito':'💳' };
 const iconeCat = nome => { const c = categorias.find(x => x.nome === nome); return (c && c.icone) || ICONE_APP[nome] || ''; };
 // rótulo com o emoji, valor só com o nome (é o que fica gravado no lançamento)
@@ -1326,7 +1326,7 @@ $('dlg2Body').addEventListener('keydown', e => { if (dlg2.tipo === 'rapido' && e
 const IMPOSTO_CAT = { 'Mercado': .25, 'Alimentação': .32, 'Lazer': .30, 'Contas': .40, 'Transporte': .35, 'Saúde': .30, 'Moradia': .07,
   'Educação': .26, 'Cartão de crédito': .30, 'Outros': .27 };
 const IMPOSTO_PADRAO = .27;   // categorias criadas pela pessoa
-const IMPOSTO_FORA = new Set(['Metas']);   // guardar em meta não é gasto
+const IMPOSTO_FORA = new Set(['Metas', 'Dívidas']);   // guardar em meta não é gasto; parcela de dívida é juros/financiamento
 const impKey = () => `pof-imp-${currentUser ? currentUser.id : ''}`;
 let impComo = false;
 function renderImposto(month, inc){
@@ -1746,7 +1746,7 @@ function instancia(c, mk){
   const days = Math.round((due - hoje) / 86400000);
   const paid = falta <= 0;
   // meses de antes do cadastro (ex.: parcelada que já estava na 3ª) não contam como atrasados
-  const antes = c.criado_em && mk < c.criado_em.slice(0, 7) + '-01';
+  const antes = c.criado_em && mk < c.criado_em.slice(0, 7) + '-01' && !((state.contaDivida || {})[c.id]);
   const st = paid ? 'paid' : antes ? 'ok' : days < 0 ? 'late' : days <= 3 ? 'soon' : 'ok';
   const n = c.tipo === 'parcelada' ? mdiff(c.inicio, mk) + 1 : null;
   return { c, mk, due, days, total, pago: Math.min(pago, total), falta, pags, parts, paid, st, n, ov: ov != null, antes };
@@ -1766,7 +1766,18 @@ async function loadContas(){
     return faltaBanco;
   }
   const t = new Date();
-  const meses = [...new Set([mkey(state.y, state.m), mkey(t.getFullYear(), t.getMonth()), mkey(t.getFullYear(), t.getMonth() - 1), mkey(t.getFullYear(), t.getMonth() - 2)])];
+  // dívidas (supabase-dividas.sql); banco sem a tabela: a área de dívidas fica escondida
+  const dv = await sb.rpc('listar_dividas', { cid });
+  if (seq !== contasSeq) return false;
+  state.dividasOk = !dv.error;
+  state.dividas = dv.error ? [] : (dv.data || []);
+  state.contaDivida = {};
+  state.dividas.forEach(d => {
+    if (d.conta_id) state.contaDivida[d.conta_id] = { d, papel: 'parcela' };
+    if (d.conta_atraso_id) state.contaDivida[d.conta_atraso_id] = { d, papel: 'atraso' };
+  });
+  const mesesAtraso = state.dividas.filter(d => d.conta_atraso_id && d.atraso_desde).map(d => d.atraso_desde.slice(0, 7) + '-01');
+  const meses = [...new Set([mkey(state.y, state.m), mkey(t.getFullYear(), t.getMonth()), mkey(t.getFullYear(), t.getMonth() - 1), mkey(t.getFullYear(), t.getMonth() - 2), ...mesesAtraso])];
   const ids = cs.map(c => c.id);
   const vazio = Promise.resolve({ data: [] });
   const [pr, mr, gr] = await Promise.all([
@@ -1888,9 +1899,12 @@ function renderContas(){
   $('billNew').disabled = false;
   const mk = mkey(state.y, state.m);
   const me = myId();
-  const list = state.contas.filter(c => ocorre(c, mk)).map(c => instancia(c, mk))
+  const atrasosDiv = mk === mkey(new Date().getFullYear(), new Date().getMonth()) ? state.contas
+    .filter(c => (state.contaDivida[c.id] || {}).papel === 'atraso' && c.inicio < mk)
+    .map(c => instancia(c, c.inicio)).filter(i => !i.paid) : [];
+  const list = atrasosDiv.concat(state.contas.filter(c => ocorre(c, mk)).map(c => instancia(c, mk))
     .filter(i => !(i.antes && i.c.tipo === 'parcelada' && i.pago === 0))
-    .sort((a, b) => (a.paid - b.paid) || (a.due - b.due) || a.c.nome.localeCompare(b.c.nome));
+    .sort((a, b) => (a.paid - b.paid) || (a.due - b.due) || a.c.nome.localeCompare(b.c.nome)));
   const fats = faturasDoMes(mk);
   const total = r2(list.reduce((s, i) => s + i.total, 0) + fats.reduce((s, i) => s + i.total, 0));
   const pago = r2(list.reduce((s, i) => s + i.pago, 0) + fats.reduce((s, i) => s + i.pago, 0));
@@ -1915,7 +1929,9 @@ function renderContas(){
   $('billEmpty').textContent = 'Nenhuma conta neste mês. Toque em "Nova conta" para cadastrar aluguel, luz, cartão…';
   $('billList').innerHTML = list.map(i => {
     const c = i.c;
+    const dvd = state.contaDivida[c.id];
     const tag = i.paid ? '<span class="tag tag-neutral">Paga ✓</span>'
+      : i.mk !== mk ? `<span class="tag tag-red">Atrasada desde ${ddmm(i.due)}</span>`
       : i.st === 'late' ? `<span class="tag tag-red">Vencida</span>`
       : i.antes ? ''
       : i.days === 0 ? '<span class="tag tag-accent">Vence hoje</span>'
@@ -1923,26 +1939,27 @@ function renderContas(){
       : i.pago > 0 ? '<span class="tag tag-neutral">Parcial</span>' : '';
     const linha2 = [esc(rotuloCat(c.categoria)), `vence ${ddmm(i.due)}`, (!i.paid && i.pago > 0) ? `pago ${brl(i.pago)} de ${brl(i.total)}` : ''].filter(Boolean).join(' · ');
     return `
-    <div class="bill ${i.st}" data-bill="${esc(c.id)}">
+    <div class="bill ${i.mk !== mk ? 'late' : i.st}" data-bill="${esc(c.id)}">
       <div class="bill-day"><b>${i.due.getDate()}</b><small>${MES_CURTO[i.due.getMonth()]}</small></div>
       <div style="min-width:0;">
-        <div class="bill-name">${esc(c.nome)} <span class="tag tag-neutral">${tipoTxt(i)}</span></div>
+        <div class="bill-name">${esc(c.nome)} <span class="tag tag-neutral">${tipoTxt(i)}</span>${dvd ? ' <span class="tag tag-divida">Dívida</span>' : ''}</div>
         <div class="by">${linha2}</div>
         ${i.parts.length ? `<div class="by">${partsLine(i)}</div>` : ''}
         ${!i.paid && i.pago > 0 ? `<div class="prog"><div style="width:${Math.min(100, i.pago / i.total * 100)}%"></div></div>` : ''}
       </div>
       <div class="bill-side">
         <span class="bill-val">${brl(i.total)}</span>
-        <span class="bill-act" style="display:flex;gap:6px;align-items:center;">${tag}${i.paid ? '' : `<button class="btn btn-primary btn-sm" data-pay="${esc(c.id)}" type="button" aria-label="Pagar ${esc(c.nome)}">Pagar</button>`}</span>
+        <span class="bill-act" style="display:flex;gap:6px;align-items:center;">${tag}${i.paid ? '' : `<button class="btn btn-primary btn-sm" data-pay="${esc(c.id)}" data-mk="${esc(i.mk)}" type="button" aria-label="Pagar ${esc(c.nome)}">Pagar</button>`}</span>
       </div>
     </div>`;
   }).join('') + (fats.length ? `<div class="kicker" style="margin:var(--space-4) 0 0;">Faturas de cartão</div>` + fats.map(fatHtml).join('') : '');
   vincOpcoes();   // a conta nova aparece na hora no "Usar para" de Lançamentos
+  renderDividas();
 }
 
 $('billList').addEventListener('click', e => {
   const pay = e.target.closest('[data-pay]');
-  if (pay) return openPay(pay.dataset.pay);
+  if (pay) return openPay(pay.dataset.pay, pay.dataset.mk);
   const row = e.target.closest('[data-bill]');
   if (row) openBill(row.dataset.bill);
 });
@@ -1977,9 +1994,9 @@ const travaFundo = () => document.documentElement.classList.toggle('travado', !$
 
 const findConta = id => state.contas.find(c => c.id === id);
 
-function openPay(id){
+function openPay(id, mkOutro){
   const c = findConta(id); if (!c) return;
-  const mk = mkey(state.y, state.m);
+  const mk = mkOutro || mkey(state.y, state.m);
   const i = instancia(c, mk);
   if (i.paid) return toast('Essa conta já está paga.');
   const minha = i.parts.find(p => p.uid === myId());
@@ -5000,3 +5017,204 @@ document.addEventListener('click', e => {
 
 $('drPainel').addEventListener('click', () => irPara('admin'));
 $('adminMinhaConta').addEventListener('click', () => irPara(''));
+
+/* ======================= DÍVIDAS (dentro de Contas a pagar) =======================
+   A situação decide o que o formulário pede e o que vai para Contas do mês.
+   Quem cria as contas das parcelas é o banco (salvar_divida). */
+const DV_SIT = {
+  pagando:    { ic: '🟢', nome: 'Pagando',    tag: 'tag-green' },
+  atrasada:   { ic: '🔴', nome: 'Atrasada',   tag: 'tag-red' },
+  acordo:     { ic: '🤝', nome: 'Em acordo',  tag: 'tag-blue' },
+  negociando: { ic: '💬', nome: 'Negociando', tag: 'tag-amber' },
+  combinado:  { ic: '👤', nome: 'Combinado',  tag: 'tag-neutral' },
+  quitada:    { ic: '✅', nome: 'Quitada',    tag: 'tag-neutral' },
+};
+const DV_TIPO = { emprestimo: ['🏦', 'Empréstimo'], financiamento: ['🚗', 'Financiamento'], cartao: ['💳', 'Cartão / cheque esp.'], pessoa: ['👤', 'Com alguém'], outra: ['📦', 'Outra'] };
+const dvDia = s => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : '';
+const dvDiaAno = s => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : '';
+// situação "de verdade": atrasada com o atraso já pago volta a ser "pagando"; parcelas acabaram = quitada
+function dvEstado(d){
+  const n = Number(d.parcelas || 0), pagas = Number(d.pagas || 0), parc = Number(d.parcela_valor || 0);
+  const restam = Math.max(0, n - pagas);
+  const atrasoFalta = d.situacao === 'atrasada' ? Math.max(0, r2(Number(d.atraso_valor || 0) - Number(d.atraso_pago || 0))) : 0;
+  let sit = d.situacao;
+  if (sit === 'atrasada' && atrasoFalta <= 0) sit = 'pagando';
+  if (['pagando', 'acordo'].includes(sit) && n && restam === 0) sit = 'quitada';
+  const falta = sit === 'quitada' ? 0
+    : sit === 'negociando' ? Number(d.cobrado || 0)
+    : sit === 'combinado' ? Number(d.combinado_valor || 0)
+    : r2(restam * parc + atrasoFalta);
+  return { sit, restam, pagas, falta, atrasoFalta };
+}
+state.ctModo = 'mes';
+function renderDividas(){
+  const ok = !!state.dividasOk;
+  $('ctModo').hidden = !ok;
+  if (!ok) state.ctModo = 'mes';
+  const div = state.ctModo === 'div';
+  $('ctMes').hidden = div; $('ctMesResumo').hidden = div; $('ctDiv').hidden = !div;
+  document.querySelectorAll('#ctModo [data-ctmodo]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ctmodo === state.ctModo)));
+  if (!ok) return;
+  const lista = state.dividas.map(d => ({ d, e: dvEstado(d) }));
+  const abertas = lista.filter(x => x.e.sit !== 'quitada'), quitadas = lista.filter(x => x.e.sit === 'quitada');
+  const atrasadas = abertas.filter(x => x.e.sit === 'atrasada');
+  $('ctModoAtraso').hidden = !atrasadas.length; $('ctModoAtraso').textContent = atrasadas.length;
+  if (!div) return;
+  const total = r2(abertas.reduce((s, x) => s + x.e.falta, 0));
+  const atraso = r2(atrasadas.reduce((s, x) => s + x.e.atrasoFalta, 0));
+  $('dvTotal').textContent = brl(total);
+  $('dvTotalNote').textContent = abertas.length ? `${plural(abertas.length, 'dívida')} · as parcelas aparecem em Contas do mês` : 'Nenhuma dívida cadastrada';
+  $('dvAtrasoCard').hidden = !atraso;
+  $('dvAtraso').textContent = brl(atraso);
+  $('dvAtrasoNote').textContent = atrasadas.length ? plural(atrasadas.length, 'dívida') + ' com parcela atrasada' : '';
+  const linha = ({ d, e }) => {
+    const st = DV_SIT[e.sit], [ic] = DV_TIPO[d.tipo] || DV_TIPO.outra;
+    const det = e.sit === 'atrasada' ? `${brl(e.atrasoFalta)} desde ${dvDia(d.atraso_desde)}`
+      : ['pagando', 'acordo'].includes(e.sit) ? `faltam ${e.restam} · ${brl(Number(d.parcela_valor))}/mês`
+      : e.sit === 'negociando' ? (d.proposta ? `proposta: ${esc(d.proposta)}` : 'aguardando proposta')
+      : e.sit === 'combinado' ? (d.combinado_ate ? `pagar até ${dvDiaAno(d.combinado_ate)}` : 'sem data')
+      : d.quitada_em ? `quitada em ${dvDiaAno(d.quitada_em)}` : 'quitada';
+    return `<button type="button" class="dv-lin" data-dv="${esc(d.id)}">
+      <span class="dv-tx"><b>${ic} ${esc(d.nome)}</b><small><span class="tag ${st.tag}">${st.nome}</span> ${det}${d.credor ? ` · ${esc(d.credor)}` : ''}</small></span>
+      <span class="dv-v"><b>${e.sit === 'quitada' ? '✓' : brl(e.falta)}</b><small>${e.sit === 'negociando' ? 'cobrado' : e.sit === 'quitada' ? '' : 'falta'}</small></span>
+    </button>`;
+  };
+  $('dvList').innerHTML = abertas.map(linha).join('') +
+    (quitadas.length ? `<div class="kicker" style="margin:var(--space-4) 0 0;">Quitadas 🎉</div>` + quitadas.map(linha).join('') : '');
+  $('dvEmpty').hidden = lista.length > 0;
+}
+$('ctModo').addEventListener('click', e => {
+  const b = e.target.closest('[data-ctmodo]'); if (!b) return;
+  state.ctModo = b.dataset.ctmodo; renderDividas();
+});
+$('dvList').addEventListener('click', e => { const b = e.target.closest('[data-dv]'); if (b) openDivida(b.dataset.dv); });
+$('dvNew').onclick = () => openDivida(null);
+
+// formulário: os blocos mudam conforme a situação escolhida
+let dvForm = null;
+function proximaSugerida(d){
+  // próxima parcela ainda não paga = 1ª data + parcelas já pagas
+  if (!d || !d.proxima) return '';
+  const p = new Date(d.proxima + 'T12:00:00'); p.setMonth(p.getMonth() + Number(d.pagas || 0));
+  return p.toISOString().slice(0, 10);
+}
+function openDivida(id){
+  const d = id ? state.dividas.find(x => x.id === id) : null;
+  if (id && !d) return;
+  const e = d ? dvEstado(d) : null;
+  const v = (k, def = '') => d && d[k] != null ? d[k] : def;
+  const din = k => d && d[k] != null ? num(Number(d[k])) : '';
+  const sit0 = d ? e.sit : 'pagando';   // atraso já pago aparece como Pagando; parcelas acabaram, como Quitada
+  const restam0 = d && d.parcelas ? String(e.restam || d.parcelas) : '';
+  const prox0 = d ? (proximaSugerida(d) || '') : '';
+  dvForm = { id, sit: sit0, ini: null };
+  const campo = (idc, rot, html, opc) => `<div class="field"><label for="${idc}">${rot}${opc ? ' <span class="opc">(opcional)</span>' : ''}</label>${html}</div>`;
+  const inp = (idc, val, extra = '') => `<input class="input" id="${idc}" value="${esc(String(val))}" ${extra}>`;
+  const dinh = (idc, val) => inp(idc, val, 'inputmode="numeric" data-dinheiro placeholder="0,00" style="font-variant-numeric:tabular-nums;"');
+  const parcelas = (titulo, rotN) => `<div class="dv-bloco" data-dvparc><h4 id="dvParcTit">${titulo}</h4>
+      <div class="dv-g2">${campo('dvN', rotN, inp('dvN', restam0, 'inputmode="numeric" placeholder="ex.: 12"'))}${campo('dvPv', 'Valor da parcela (R$)', dinh('dvPv', din('parcela_valor')))}</div>
+      <div class="dv-g2">${campo('dvProx', 'Próxima parcela vence em', inp('dvProx', prox0, 'type="date"'))}${campo('dvJuros', 'Juros ao mês (%)', inp('dvJuros', d && d.juros != null ? String(d.juros).replace('.', ',') : '', 'inputmode="decimal" placeholder="ex.: 1,49"'), true)}</div></div>`;
+  openDlg2('Dívidas', d ? 'Editar dívida' : 'Nova dívida', `
+    <div class="dv-g2">${campo('dvNome', 'Nome', inp('dvNome', v('nome'), 'maxlength="60" placeholder="ex.: Financiamento do carro"'))}${campo('dvCredor', 'Com quem', inp('dvCredor', v('credor'), 'maxlength="60" placeholder="ex.: Banco, loja, pessoa"'), true)}</div>
+    ${campo('dvTipo', 'Tipo', `<select class="input" id="dvTipo">${Object.entries(DV_TIPO).map(([k, [ic, n]]) => `<option value="${k}"${v('tipo', 'outra') === k ? ' selected' : ''}>${ic} ${n}</option>`).join('')}</select>`)}
+    <div class="field"><span class="dv-rot" id="dvSitRot">Situação</span><div class="dv-sit" role="radiogroup" aria-labelledby="dvSitRot">
+      ${Object.entries(DV_SIT).map(([k, s]) => `<button type="button" role="radio" aria-checked="${k === sit0}" data-dvsit="${k}"><i aria-hidden="true">${s.ic}</i>${s.nome}</button>`).join('')}
+    </div></div>
+    <div data-dvb="atrasada"><div class="dv-bloco"><h4>O que está atrasado</h4>
+      <div class="dv-g2">${campo('dvAv', 'Valor em atraso (R$)', dinh('dvAv', din('atraso_valor')))}${campo('dvAd', 'Atrasado desde', inp('dvAd', v('atraso_desde'), 'type="date"'))}</div>
+      <p class="hint" style="margin:0;">Quando fechar um acordo, é só mudar a situação para <b>Em acordo</b>.</p></div></div>
+    <div data-dvb="acordo"><div class="dv-bloco"><h4>Detalhes do acordo</h4>
+      <div class="dv-g2">${campo('dvAa', 'Devia antes (R$)', dinh('dvAa', din('acordo_antes')), true)}${campo('dvAe', 'Entrada (R$)', dinh('dvAe', din('acordo_entrada')), true)}</div>
+      <p class="hint dv-econ" id="dvEcon" style="margin:0;"></p></div></div>
+    ${parcelas('Parcelas', 'Quantas parcelas faltam')}
+    <div data-dvb="negociando"><div class="dv-bloco"><h4>Negociação</h4>
+      ${campo('dvCob', 'Valor cobrado (R$)', dinh('dvCob', din('cobrado')))}
+      ${campo('dvProp', 'Proposta recebida', inp('dvProp', v('proposta'), 'maxlength="120" placeholder="ex.: R$ 380 à vista"'), true)}
+      <p class="hint" style="margin:0;">Ainda não vai para Contas a pagar. Quando fechar, mude para <b>Em acordo</b>.</p></div></div>
+    <div data-dvb="combinado"><div class="dv-bloco"><h4>O que foi combinado</h4>
+      <div class="dv-g2">${campo('dvCv', 'Valor (R$)', dinh('dvCv', din('combinado_valor')))}${campo('dvCa', 'Pagar até', inp('dvCa', v('combinado_ate'), 'type="date"'), true)}</div>
+      <p class="hint" style="margin:0;">Com data, aparece uma vez em Contas a pagar, no prazo.</p></div></div>
+    <div data-dvb="quitada"><div class="dv-bloco"><h4>Quitada 🎉</h4><p class="hint" style="margin:0;">As parcelas que ainda não foram pagas saem de Contas a pagar. O que já foi pago continua em Lançamentos.</p></div></div>
+    <label class="dv-chave" id="dvContasWrap"><input type="checkbox" id="dvContas" ${v('em_contas', true) ? 'checked' : ''}>
+      <span><b>Mostrar em Contas a pagar</b><small>As parcelas aparecem em Contas do mês para você marcar como pagas. A dívida anda sozinha.</small></span></label>
+    <p class="hint" style="margin:0;">🔒 Não pedimos número de contrato, CPF nem dados do banco.</p>
+    <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      ${d ? '<button class="btn btn-ghost btn-sm dv-excluir" type="button" data-dvx="excluir">Excluir dívida</button>' : '<span></span>'}
+      <span class="row" style="gap:8px;"><button class="btn btn-secondary" type="button" data-dvx="cancelar">Cancelar</button><button class="btn btn-primary" type="button" data-dvx="salvar">Salvar</button></span>
+    </div>`, { tipo: 'divida', id });
+  dvMostrar();
+  dvForm.ini = dvAssinatura();
+}
+function dvMostrar(){
+  const sit = dvForm.sit;
+  document.querySelectorAll('[data-dvsit]').forEach(b => b.setAttribute('aria-checked', String(b.dataset.dvsit === sit)));
+  document.querySelectorAll('[data-dvb]').forEach(b => {
+    const on = b.dataset.dvb === sit;
+    b.hidden = !on;
+  });
+  const comParcelas = ['pagando', 'atrasada', 'acordo'].includes(sit);
+  document.querySelector('[data-dvparc]').hidden = !comParcelas;
+  $('dvParcTit').textContent = sit === 'acordo' ? 'Parcelas do acordo' : sit === 'atrasada' ? 'Parcelas que ainda vão vencer' : 'Parcelas';
+  $('dvContasWrap').hidden = !['pagando', 'atrasada', 'acordo', 'combinado'].includes(sit);
+  dvEcon();
+}
+const dvCampo = idc => { const el = $(idc); return el ? el.value.trim() : ''; };
+function dvEcon(){
+  const el = $('dvEcon'); if (!el || dvForm.sit !== 'acordo') return;
+  const antes = parseAmount(dvCampo('dvAa')), ent = parseAmount(dvCampo('dvAe')) || 0;
+  const n = parseInt(dvCampo('dvN'), 10), pv = parseAmount(dvCampo('dvPv'));
+  if (!(antes > 0) || !(n > 0) || !(pv > 0)){ el.textContent = ''; return; }
+  const total = r2(ent + n * pv), dif = r2(antes - total);
+  el.innerHTML = dif > 0 ? `<b style="color:var(--green)">Você vai pagar ${brl(total)} · desconto de ${brl(dif)} (${Math.round(dif / antes * 100)}%)</b>`
+    : dif < 0 ? `<b style="color:var(--alerta)">Você vai pagar ${brl(total)} · ${brl(-dif)} a mais que antes</b>` : `Você vai pagar ${brl(total)}`;
+}
+// o que, se mudar, refaz as contas em Contas a pagar
+function dvAssinatura(){
+  const sit = dvForm.sit;
+  return JSON.stringify([sit, dvCampo('dvN'), dvCampo('dvPv'), dvCampo('dvProx'), dvCampo('dvAv'), dvCampo('dvAd'), dvCampo('dvCv'), dvCampo('dvCa'), $('dvContas').checked, $('dvNome').value.trim()]);
+}
+$('dlg2Body').addEventListener('input', e => { if (dlg2.tipo === 'divida') dvEcon(); });
+$('dlg2Body').addEventListener('click', async e => {
+  if (dlg2.tipo !== 'divida') return;
+  const s = e.target.closest('[data-dvsit]');
+  if (s){ dvForm.sit = s.dataset.dvsit; return dvMostrar(); }
+  const b = e.target.closest('[data-dvx]'); if (!b) return;
+  if (b.dataset.dvx === 'cancelar') return closeDlg2();
+  if (b.dataset.dvx === 'excluir'){
+    if (!await confirmar('Excluir esta dívida?\n\nAs parcelas que ainda não foram pagas saem de Contas a pagar. O que já foi pago continua em Lançamentos.', 'Excluir')) return;
+    b.disabled = true;
+    const { error } = await sb.rpc('excluir_divida', { p_id: dvForm.id });
+    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+    closeDlg2(); toast('Dívida excluída.', true);
+    if (await loadContas()) renderContas();
+    return;
+  }
+  // salvar
+  const sit = dvForm.sit, nome = $('dvNome').value.trim();
+  if (!nome) return toast('Dê um nome para a dívida.');
+  const dinh = idc => { const t = dvCampo(idc); if (!t) return null; const n = parseAmount(t); return n > 0 ? n : NaN; };
+  const p = { nome, credor: $('dvCredor').value.trim(), tipo: $('dvTipo').value, situacao: sit, em_contas: $('dvContas').checked };
+  if (['pagando', 'atrasada', 'acordo'].includes(sit)){
+    p.parcelas = parseInt(dvCampo('dvN'), 10); p.parcela_valor = dinh('dvPv'); p.proxima = dvCampo('dvProx');
+    const j = dvCampo('dvJuros').replace(',', '.'); p.juros = j ? Number(j) : null;
+    if (!(p.parcelas >= 1)) return toast('Informe quantas parcelas faltam.');
+    if (!(p.parcela_valor > 0)) return toast('Informe o valor da parcela.');
+    if (!p.proxima) return toast('Informe quando vence a próxima parcela.');
+    if (p.juros != null && !(p.juros >= 0 && p.juros <= 100)) return toast('Juros ao mês vai de 0 a 100%.');
+  }
+  if (sit === 'atrasada'){
+    p.atraso_valor = dinh('dvAv'); p.atraso_desde = dvCampo('dvAd');
+    if (!(p.atraso_valor > 0)) return toast('Informe o valor em atraso.');
+    if (!p.atraso_desde) return toast('Informe desde quando está atrasada.');
+  }
+  if (sit === 'acordo'){ p.acordo_antes = dinh('dvAa'); p.acordo_entrada = dinh('dvAe'); if (Number.isNaN(p.acordo_antes) || Number.isNaN(p.acordo_entrada)) return toast('Confira os valores do acordo.'); }
+  if (sit === 'negociando'){ p.cobrado = dinh('dvCob'); p.proposta = dvCampo('dvProp'); if (!(p.cobrado > 0)) return toast('Informe o valor cobrado.'); }
+  if (sit === 'combinado'){ p.combinado_valor = dinh('dvCv'); p.combinado_ate = dvCampo('dvCa') || null; if (!(p.combinado_valor > 0)) return toast('Informe o valor combinado.'); }
+  const refazer = !dvForm.id || dvAssinatura() !== dvForm.ini;
+  b.disabled = true;
+  const { error } = await sb.rpc('salvar_divida', { p_id: dvForm.id, cid: dvForm.id ? null : state.cid, p, p_refazer: refazer });
+  if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+  closeDlg2();
+  toast(dvForm.id ? 'Dívida atualizada.' : 'Dívida cadastrada.', true);
+  if (await loadContas()) renderContas();
+});

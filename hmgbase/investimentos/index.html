@@ -1158,6 +1158,42 @@ details.bot-info{padding:10px 14px}
   #dlg2.compacto .bot-topo span{font-size:13.5px}
   #dlg2.compacto .bot-pergunta{margin:0;font-size:15px}
 }
+
+/* Dívidas (dentro de Contas a pagar) */
+#ctMesResumo[hidden],#ctMes[hidden],#ctDiv[hidden],#ctModo[hidden],#dvAtrasoCard[hidden]{display:none !important}
+.ct-modo{display:grid;grid-template-columns:1fr 1fr;width:100%;max-width:420px;padding:0;gap:0;overflow:hidden}
+.ct-modo button{border-radius:0 !important;min-height:44px;box-shadow:none;font-weight:600}
+.ct-modo button[aria-pressed="true"]{background:#0e1525 !important;color:#fff !important}
+html[data-tema="escuro"] .ct-modo button[aria-pressed="true"]{background:var(--accent) !important;color:#0e1525 !important}
+.ct-modo-n{font-style:normal;background:var(--red);color:#fff;border-radius:99px;font-size:11px;padding:1px 6px;margin-left:4px}
+.dv-resumo{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.tag-blue{background:rgba(43,108,176,.14);color:#2b6cb0}
+html[data-tema="escuro"] .tag-blue{color:#90cdf4}
+.tag-amber{background:rgba(183,121,31,.16);color:#9c6216}
+html[data-tema="escuro"] .tag-amber{color:#f6c177}
+.tag-divida{background:rgba(var(--fg-rgb),.08);color:var(--muted)}
+.dv-list{display:flex;flex-direction:column}
+.dv-lin{display:flex;align-items:center;gap:12px;width:100%;padding:14px 4px;border:0;border-bottom:1px solid var(--divider);background:none;color:var(--fg);font:inherit;text-align:left;cursor:pointer;min-height:56px}
+.dv-lin:hover{background:rgba(var(--fg-rgb),.03)}
+.dv-tx{flex:1;min-width:0}.dv-tx b{display:block;font-size:15.5px;font-weight:600}
+.dv-tx small{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:4px;font-size:13px;color:var(--muted)}
+.dv-v{text-align:right;flex:none}.dv-v b{display:block;font-size:15.5px;font-variant-numeric:tabular-nums}.dv-v small{font-size:12px;color:var(--muted)}
+.dv-g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:420px){.dv-g2{grid-template-columns:1fr}}
+.dv-rot{display:block;font-size:14px;font-weight:500;margin-bottom:6px}
+.dv-sit{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.dv-sit button{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:56px;padding:8px 4px;border:1.5px solid var(--divider);border-radius:var(--r-btn);background:var(--card);color:var(--fg);font:600 13px var(--font-body);cursor:pointer}
+.dv-sit button i{font-style:normal;font-size:16px}
+.dv-sit button[aria-checked="true"]{background:#0e1525;border-color:#0e1525;color:#fff}
+html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--accent);border-color:var(--accent);color:#0e1525}
+.dv-bloco{border-left:3px solid var(--accent);padding:2px 0 2px 12px;display:flex;flex-direction:column;gap:10px}
+.dv-bloco h4{margin:0;font-size:13.5px;color:var(--muted);font-weight:600}
+.dv-bloco .field{margin:0}
+.opc{color:var(--muted);font-weight:400}
+.dv-chave{display:flex;gap:12px;align-items:flex-start;border:1.5px solid rgba(var(--accent-rgb),.7);background:rgba(var(--accent-rgb),.10);border-radius:var(--r-cartao);padding:10px 12px;cursor:pointer}
+.dv-chave input{width:20px;height:20px;margin-top:2px;flex:none;accent-color:var(--green)}
+.dv-chave b{display:block;font-size:14.5px}.dv-chave small{display:block;font-size:12.5px;color:var(--muted)}
+.dv-excluir{color:var(--alerta)}
 </style>
 </head>
 <body>
@@ -1499,7 +1535,11 @@ details.bot-info{padding:10px 14px}
 </div>
 
 <div id="tabContas" style="display:contents" hidden>
-  <section class="stats resumo">
+  <div class="seg ct-modo" id="ctModo" role="group" aria-label="O que ver" hidden>
+    <button type="button" data-ctmodo="mes" aria-pressed="true">Contas do mês</button>
+    <button type="button" data-ctmodo="div" aria-pressed="false">Dívidas <em class="ct-modo-n" id="ctModoAtraso" hidden></em></button>
+  </div>
+  <section class="stats resumo" id="ctMesResumo">
     <div class="stat stat-bal" id="billLeftCard">
       <span class="kicker">Falta pagar</span>
       <span class="big" id="billLeft">R$ 0,00</span>
@@ -1517,7 +1557,7 @@ details.bot-info{padding:10px 14px}
     </div>
   </section>
 
-  <section class="blueprint" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-3);">
+  <section class="blueprint" id="ctMes" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-3);">
     <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
       <h2 style="font-size:22px;text-transform:uppercase;">Contas do mês</h2>
       <button class="btn btn-primary" id="billNew" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Nova conta</button>
@@ -1525,6 +1565,30 @@ details.bot-info{padding:10px 14px}
     <div id="billList"></div>
     <div id="billEmpty" hidden style="padding:var(--space-6) 0;color:var(--muted);font-size:14px;"></div>
   </section>
+
+  <div id="ctDiv" style="display:contents" hidden>
+    <section class="stats resumo dv-resumo">
+      <div class="stat stat-bal">
+        <span class="kicker">Total que ainda devo</span>
+        <span class="big" id="dvTotal">R$ 0,00</span>
+        <span class="note" id="dvTotalNote"></span>
+      </div>
+      <div class="stat" id="dvAtrasoCard" hidden>
+        <span class="kicker">Atrasado</span>
+        <span class="big" id="dvAtraso" style="color:var(--alerta);">R$ 0,00</span>
+        <span class="note" id="dvAtrasoNote"></span>
+      </div>
+    </section>
+    <section class="blueprint" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-3);">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
+        <h2 style="font-size:22px;text-transform:uppercase;">Minhas dívidas</h2>
+        <button class="btn btn-primary" id="dvNew" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nova dívida</button>
+      </div>
+      <div id="dvList" class="dv-list"></div>
+      <div id="dvEmpty" hidden style="padding:var(--space-4) 0;color:var(--muted);font-size:14px;">Nenhuma dívida cadastrada. Financiamento, empréstimo, acordo, dinheiro emprestado de alguém: cadastre aqui e acompanhe até quitar. As parcelas aparecem sozinhas em Contas do mês.</div>
+      <p class="hint" style="margin:0;">Toque numa dívida para mudar a situação ou os detalhes.</p>
+    </section>
+  </div>
 </div>
 
 <div id="tabMetas" style="display:contents" hidden>
@@ -1777,6 +1841,6 @@ details.bot-info{padding:10px 14px}
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=3"></script>
-<script src="app.js?v=117"></script>
+<script src="app.js?v=118"></script>
 </body>
 </html>

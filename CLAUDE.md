@@ -16,7 +16,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Commits terminam com as linhas de coautoria que o ambiente indicar.
 
 ## Como publicar
-1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v117**) e `entender.js?v=N` (hoje **v3**) no `hmgbase/index.html`.
+1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v118**) e `entender.js?v=N` (hoje **v3**) no `hmgbase/index.html`.
 2. `python3 ferramentas/rotas.py hmgbase` (copia o index para as pastas das abas: lancamentos/, cartoes/, contas/, metas/, investimentos/).
 3. Commit + push em `main` → HMG no ar.
 4. Prod (só com ok): rodar da raiz `python3 ferramentas/promover.py` (gera index/app/privacidade/termos/tema.js/entender.js do prod, troca banco e chaves, tira os blocos `<!--BOT-->…<!--/BOT-->` da capa, põe o bot `@Praondefoi_bot`) → commit + push.
@@ -43,7 +43,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Janela do Detetive compacta (cabe na tela sem zoom).
 
 ## SQL (ordem no README.md, itens 19 a 33)
-- HMG já tem tudo até `supabase-liberacoes.sql`.
+- HMG já tem tudo até `supabase-liberacoes.sql`; falta rodar `supabase-dividas.sql` (Dívidas, em análise no HMG).
 - Prod rodou `supabase-alimentacao.sql` e o `supabase-prod-detetive-ia.sql` (junta whatsapp, bot-telegram, bot2…bot8, ia e liberacoes; pode rodar de novo).
 - Banco novo de testes: `supabase-hmg-tudo.sql`.
 
