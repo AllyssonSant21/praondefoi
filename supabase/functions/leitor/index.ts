@@ -483,8 +483,8 @@ const semVinculo = (canal: string) => [
   '🕵️ Oi! Eu sou o *Detetive Grana*, o assistente do *Pra Onde Foi?*',
   '',
   `Pra começar a investigação, ligue este ${canal} à sua conta:`,
-  '1. Abra o app → *Menu* → *Detetive Grana*',
-  `2. Toque em *Conectar ${canal}*`,
+  '1. Abra o app e toque na bolinha do *Detetive* (lupa, no canto da tela)',
+  `2. Toque em *${canal}*`,
   '3. É só enviar a mensagem que vai aparecer pronta 😉',
 ].join('\n');
 const NAO_ENTENDI = [
@@ -714,9 +714,18 @@ async function lerArquivoBot(c: Canal) {
     return c.enviar('🕵️ Não achei nenhum valor nesse arquivo. Tente uma foto mais nítida, ou mande por texto, tipo *mercado 50*.');
   }
   const lancs: Lanc[] = itens.map(i => ({ tipo: i.tipo, valor: i.valor, data: i.data, categoria: i.categoria, descricao: i.descricao, duvida: 'ia' }));
+  const restam = s.restam != null ? `\n_Leituras de foto/áudio restantes este mês: ${s.restam}._` : '';
+  // leitura clara: lança direto (dá para desfazer); só pergunta quando a IA ficou em dúvida
+  if (!itens.some(i => i.confianca === 'baixa')) {
+    for (const l of lancs) {
+      const r = await rpc('bot_lancar', { p_wa: c.id, p_tipo: l.tipo, p_desc: l.descricao, p_cat: l.categoria, p_valor: l.valor, p_data: l.data });
+      if (r?.erro) return c.enviar('Não consegui lançar agora 😕 Tente de novo daqui a pouco.');
+    }
+    const fim = lancs.length > 1 ? '\n\nAlgum errado? Apague no app, na aba Lançamentos.' : '';
+    return c.enviar(textoLancado(lancs, ctx.controle_nome, hoje) + fim + restam);
+  }
   await rpc('bot_pendente', { p_wa: c.id, p_pendente: { falta: 'confirmar', texto: '[arquivo]', cmd: { tipo: 'lancar', lancs } } });
-  return c.enviar(`🕵️ Li ${itens.length > 1 ? 'estes lançamentos' : 'assim'}:\n${resumoLanc(lancs, hoje)}\n\nConfirma? Responda *sim* ou *não*.` +
-    (s.restam != null ? `\n_Leituras de foto/áudio restantes este mês: ${s.restam}._` : ''));
+  return c.enviar(`🕵️ Li ${itens.length > 1 ? 'estes lançamentos' : 'assim'}:\n${resumoLanc(lancs, hoje)}\n\nConfirma? Responda *sim* ou *não*.` + restam);
 }
 
 export async function tratar(c: Canal) {
@@ -788,9 +797,9 @@ export async function tratar(c: Canal) {
   if (cmd.tipo === 'codigo') {
     const r = await rpc('bot_vincular', { p_wa: c.id, p_msg: c.msgId, p_codigo: cmd.codigo });
     if (r?.ok) return c.enviar(BOAS_VINDAS(r.nome ? r.nome.split(' ')[0] : '', r.controle_nome));
-    if (r?.erro === 'outro_numero') return c.enviar('🕵️ Esse código foi pedido pra outro celular. Confira o número no app (*Menu* → *Detetive Grana*) e tente de novo.');
+    if (r?.erro === 'outro_numero') return c.enviar('🕵️ Esse código foi pedido pra outro celular. Confira o número no app (bolinha do *Detetive*, no canto da tela) e tente de novo.');
     if (r?.erro === 'bloqueado') return c.enviar('⏳ Muitas tentativas com código errado. Espere 1 hora e gere um código novo no app.');
-    return c.enviar('❌ Esse código não vale (errado ou passou dos 15 minutos). Abra o app em *Menu* → *Detetive Grana* e toque em conectar de novo.');
+    return c.enviar('❌ Esse código não vale (errado ou passou dos 15 minutos). Abra o app, toque na bolinha do *Detetive* e em *Conectar* de novo.');
   }
   if (!ctx) return c.enviar(semVinculo(c.nome));
   if (!ctx.aprovado) return c.enviar('Sua conta ainda não está liberada no app. Assim que for aprovada, é só mandar de novo 🙂');
@@ -800,7 +809,7 @@ export async function tratar(c: Canal) {
     case 'nao_entendi': await anotar(texto, 'nao_entendi'); return c.enviar(NAO_ENTENDI);
     case 'cancelar': return c.enviar('Beleza 👍 Se quiser desfazer o último lançamento, mande *desfazer*.');
     case 'desligar':
-      return c.enviar(`Para desligar este ${c.nome} da sua conta, abra o app → *Menu* → *Detetive Grana* → *Desligar*.`);
+      return c.enviar(`Para desligar este ${c.nome} da sua conta, abra o app, toque na bolinha do *Detetive* e em *Desligar*.`);
     case 'desfazer': {
       const r = await rpc('bot_desfazer', { p_wa: c.id });
       if (r?.erro === 'conta_com_pagamento') return c.enviar('Essa conta já tem pagamento. Para apagar, use o app em *Contas a pagar*.');
