@@ -70,9 +70,28 @@ function parseAmount(s){
   const n = parseFloat(s);
   return isFinite(n) ? Math.round(n*100)/100 : NaN;
 }
-const fromRow = r => ({id:r.id, type:r.tipo, desc:r.descricao, cat:r.categoria, amount:Number(r.valor), date:r.data, uid:r.user_id});
+const fromRow = r => ({id:r.id, type:r.tipo, desc:r.descricao, cat:r.categoria, amount:Number(r.valor), date:r.data, uid:r.user_id, orig:r.origem || null});
 const toRow = e => ({tipo:e.type, descricao:e.desc, categoria:e.cat, valor:e.amount, data:e.date});
 const COLS = 'id,tipo,descricao,categoria,valor,data,user_id';
+// de onde veio o lançamento (Detetive no Telegram/WhatsApp, leitura por IA). Só existe depois do supabase-bot8.sql
+let temOrigem = null;
+const colsLanc = () => temOrigem ? COLS + ',origem' : COLS;
+async function checarOrigem(){
+  if (temOrigem !== null) return;
+  const { error } = await sb.from('lancamentos').select('origem').limit(1);
+  if (!error) temOrigem = true; else if (!ehRede(error)) temOrigem = false;
+}
+const ORIGEM_TXT = {
+  telegram: 'Lançado pelo Detetive no Telegram',
+  whatsapp: 'Lançado pelo Detetive no WhatsApp',
+  telegram_ia: 'Lido por IA: foto, PDF ou áudio enviado ao Detetive no Telegram',
+  whatsapp_ia: 'Lido por IA: foto, PDF ou áudio enviado ao Detetive no WhatsApp',
+};
+const ROBO = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4"/><circle cx="12" cy="3.5" r="1.2" fill="currentColor"/><circle cx="9" cy="14" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="14" r="1.3" fill="currentColor" stroke="none"/><path d="M2 13v3M22 13v3"/></svg>';
+const origemSelo = (e, onde) => {
+  const t = e.orig && ORIGEM_TXT[e.orig];
+  return t ? `<button type="button" class="lorig lorig-${onde}" aria-label="${esc(t)}">${ROBO}<span class="bal" role="tooltip">🤖 ${esc(t)}</span></button>` : '';
+};
 
 // ---------- telas ----------
 const VIEWS = ['viewSetup','viewLoading','viewAuth','viewWait','viewApp','viewAdmin'];
@@ -395,7 +414,7 @@ async function handleSession(session, force){
   show('viewApp');
   render();
   startRealtime();
-  checarBot();
+  checarBot(); checarIA();
   modoSemInternet = false;
   gravarFoto();
   enviarFila();
@@ -471,7 +490,8 @@ async function loadEntries(){
   const all = [];
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE){
-    const { data, error } = await sb.from('lancamentos').select(COLS)
+    if (temOrigem === null) await checarOrigem();
+    const { data, error } = await sb.from('lancamentos').select(colsLanc())
       .eq('controle_id', state.cid).gte('data', start).lt('data', end)
       .order('data', { ascending: false }).order('criado_em', { ascending: false })
       .range(from, from + PAGE - 1);
@@ -943,16 +963,16 @@ const catsCtl = () => categorias.filter(c => !c.oculta).map(c => ({ nome: c.nome
 const catValida = (tipo, nome) => listaCats(tipo).includes(nome) ? nome : 'Outros';
 function rpItem(o){ return { nota: o.nota || '', sel: !o.dup && !o.nota, type: o.type, desc: String(o.desc || '').slice(0, 200), amount: Math.round(o.amount * 100) / 100, date: o.date, cat: catValida(o.type, o.cat), dup: !!o.dup }; }
 
-function openRapido(){
+function openRapido(aba){
   if (!PE()) return toast('Não deu para abrir agora. Atualize a página.');
   if (!state.cid) return toast('Escolha um controle primeiro.');
-  rp = { aba: 'texto', itens: [], aviso: '', ouvindo: null, arquivo: '', ia: null, lendo: false, gravador: null };
+  rp = { aba: ['texto', 'extrato', iaDisponivel ? 'ia' : ''].includes(aba) ? aba : 'texto', itens: [], aviso: '', ouvindo: null, arquivo: '', ia: null, lendo: false, gravador: null };
   openDlg2('Lançar rápido', 'Do jeito mais fácil pra você', '', { tipo: 'rapido', largo: true });
   renderRapido();
   carregarDic();
   sb.rpc('ia_meu_saldo').then(r => { if (!r.error && r.data){ rp.ia = r.data; if (rp.aba === 'ia') renderRapido(); } }, () => {});
 }
-$('btnRapido').onclick = openRapido;
+document.querySelectorAll('[data-rp-abrir]').forEach(b => b.addEventListener('click', () => openRapido(b.dataset.rpAbrir)));
 
 function renderRapido(){
   if (dlg2.tipo !== 'rapido') return;
@@ -962,7 +982,7 @@ function renderRapido(){
     <div class="seg rp-abas" role="group" aria-label="Como lançar">
       <button type="button" data-rp-aba="texto" aria-pressed="${rp.aba === 'texto'}">Texto ou voz</button>
       <button type="button" data-rp-aba="extrato" aria-pressed="${rp.aba === 'extrato'}">Extrato</button>
-      <button type="button" data-rp-aba="ia" aria-pressed="${rp.aba === 'ia'}">Foto, PDF, áudio</button>
+      ${iaDisponivel ? `<button type="button" data-rp-aba="ia" aria-pressed="${rp.aba === 'ia'}">Foto, PDF, áudio</button>` : ''}
     </div>
     ${rp.aba === 'texto' ? `
       <div style="display:flex;flex-direction:column;gap:10px;">
@@ -1404,7 +1424,7 @@ $('dlg2Body').addEventListener('click', async e => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return toast('Escolha a data.');
   b.disabled = true;
   const novo = { type: dlg2.letipo, desc, cat: $('leCat').value, amount: valor, date: data };
-  const { data: row, error } = await sb.from('lancamentos').update(toRow(novo)).eq('id', dlg2.id).select(COLS).single();
+  const { data: row, error } = await sb.from('lancamentos').update(toRow(novo)).eq('id', dlg2.id).select(colsLanc()).single();
   if (error || !row){ b.disabled = false; return toast('Não foi possível salvar. Tente de novo.'); }
   const i = state.entries.findIndex(x => x.id === dlg2.id);
   if (i >= 0) state.entries[i] = fromRow(row);
@@ -1599,7 +1619,7 @@ function render(){
     return `
     <tr>
       <td style="color:var(--muted);">${e.date.slice(8,10)}/${e.date.slice(5,7)}</td>
-      <td><span class="ldesc">${esc(e.desc)}</span>${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<div class="lmeta">${e.date.slice(8,10)}/${e.date.slice(5,7)} · ${esc(rotuloCat(e.cat))}${shared ? ` · ${mine ? 'você' : esc(nameOf(e.uid))}` : ''}</div><span class="tag cat-inline ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
+      <td><span class="ldesc">${esc(e.desc)}</span>${origemSelo(e, 'd')}${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<div class="lmeta">${e.date.slice(8,10)}/${e.date.slice(5,7)} · ${esc(rotuloCat(e.cat))}${shared ? ` · ${mine ? 'você' : esc(nameOf(e.uid))}` : ''}${origemSelo(e, 'm')}</div><span class="tag cat-inline ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
       <td><span class="tag ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
       <td style="text-align:right;white-space:nowrap;font-weight:500;color:${e.type === 'inc' ? 'var(--green)' : 'var(--out)'};">${e.type === 'inc' ? '+ ' : '− '}${brl(e.amount)}</td>
       <td style="text-align:right;white-space:nowrap;">${e.pend ? `<span class="pend-tag" title="Será enviado quando a internet voltar">⏳ aguardando</span><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : mine ? `<button class="btn btn-ghost btn-icon" data-edit="${esc(e.id)}" style="color:var(--muted);" aria-label="Editar ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</td>
@@ -4083,6 +4103,15 @@ const msgWa = cod => `Oi, Detetive Grana! 🕵️ Quero ativar meu bot. Código:
 
 // mostra o item do menu e a bolinha do Detetive (só se o banco tem o bot)
 let botBalTimer = null;
+// leitura por IA e limites só aparecem quando o banco já tem o supabase-ia.sql
+let iaDisponivel = false;
+async function checarIA(){
+  const { error } = await sb.rpc('ia_meu_saldo');
+  iaDisponivel = !error;
+  $('rpAbrirIa').hidden = !iaDisponivel;
+  document.querySelector('.rp-d-bt').classList.toggle('dois', !iaDisponivel);
+  $('drLimites').hidden = !iaDisponivel && !BOT_LIGADO;
+}
 async function checarBot(){
   if (!BOT_LIGADO) return;   // prod: o bot ainda não foi lançado
   const { data, error } = await sb.rpc('whatsapp_meu');
@@ -4894,3 +4923,10 @@ if (!sb){
 
 // ícones desenhados são só enfeite: o leitor de tela lê o texto do botão
 document.querySelectorAll('svg:not([aria-hidden])').forEach(s => s.setAttribute('aria-hidden', 'true'));
+
+// robozinho: no computador o aviso aparece ao passar o mouse; no celular, ao tocar
+document.addEventListener('click', e => {
+  const b = e.target.closest('.lorig');
+  document.querySelectorAll('.lorig.on').forEach(x => { if (x !== b) x.classList.remove('on'); });
+  if (b) b.classList.toggle('on');
+});

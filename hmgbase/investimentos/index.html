@@ -176,7 +176,6 @@
   #viewApp:has(#botFab:not([hidden])){padding-bottom:72px}
   .bot-topo .det-logo{width:44px;height:44px;flex:none}
   #dlg2.largo .dlg{width:min(880px,100%)}
-  .rp-abrir{display:flex;justify-content:flex-start}
   .rp-abas{align-self:stretch;max-width:100%;overflow-x:auto;flex-wrap:nowrap}.rp-abas button{white-space:nowrap;flex:1}
   .rp-texto{width:100%;min-height:96px;resize:vertical;font:inherit;line-height:1.45}
   .rp-acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -1100,6 +1099,25 @@ a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
 .bot-info dl{margin:0;font-size:13.5px}
 .bot-info dt{font-weight:700}.bot-info dd{margin:2px 0 0;color:var(--muted)}.bot-info dd+dt{margin-top:10px}
 .bot-canal small .ok{color:var(--green);font-weight:700}
+
+/* robozinho: lançamento feito pelo Detetive */
+.lorig{position:relative;display:inline-grid;place-items:center;width:24px;height:24px;margin-left:6px;vertical-align:-5px;border:0;border-radius:6px;background:rgba(var(--accent-rgb),.16);color:var(--accent-text);cursor:pointer;padding:0}
+.lorig .bal{display:none;position:absolute;left:-6px;top:calc(100% + 8px);width:max-content;max-width:230px;background:#0e1525;color:#fff;font-size:12.5px;font-weight:500;line-height:1.35;text-align:left;padding:8px 10px;border-radius:8px;box-shadow:0 8px 20px rgba(0,0,0,.2);z-index:20;white-space:normal}
+.lorig .bal:after{content:"";position:absolute;left:12px;bottom:100%;border:6px solid transparent;border-bottom-color:#0e1525}
+.lorig.on .bal,.lorig:focus-visible .bal{display:block}
+@media (hover:hover){.lorig:hover .bal{display:block}}
+.lorig-m{display:none}
+@media (max-width:560px){#rows .lorig-d{display:none}#rows .lorig-m{display:inline-grid}}
+
+/* Lançar rápido em destaque no topo do "Novo lançamento" */
+.rp-destaque{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:var(--r-cartao);background:rgba(var(--accent-rgb),.14);border:1.5px solid rgba(var(--accent-rgb),.55)}
+.rp-d-tx b{display:block;font-size:17px}.rp-d-tx span{font-size:13.5px;color:var(--muted)}
+.rp-d-bt{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.rp-d-op{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:76px;padding:10px 6px;border-radius:var(--r-btn);border:1.5px solid var(--divider);background:var(--card);color:var(--fg);font:600 13px var(--font-body);text-align:center;cursor:pointer}
+.rp-d-op:hover{border-color:var(--accent)}
+.rp-d-op svg{color:var(--accent-text)}
+.rp-d-bt.dois{grid-template-columns:repeat(2,1fr)}
+@media (min-width:900px){.rp-destaque{flex-direction:row;align-items:center;justify-content:space-between;gap:20px}.rp-d-bt{min-width:460px}.rp-d-op{min-height:58px;flex-direction:row;gap:8px}}
 </style>
 </head>
 <body>
@@ -1308,6 +1326,14 @@ a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
         <button type="button" data-type="inc" aria-pressed="false">Entrada</button>
       </div>
     </div>
+    <div class="rp-destaque" id="rpDestaque">
+      <div class="rp-d-tx"><b>Lançar rápido</b><span>Fale, escreva ou mande a foto da nota. Vários lançamentos de uma vez.</span></div>
+      <div class="rp-d-bt dois">
+        <button type="button" class="rp-d-op" data-rp-abrir="texto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>Falar ou escrever</span></button>
+        <button type="button" class="rp-d-op" data-rp-abrir="ia" id="rpAbrirIa" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Foto, PDF ou áudio</span></button>
+        <button type="button" class="rp-d-op" data-rp-abrir="extrato"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg><span>Extrato do banco</span></button>
+      </div>
+    </div>
     <div class="vinc-row">
       <label class="vinc" id="vincWrap"><span>Usar para</span>
         <select class="input" id="vinc"></select>
@@ -1343,7 +1369,6 @@ a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Adicionar
       </button>
     </form>
-    <div class="rp-abrir"><button class="btn btn-secondary btn-sm" id="btnRapido" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Lançar por voz, texto ou extrato</button></div>
     <span id="kcHint" class="by kc-hint" hidden></span>
     <span id="error" style="font-size:13px;color:var(--alerta);" hidden></span>
   </section>
@@ -1683,7 +1708,7 @@ a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
       <button class="drawer-item" id="drControles" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Meus controles</button>
       <button class="drawer-item" id="drCategorias" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Minhas categorias</button>
       <button class="drawer-item" id="drPerfil" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Meu perfil</button>
-      <button class="drawer-item" id="drLimites" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-5"/></svg>Limites</button>
+      <button class="drawer-item" id="drLimites" type="button" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-5"/></svg>Limites</button>
       <button class="drawer-item" id="drDados" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>Seus dados e privacidade</button>
       <button class="drawer-item" data-changepass type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/></svg>Trocar senha</button>
       <button class="drawer-item sair" data-logout type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>Sair</button>
@@ -1709,6 +1734,6 @@ a.bot-canal:hover{background:rgba(var(--fg-rgb),.03)}
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=3"></script>
-<script src="app.js?v=110"></script>
+<script src="app.js?v=111"></script>
 </body>
 </html>
