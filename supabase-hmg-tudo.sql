@@ -4255,7 +4255,10 @@ begin
   if cid is null or not public.eh_membro(cid) then raise exception 'Você não participa deste controle.'; end if;
   if char_length(n) not between 1 and 60 then raise exception 'O nome precisa ter de 1 a 60 caracteres.'; end if;
   if sit is null or sit not in ('pagando','atrasada','acordo','negociando','combinado','quitada') then raise exception 'Escolha a situação.'; end if;
-  if sit in ('pagando','atrasada','acordo') then
+  -- atrasada: as parcelas que ainda vão vencer são opcionais (ex.: cartão atrasado sem parcelas)
+  if sit = 'atrasada' and pv is null and pn is null and px is null then
+    null;
+  elsif sit in ('pagando','atrasada','acordo') then
     if pv is null or pv <= 0 then raise exception 'Informe o valor da parcela.'; end if;
     if pn is null or pn not between 1 and 480 then raise exception 'Informe quantas parcelas faltam (1 a 480).'; end if;
     if px is null or abs(px - current_date) > 3660 then raise exception 'Informe a data da próxima parcela.'; end if;
@@ -4297,7 +4300,7 @@ begin
     perform public.divida_aposentar_conta(d.conta_atraso_id);
     update public.dividas set conta_id = null, conta_atraso_id = null where id = nid;
     if emc then
-      if sit in ('pagando','atrasada','acordo') then
+      if sit in ('pagando','atrasada','acordo') and pv is not null then
         update public.dividas set conta_id = public.divida_nova_conta(cid, n, pv, px, pn) where id = nid;
       elsif sit = 'combinado' and ca is not null then
         update public.dividas set conta_id = public.divida_nova_conta(cid, n || ' (combinado)', cv, ca, 1) where id = nid;

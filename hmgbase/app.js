@@ -5038,7 +5038,7 @@ function dvEstado(d){
   const restam = Math.max(0, n - pagas);
   const atrasoFalta = d.situacao === 'atrasada' ? Math.max(0, r2(Number(d.atraso_valor || 0) - Number(d.atraso_pago || 0))) : 0;
   let sit = d.situacao;
-  if (sit === 'atrasada' && atrasoFalta <= 0) sit = 'pagando';
+  if (sit === 'atrasada' && atrasoFalta <= 0) sit = n ? 'pagando' : 'quitada';   // sem parcelas: pagou o atraso, acabou
   if (['pagando', 'acordo'].includes(sit) && n && restam === 0) sit = 'quitada';
   const falta = sit === 'quitada' ? 0
     : sit === 'negociando' ? Number(d.cobrado || 0)
@@ -5112,8 +5112,8 @@ function openDivida(id){
   const inp = (idc, val, extra = '') => `<input class="input" id="${idc}" value="${esc(String(val))}" ${extra}>`;
   const dinh = (idc, val) => inp(idc, val, 'inputmode="numeric" data-dinheiro placeholder="0,00" style="font-variant-numeric:tabular-nums;"');
   const parcelas = (titulo, rotN) => `<div class="dv-bloco" data-dvparc><h4 id="dvParcTit">${titulo}</h4>
-      <div class="dv-g2">${campo('dvN', rotN, inp('dvN', restam0, 'inputmode="numeric" placeholder="ex.: 12"'))}${campo('dvPv', 'Valor da parcela (R$)', dinh('dvPv', din('parcela_valor')))}</div>
-      <div class="dv-g2">${campo('dvProx', 'Próxima parcela vence em', inp('dvProx', prox0, 'type="date"'))}${campo('dvJuros', 'Juros ao mês (%)', inp('dvJuros', d && d.juros != null ? String(d.juros).replace('.', ',') : '', 'inputmode="decimal" placeholder="ex.: 1,49"'), true)}</div></div>`;
+      <div class="dv-g2">${campo('dvN', rotN + ' <span class="opc opc-sit">(opcional)</span>', inp('dvN', restam0, 'inputmode="numeric" placeholder="ex.: 12"'))}${campo('dvPv', 'Valor da parcela (R$) <span class="opc opc-sit">(opcional)</span>', dinh('dvPv', din('parcela_valor')))}</div>
+      <div class="dv-g2">${campo('dvProx', 'Próxima parcela vence em <span class="opc opc-sit">(opcional)</span>', inp('dvProx', prox0, 'type="date"'))}${campo('dvJuros', 'Juros ao mês (%)', inp('dvJuros', d && d.juros != null ? String(d.juros).replace('.', ',') : '', 'inputmode="decimal" placeholder="ex.: 1,49"'), true)}</div></div>`;
   openDlg2('Dívidas', d ? 'Editar dívida' : 'Nova dívida', `
     <div class="dv-g2">${campo('dvNome', 'Nome', inp('dvNome', v('nome'), 'maxlength="60" placeholder="ex.: Financiamento do carro"'))}${campo('dvCredor', 'Com quem', inp('dvCredor', v('credor'), 'maxlength="60" placeholder="ex.: Banco, loja, pessoa"'), true)}</div>
     ${campo('dvTipo', 'Tipo', `<select class="input" id="dvTipo">${Object.entries(DV_TIPO).map(([k, [ic, n]]) => `<option value="${k}"${v('tipo', 'outra') === k ? ' selected' : ''}>${ic} ${n}</option>`).join('')}</select>`)}
@@ -5154,7 +5154,8 @@ function dvMostrar(){
   });
   const comParcelas = ['pagando', 'atrasada', 'acordo'].includes(sit);
   document.querySelector('[data-dvparc]').hidden = !comParcelas;
-  $('dvParcTit').textContent = sit === 'acordo' ? 'Parcelas do acordo' : sit === 'atrasada' ? 'Parcelas que ainda vão vencer' : 'Parcelas';
+  $('dvParcTit').innerHTML = sit === 'acordo' ? 'Parcelas do acordo' : sit === 'atrasada' ? 'Parcelas que ainda vão vencer <span class="opc">(opcional, se tiver)</span>' : 'Parcelas';
+  document.querySelectorAll('[data-dvparc] .opc-sit').forEach(x => { x.hidden = sit !== 'atrasada'; });
   $('dvContasWrap').hidden = !['pagando', 'atrasada', 'acordo', 'combinado'].includes(sit);
   dvEcon();
 }
@@ -5194,10 +5195,12 @@ $('dlg2Body').addEventListener('click', async e => {
   if (!nome) return toast('Dê um nome para a dívida.');
   const dinh = idc => { const t = dvCampo(idc); if (!t) return null; const n = parseAmount(t); return n > 0 ? n : NaN; };
   const p = { nome, credor: $('dvCredor').value.trim(), tipo: $('dvTipo').value, situacao: sit, em_contas: $('dvContas').checked };
-  if (['pagando', 'atrasada', 'acordo'].includes(sit)){
+  // atrasada: parcelas que ainda vão vencer são opcionais (tudo em branco = só o valor atrasado)
+  const semParcelas = sit === 'atrasada' && !dvCampo('dvN') && !dvCampo('dvPv') && !dvCampo('dvProx');
+  if (['pagando', 'atrasada', 'acordo'].includes(sit) && !semParcelas){
     p.parcelas = parseInt(dvCampo('dvN'), 10); p.parcela_valor = dinh('dvPv'); p.proxima = dvCampo('dvProx');
     const j = dvCampo('dvJuros').replace(',', '.'); p.juros = j ? Number(j) : null;
-    if (!(p.parcelas >= 1)) return toast('Informe quantas parcelas faltam.');
+    if (!(p.parcelas >= 1)) return toast(sit === 'atrasada' ? 'Informe quantas parcelas faltam, ou deixe as parcelas em branco.' : 'Informe quantas parcelas faltam.');
     if (!(p.parcela_valor > 0)) return toast('Informe o valor da parcela.');
     if (!p.proxima) return toast('Informe quando vence a próxima parcela.');
     if (p.juros != null && !(p.juros >= 0 && p.juros <= 100)) return toast('Juros ao mês vai de 0 a 100%.');
