@@ -5030,7 +5030,8 @@ const DV_SIT = {
   quitada:    { ic: '✅', nome: 'Quitada',    tag: 'tag-neutral' },
 };
 const DV_TIPO = { emprestimo: ['🏦', 'Empréstimo'], financiamento: ['🚗', 'Financiamento'], cartao: ['💳', 'Cartão / cheque esp.'], pessoa: ['👤', 'Com alguém'], outra: ['📦', 'Outra'] };
-const dvDia = s => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : '';
+// dia/mês; mostra o ano quando não é o ano atual
+const dvDia = s => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}${s.slice(0, 4) !== todayISO().slice(0, 4) ? '/' + s.slice(0, 4) : ''}` : '';
 const dvDiaAno = s => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : '';
 // situação "de verdade": atrasada com o atraso já pago volta a ser "pagando"; parcelas acabaram = quitada
 function dvEstado(d){
@@ -5196,12 +5197,14 @@ $('dlg2Body').addEventListener('click', async e => {
   const dinh = idc => { const t = dvCampo(idc); if (!t) return null; const n = parseAmount(t); return n > 0 ? n : NaN; };
   const p = { nome, credor: $('dvCredor').value.trim(), tipo: $('dvTipo').value, situacao: sit, em_contas: $('dvContas').checked };
   // atrasada: parcelas que ainda vão vencer são opcionais (tudo em branco = só o valor atrasado)
-  const semParcelas = sit === 'atrasada' && !dvCampo('dvN') && !dvCampo('dvPv') && !dvCampo('dvProx');
+  // (só conta como preenchido número de parcelas ou valor maior que zero; data sozinha ou "0" não obrigam nada)
+  const temN = parseInt(dvCampo('dvN'), 10) > 0, temPv = parseAmount(dvCampo('dvPv')) > 0;
+  const semParcelas = sit === 'atrasada' && !temN && !temPv;
   if (['pagando', 'atrasada', 'acordo'].includes(sit) && !semParcelas){
     p.parcelas = parseInt(dvCampo('dvN'), 10); p.parcela_valor = dinh('dvPv'); p.proxima = dvCampo('dvProx');
     const j = dvCampo('dvJuros').replace(',', '.'); p.juros = j ? Number(j) : null;
     if (!(p.parcelas >= 1)) return toast(sit === 'atrasada' ? 'Informe quantas parcelas faltam, ou deixe as parcelas em branco.' : 'Informe quantas parcelas faltam.');
-    if (!(p.parcela_valor > 0)) return toast('Informe o valor da parcela.');
+    if (!(p.parcela_valor > 0)) return toast(sit === 'atrasada' ? 'Informe o valor da parcela, ou deixe as parcelas em branco.' : 'Informe o valor da parcela.');
     if (!p.proxima) return toast('Informe quando vence a próxima parcela.');
     if (p.juros != null && !(p.juros >= 0 && p.juros <= 100)) return toast('Juros ao mês vai de 0 a 100%.');
   }
@@ -5209,6 +5212,7 @@ $('dlg2Body').addEventListener('click', async e => {
     p.atraso_valor = dinh('dvAv'); p.atraso_desde = dvCampo('dvAd');
     if (!(p.atraso_valor > 0)) return toast('Informe o valor em atraso.');
     if (!p.atraso_desde) return toast('Informe desde quando está atrasada.');
+    if (p.atraso_desde > todayISO()) return toast('A data do atraso precisa ser de hoje para trás.');
   }
   if (sit === 'acordo'){ p.acordo_antes = dinh('dvAa'); p.acordo_entrada = dinh('dvAe'); if (Number.isNaN(p.acordo_antes) || Number.isNaN(p.acordo_entrada)) return toast('Confira os valores do acordo.'); }
   if (sit === 'negociando'){ p.cobrado = dinh('dvCob'); p.proposta = dvCampo('dvProp'); if (!(p.cobrado > 0)) return toast('Informe o valor cobrado.'); }

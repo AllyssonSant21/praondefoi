@@ -4265,7 +4265,8 @@ begin
   end if;
   if sit = 'atrasada' then
     if av is null or av <= 0 then raise exception 'Informe o valor em atraso.'; end if;
-    if ad is null or ad > current_date or current_date - ad > 3660 then raise exception 'Informe desde quando está atrasada.'; end if;
+    if ad is null then raise exception 'Informe desde quando está atrasada.'; end if;
+    if ad > current_date or current_date - ad > 18263 then raise exception 'A data do atraso precisa ser de hoje para trás (até 50 anos).'; end if;
   end if;
   if sit = 'negociando' and coalesce(nullif(p->>'cobrado', '')::numeric, 0) <= 0 then raise exception 'Informe o valor cobrado.'; end if;
   if sit = 'combinado' and (cv is null or cv <= 0) then raise exception 'Informe o valor combinado.'; end if;
