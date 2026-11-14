@@ -5087,7 +5087,7 @@ $('ctModo').addEventListener('click', e => {
   const b = e.target.closest('[data-ctmodo]'); if (!b) return;
   state.ctModo = b.dataset.ctmodo; renderDividas();
 });
-$('dvList').addEventListener('click', e => { const b = e.target.closest('[data-dv]'); if (b) openDivida(b.dataset.dv); });
+$('dvList').addEventListener('click', e => { const b = e.target.closest('[data-dv]'); if (b) openDividaResumo(b.dataset.dv); });
 $('dvNew').onclick = () => openDivida(null);
 
 // formulário: os blocos mudam conforme a situação escolhida
@@ -5098,13 +5098,13 @@ function proximaSugerida(d){
   const p = new Date(d.proxima + 'T12:00:00'); p.setMonth(p.getMonth() + Number(d.pagas || 0));
   return p.toISOString().slice(0, 10);
 }
-function openDivida(id){
+function openDivida(id, sitForcada){
   const d = id ? state.dividas.find(x => x.id === id) : null;
   if (id && !d) return;
   const e = d ? dvEstado(d) : null;
   const v = (k, def = '') => d && d[k] != null ? d[k] : def;
   const din = k => d && d[k] != null ? num(Number(d[k])) : '';
-  const sit0 = d ? e.sit : 'pagando';   // atraso já pago aparece como Pagando; parcelas acabaram, como Quitada
+  const sit0 = sitForcada || (d ? e.sit : 'pagando');   // atraso já pago aparece como Pagando; parcelas acabaram, como Quitada
   const restam0 = d && d.parcelas ? String(e.restam || d.parcelas) : '';
   const prox0 = d ? (proximaSugerida(d) || '') : '';
   dvForm = { id, sit: sit0, ini: null };
@@ -5220,4 +5220,167 @@ $('dlg2Body').addEventListener('click', async e => {
   closeDlg2();
   toast(dvForm.id ? 'Dívida atualizada.' : 'Dívida cadastrada.', true);
   if (await loadContas()) renderContas();
+});
+
+
+/* ---------- Dívida: resumo com "O que aconteceu?" ---------- */
+const DV_ACOES = {
+  quitar:   ['✅', 'Quitei', 'Paguei tudo, com ou sem desconto'],
+  antes:    ['✅', 'Quitei antes', 'Paguei o que faltava de uma vez'],
+  acordo:   ['🤝', 'Fechei um acordo', 'Parcelei ou consegui desconto'],
+  reneg:    ['🤝', 'Renegociei', 'Mudaram as parcelas ou o valor'],
+  parte:    ['💸', 'Paguei uma parte', 'Abati um valor'],
+  negociar: ['💬', 'Estou negociando', 'Recebi ou pedi uma proposta'],
+  atrasei:  ['🔴', 'Atrasei', 'Deixei de pagar uma parcela'],
+};
+const DV_POR_SIT = {
+  atrasada:   ['quitar', 'acordo', 'parte', 'negociar'],
+  pagando:    ['antes', 'reneg', 'atrasei'],
+  acordo:     ['quitar', 'atrasei', 'reneg'],
+  negociando: ['acordo', 'quitar', 'parte'],
+  combinado:  ['quitar', 'parte', 'acordo'],
+  quitada:    [],
+};
+function openDividaResumo(id){
+  const d = state.dividas.find(x => x.id === id); if (!d) return;
+  const e = dvEstado(d), st = DV_SIT[e.sit], [ic, tipoNome] = DV_TIPO[d.tipo] || DV_TIPO.outra;
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dias = d.atraso_desde ? Math.round((hoje - new Date(d.atraso_desde + 'T00:00:00')) / 86400000) : 0;
+  const sub = e.sit === 'atrasada' ? `Atrasada desde ${dvDia(d.atraso_desde)}${dias > 0 ? ` · há ${plural(dias, 'dia')}` : ''}`
+    : ['pagando', 'acordo'].includes(e.sit) ? `Faltam ${e.restam} de ${brl(Number(d.parcela_valor))}`
+    : e.sit === 'negociando' ? (d.proposta ? `Proposta: ${esc(d.proposta)}` : 'Aguardando proposta')
+    : e.sit === 'combinado' ? (d.combinado_ate ? `Pagar até ${dvDiaAno(d.combinado_ate)}` : 'Sem data combinada')
+    : d.quitada_em ? `Quitada em ${dvDiaAno(d.quitada_em)}${d.quitada_valor ? ` por ${brl(Number(d.quitada_valor))}` : ''}` : 'Quitada';
+  const emContas = [];
+  if (e.atrasoFalta > 0 && d.conta_atraso_id) emContas.push(`${brl(e.atrasoFalta)} vencido`);
+  if (e.restam > 0 && d.conta_id) emContas.push(`${e.restam} × ${brl(Number(d.parcela_valor))}`);
+  if (e.sit === 'combinado' && d.conta_id) emContas.push(`no prazo`);
+  const acoes = DV_POR_SIT[e.sit] || [];
+  const evs = Array.isArray(d.eventos) ? d.eventos : null;
+  openDlg2(`Dívida · ${tipoNome}`, `${ic} ${d.nome}`, `
+    <div class="dv-hero">
+      <div class="dv-hero-t"><div><small>${e.sit === 'negociando' ? 'Valor cobrado' : e.sit === 'quitada' ? 'Situação' : 'Falta pagar'}</small><b>${e.sit === 'quitada' ? 'Quitada 🎉' : brl(e.falta)}</b></div><span class="tag ${st.tag}">${st.nome}</span></div>
+      <small>${sub}</small>
+    </div>
+    <div>
+      ${d.credor ? `<div class="kv"><span>Com quem</span><b>${esc(d.credor)}</b></div>` : ''}
+      ${d.juros != null ? `<div class="kv"><span>Juros</span><b>${String(d.juros).replace('.', ',')}% ao mês</b></div>` : ''}
+      ${e.sit !== 'quitada' ? `<div class="kv"><span>Em Contas a pagar</span><b>${emContas.length ? emContas.join(' + ') : 'nada'}</b></div>` : ''}
+    </div>
+    ${acoes.length ? `<div><span class="dv-rot">O que aconteceu?</span><div class="dv-acoes">
+      ${acoes.map((a, k) => { const [i, n, t] = DV_ACOES[a]; return `<button type="button" class="dv-acao${k < 2 ? ' pri' : ''}" data-dva="${a}"><b>${i} ${n}</b><small>${t}</small></button>`; }).join('')}
+    </div></div>` : ''}
+    ${evs && evs.length ? `<div class="dv-hist"><b>Histórico</b>${evs.map(x => `<div><span>${dvDia(x.quando)}</span>${esc(x.texto)}</div>`).join('')}</div>` : ''}
+    <div class="row" style="justify-content:space-between;align-items:center;">
+      <button class="btn btn-ghost btn-sm" type="button" data-dva="editar">${e.sit === 'quitada' ? 'Reabrir / editar' : 'Editar detalhes'}</button>
+      <button class="btn btn-secondary" type="button" data-dva="fechar">Fechar</button>
+    </div>`, { tipo: 'dvresumo', id });
+}
+function dvPasso(acao, d){
+  const e = dvEstado(d), hoje = todayISO();
+  const voltar = `<div class="row" style="justify-content:flex-end;gap:8px;"><button class="btn btn-secondary" type="button" data-dva="voltar">Voltar</button>`;
+  if (acao === 'quitar' || acao === 'antes'){
+    openDlg2(d.nome, 'Quitar dívida', `
+      <div class="field"><label for="dvqV">Quanto você pagou para quitar (R$)</label><input class="input" id="dvqV" inputmode="numeric" data-dinheiro value="${num(e.falta || 0)}"></div>
+      <p class="hint dv-econ" id="dvqEcon" style="margin:0;"></p>
+      <div class="field"><label for="dvqD">Data do pagamento</label><input class="input" id="dvqD" type="date" value="${hoje}"></div>
+      <label class="dv-chave"><input type="checkbox" id="dvqL" checked><span><b>Lançar como saída</b><small>Entra em Lançamentos, categoria Dívidas, no seu nome.</small></span></label>
+      <p class="hint" style="margin:0;">A dívida vai para <b>Quitadas</b> e o que ainda estava em aberto sai de Contas a pagar.</p>
+      ${voltar}<button class="btn btn-primary" type="button" data-dva="ok-quitar">Quitar</button></div>`, { tipo: 'dvpasso', id: d.id, acao });
+    dvqEcon();
+  } else if (acao === 'acordo' || acao === 'reneg'){
+    openDlg2(`${d.nome} · devia ${brl(e.falta)}`, acao === 'reneg' ? 'Renegociar' : 'Novo acordo', `
+      <div class="dv-g2"><div class="field"><label for="dvaE">Entrada (R$) <span class="opc">(se teve)</span></label><input class="input" id="dvaE" inputmode="numeric" data-dinheiro placeholder="0,00"></div>
+        <div class="field"><label for="dvaED">Pagou a entrada em</label><input class="input" id="dvaED" type="date" value="${hoje}"></div></div>
+      <div class="dv-g2"><div class="field"><label for="dvaN">Parcelas</label><input class="input" id="dvaN" inputmode="numeric" placeholder="ex.: 12"></div>
+        <div class="field"><label for="dvaV">De (R$)</label><input class="input" id="dvaV" inputmode="numeric" data-dinheiro placeholder="0,00"></div></div>
+      <div class="field"><label for="dvaP">1ª parcela vence em</label><input class="input" id="dvaP" type="date"></div>
+      <p class="hint dv-econ" id="dvaEcon" style="margin:0;"></p>
+      <p class="hint" style="margin:0;">O que estava em aberto sai de Contas a pagar e entram as parcelas do acordo. A entrada é lançada como saída.</p>
+      ${voltar}<button class="btn btn-primary" type="button" data-dva="ok-acordo">Salvar acordo</button></div>`, { tipo: 'dvpasso', id: d.id, acao, antes: e.falta });
+  } else if (acao === 'parte'){
+    const viaContas = e.sit === 'atrasada' && d.conta_atraso_id;
+    openDlg2(d.nome, 'Paguei uma parte', `
+      <div class="field"><label for="dvpV">Quanto você pagou (R$)</label><input class="input" id="dvpV" inputmode="numeric" data-dinheiro placeholder="0,00"></div>
+      <div class="field"><label for="dvpD">Data do pagamento</label><input class="input" id="dvpD" type="date" value="${hoje}"></div>
+      ${viaContas ? '<p class="hint" style="margin:0;">Abate do valor atrasado em Contas a pagar e entra como saída em Lançamentos.</p>'
+        : '<label class="dv-chave"><input type="checkbox" id="dvpL" checked><span><b>Lançar como saída</b><small>Entra em Lançamentos, categoria Dívidas, no seu nome.</small></span></label>'}
+      ${voltar}<button class="btn btn-primary" type="button" data-dva="ok-parte">Registrar</button></div>`, { tipo: 'dvpasso', id: d.id, acao });
+  } else if (acao === 'negociar'){
+    openDlg2(d.nome, 'Estou negociando', `
+      <div class="field"><label for="dvnC">Valor cobrado (R$)</label><input class="input" id="dvnC" inputmode="numeric" data-dinheiro value="${num(e.falta || 0)}"></div>
+      <div class="field"><label for="dvnP">Proposta <span class="opc">(opcional)</span></label><input class="input" id="dvnP" maxlength="120" placeholder="ex.: R$ 380 à vista"></div>
+      <p class="hint" style="margin:0;">Enquanto negocia, sai de Contas a pagar. Quando fechar, toque em <b>Fechei um acordo</b>.</p>
+      ${voltar}<button class="btn btn-primary" type="button" data-dva="ok-negociar">Salvar</button></div>`, { tipo: 'dvpasso', id: d.id, acao });
+  }
+}
+function dvqEcon(){
+  const d = state.dividas.find(x => x.id === dlg2.id); if (!d || !$('dvqEcon')) return;
+  const falta = dvEstado(d).falta, v = parseAmount($('dvqV').value);
+  $('dvqEcon').innerHTML = v > 0 && falta > v ? `<b style="color:var(--green)">Desconto de ${brl(r2(falta - v))} (${Math.round((falta - v) / falta * 100)}%) 🎉</b>` : '';
+}
+function dvaEcon(){
+  if (!$('dvaEcon')) return;
+  const antes = Number(dlg2.antes || 0), ent = parseAmount($('dvaE').value) || 0, n = parseInt($('dvaN').value, 10), v = parseAmount($('dvaV').value);
+  if (!(n > 0) || !(v > 0) || !(antes > 0)){ $('dvaEcon').textContent = ''; return; }
+  const total = r2(ent + n * v), dif = r2(antes - total);
+  $('dvaEcon').innerHTML = dif > 0 ? `<b style="color:var(--green)">Você vai pagar ${brl(total)} · desconto de ${brl(dif)} (${Math.round(dif / antes * 100)}%)</b>`
+    : dif < 0 ? `<b style="color:var(--alerta)">Você vai pagar ${brl(total)} · ${brl(-dif)} a mais que hoje</b>` : `Você vai pagar ${brl(total)}`;
+}
+$('dlg2Body').addEventListener('input', () => { if (dlg2.tipo === 'dvpasso'){ dvqEcon(); dvaEcon(); } });
+$('dlg2Body').addEventListener('click', async ev => {
+  if (dlg2.tipo !== 'dvresumo' && dlg2.tipo !== 'dvpasso') return;
+  const b = ev.target.closest('[data-dva]'); if (!b) return;
+  const a = b.dataset.dva, d = state.dividas.find(x => x.id === dlg2.id);
+  if (a === 'fechar') return closeDlg2();
+  if (!d) return closeDlg2();
+  if (a === 'voltar') return openDividaResumo(d.id);
+  if (a === 'editar') return openDivida(d.id);
+  if (a === 'atrasei') return openDivida(d.id, 'atrasada');
+  if (DV_ACOES[a]) return dvPasso(a, d);
+  const feito = async (res, msg) => {
+    if (res.error){ b.disabled = false; return toast(/function|schema cache/i.test(res.error.message || '') ? 'Falta rodar o supabase-dividas2.sql no banco.' : rpcMsg(res.error)); }
+    toast(msg, true);
+    if (await loadContas()) renderContas();
+    if (state.dividas.some(x => x.id === d.id)) openDividaResumo(d.id); else closeDlg2();
+  };
+  const dataOk = v => v && v <= todayISO() ? v : null;
+  if (a === 'ok-quitar'){
+    const v = parseAmount($('dvqV').value), dt = dataOk($('dvqD').value);
+    if (!(v > 0)) return toast('Informe quanto você pagou.');
+    if (!dt) return toast('Informe a data do pagamento (até hoje).');
+    b.disabled = true;
+    return feito(await sb.rpc('quitar_divida', { p_id: d.id, p_valor: v, p_data: dt, p_lancar: $('dvqL').checked }), 'Dívida quitada 🎉');
+  }
+  if (a === 'ok-parte'){
+    const v = parseAmount($('dvpV').value), dt = dataOk($('dvpD').value);
+    if (!(v > 0)) return toast('Informe quanto você pagou.');
+    if (!dt) return toast('Informe a data do pagamento (até hoje).');
+    b.disabled = true;
+    return feito(await sb.rpc('divida_pagar_parte', { p_id: d.id, p_valor: v, p_data: dt, p_lancar: $('dvpL') ? $('dvpL').checked : true }), `Pagamento de ${brl(v)} registrado.`);
+  }
+  if (a === 'ok-negociar'){
+    const c = parseAmount($('dvnC').value);
+    if (!(c > 0)) return toast('Informe o valor cobrado.');
+    b.disabled = true;
+    const p = { nome: d.nome, credor: d.credor || '', tipo: d.tipo, situacao: 'negociando', cobrado: c, proposta: $('dvnP').value.trim(), em_contas: d.em_contas };
+    return feito(await sb.rpc('salvar_divida', { p_id: d.id, cid: null, p, p_refazer: true }), 'Situação: negociando.');
+  }
+  if (a === 'ok-acordo'){
+    const ent = $('dvaE').value.trim() ? parseAmount($('dvaE').value) : 0, n = parseInt($('dvaN').value, 10), v = parseAmount($('dvaV').value), px = $('dvaP').value;
+    if (Number.isNaN(ent) || ent < 0) return toast('Confira o valor da entrada.');
+    if (!(n >= 1)) return toast('Informe quantas parcelas tem o acordo.');
+    if (!(v > 0)) return toast('Informe o valor da parcela.');
+    if (!px) return toast('Informe quando vence a 1ª parcela.');
+    const entD = dataOk($('dvaED').value);
+    if (ent > 0 && !entD) return toast('Informe quando pagou a entrada (até hoje).');
+    b.disabled = true;
+    if (ent > 0){
+      const r = await sb.rpc('divida_entrada', { p_id: d.id, p_valor: ent, p_data: entD });
+      if (r.error) return feito(r, '');
+    }
+    const p = { nome: d.nome, credor: d.credor || '', tipo: d.tipo, situacao: 'acordo', parcelas: n, parcela_valor: v, proxima: px,
+                acordo_antes: Number(dlg2.antes) || null, acordo_entrada: ent || null, juros: d.juros, em_contas: d.em_contas };
+    return feito(await sb.rpc('salvar_divida', { p_id: d.id, cid: null, p, p_refazer: true }), 'Acordo salvo. As parcelas já estão em Contas a pagar.');
+  }
 });

@@ -1194,6 +1194,17 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
 .dv-chave input{width:20px;height:20px;margin-top:2px;flex:none;accent-color:var(--green)}
 .dv-chave b{display:block;font-size:14.5px}.dv-chave small{display:block;font-size:12.5px;color:var(--muted)}
 .dv-excluir{color:var(--alerta)}
+
+.dv-hero{border:1px solid var(--divider);border-radius:var(--r-cartao);padding:14px}
+.dv-hero-t{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.dv-hero small{color:var(--muted);font-size:13px}.dv-hero b{display:block;font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+.dv-acoes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dv-acao{display:flex;flex-direction:column;gap:3px;min-height:64px;padding:10px;border:1.5px solid var(--divider);border-radius:var(--r-btn);background:var(--card);color:var(--fg);text-align:left;font:inherit;cursor:pointer}
+.dv-acao b{font-size:14px}.dv-acao small{font-size:12px;color:var(--muted)}
+.dv-acao.pri{border-color:rgba(var(--accent-rgb),.8);background:rgba(var(--accent-rgb),.10)}
+.dv-acao:hover{border-color:var(--accent)}
+.dv-hist{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted)}
+.dv-hist b{color:var(--fg);font-size:13.5px}.dv-hist div{display:flex;gap:10px}.dv-hist span{flex:none;width:42px;font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -1841,6 +1852,6 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=3"></script>
-<script src="app.js?v=119"></script>
+<script src="app.js?v=120"></script>
 </body>
 </html>
