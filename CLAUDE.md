@@ -43,7 +43,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Janela do Detetive compacta (cabe na tela sem zoom).
 
 ## SQL (ordem no README.md, itens 19 a 33)
-- HMG já tem tudo até `supabase-liberacoes.sql`; falta rodar `supabase-dividas.sql` (Dívidas, em análise no HMG).
+- HMG já tem tudo até `supabase-liberacoes.sql`; `supabase-dividas.sql` rodou no HMG e no prod (o app do prod ainda não tem a tela de Dívidas).
 - Prod rodou `supabase-alimentacao.sql` e o `supabase-prod-detetive-ia.sql` (junta whatsapp, bot-telegram, bot2…bot8, ia e liberacoes; pode rodar de novo).
 - Banco novo de testes: `supabase-hmg-tudo.sql`.
 
