@@ -32,8 +32,10 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - **Liberação por conta:** o admin liga IA, Detetive e Fundador no **⋮** de cada conta no painel. Quem não foi liberado não vê nada, e o banco recusa. Admin sempre tem tudo.
 
 ## Planos e limites decididos
-- Básico R$ 12,90 (app + Telegram) · Completo R$ 17,90 (+ WhatsApp).
-- WhatsApp: 300 respostas/mês (fundador 150), acumulado no mês, zera dia 1º. IA: 30 leituras/mês. Admin ajusta por conta.
+- **Decidido em 14/11/2026:** plano **único de R$ 15,90/mês** (app + Telegram sem limite + WhatsApp + IA). Substitui Básico/Completo.
+- WhatsApp: **150 respostas/mês** por assinante (conta respostas do bot, não só lançamentos; zera dia 1º). IA: 30 leituras/mês. Admin ajusta por conta. (Hoje o banco ainda tem 300 de padrão: trocar quando ligar a cobrança.)
+- Ideia em conversa: **plano Casal/Família R$ 25/mês**, o assinante adiciona o e-mail de quem usa junto (detalhes a definir).
+- Cobrança: Stripe. Área restrita (teste) criada; produto único "Pra Onde Foi?" R$ 15,90 mensal. Pagamento numa tela nossa com os campos do Stripe (Payment Element); cartão nunca passa pelo app. Chaves `sk_…`/`whsec_…` só nos Secrets do Supabase. Tarifas (nov/2026): cartão 3,99% + R$ 0,39, Pix 1,19%, Billing 0,7%.
 
 ## O que existe hoje (13/11/2026)
 - Capa nova clara e centralizada (faixa "Mandou? Está lançado." e card do Detetive só no HMG).
@@ -51,7 +53,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 ## Pendências
 - WhatsApp: esperar a Meta; depois pôr o número em `WA_BOT` (app.js) e criar a função whatsapp-bot.
 - Gemini pago antes de usuários de verdade (e revisar a política de privacidade se continuar no grátis).
-- Ideias guardadas: cobrança/assinatura, IA para textos que o bot não entende, revisão geral de UX (ícones em vez de emoji, toques de 44px).
+- Ideias guardadas: IA para textos que o bot não entende, revisão geral de UX (ícones em vez de emoji, toques de 44px).
 - Ramos `previa-filtro-categoria`, `previa-admin-liberacoes`, `previa-ponte-admin` ficaram no GitHub (sem permissão para apagar daqui); podem ser apagados.
 
 ## Testes locais (não ficam no repositório)
