@@ -31,7 +31,7 @@
 <title>[HMG] Pra Onde Foi? · Controle financeiro para casais e famílias</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@900&family=Rubik:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@900&family=Inter:wght@400;500;600;700&family=Rubik:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="../vendor/supabase-2.117.3.js"></script>
 <script src="../vendor/xlsx-0.18.5.full.min.js" defer></script>
 <style>
@@ -1205,6 +1205,120 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
 .dv-acao:hover{border-color:var(--accent)}
 .dv-hist{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted)}
 .dv-hist b{color:var(--fg);font-size:13.5px}.dv-hist div{display:flex;gap:10px}.dv-hist span{flex:none;width:42px;font-variant-numeric:tabular-nums}
+
+  /* ===== VISUAL ESTILO PAINEL (v122): letras Inter, bordas finas, cantos 6–8px ===== */
+  :root{
+    --font-body:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --font-heading:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --r-btn:6px; --r-campo:6px; --r-cartao:8px; --r-selo:4px;
+  }
+  html:not([data-tema="escuro"]){
+    --text:#1a1f36; --muted:#697386; --ph:#8792a2; --fg-rgb:26,31,54;
+    --divider:#e3e8ee; --track:#ebeef1; --bg:#ffffff; --side-bg:#ffffff;
+    --green:#05690d; --out:#c0123c;
+  }
+  html[data-tema="escuro"]{ --divider:rgba(255,255,255,.10) }
+  #viewApp{font-size:14px}
+  #viewApp .wrap{max-width:1280px;gap:20px}
+  #viewApp h1{font-family:var(--font-body);font-weight:700;font-size:24px;letter-spacing:-.01em}
+  #viewApp .wrap h2{font-weight:600 !important;font-size:15px !important}
+  #viewApp .big{font-family:var(--font-body);font-weight:700;font-size:24px;letter-spacing:-.01em}
+  #viewApp .blueprint,#viewApp .stats{border:1px solid var(--divider);border-radius:8px;box-shadow:none}
+  #viewApp .btn{font-size:13.5px;font-weight:600;padding:7px 12px;border-radius:6px;letter-spacing:0}
+  #viewApp .btn-secondary{border:1px solid #d5dbe1;background:var(--surface)}
+  html[data-tema="escuro"] #viewApp .btn-secondary{border-color:var(--divider)}
+  #viewApp .input{border-radius:6px;border-width:1px;font-size:14px}
+  #viewApp .kicker{font-size:13px;color:var(--muted);font-weight:500}
+  #viewApp .note{font-size:12.5px}
+  #viewApp .tag{border-radius:4px;font-size:12px;font-weight:600;padding:1px 7px}
+  #viewApp .table th{font-size:12px;font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0;padding:9px 12px}
+  #viewApp .table td{padding:10px 12px;border-bottom:1px solid rgba(var(--fg-rgb),.06)}
+  #viewApp .seg{border-radius:6px}
+  #viewApp .seg button{border-radius:5px}
+
+  /* números do mês numa faixa só, com divisórias */
+  #viewApp .stats.resumo{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0;background:var(--surface);overflow:hidden}
+  #viewApp .stats.resumo>.stat{background:none;border:0;border-radius:0;border-right:1px solid var(--divider);padding:16px 18px;gap:4px;box-shadow:none}
+  #viewApp .stats.resumo>.stat:last-child{border-right:0}
+  #viewApp .stats.resumo>.stat.on{background:rgba(var(--fg-rgb),.04)}
+  #viewApp .stat-bal.pos .big{color:var(--green)}
+  @media (max-width:560px){
+    #viewApp .stats.resumo{grid-template-columns:1fr 1fr}
+    #viewApp .stats.resumo>.stat{border-right:0;border-bottom:1px solid var(--divider);padding:12px 14px}
+    #viewApp .stats.resumo>.stat-bal{grid-column:1/-1}
+    #viewApp .stats.resumo>.stat:nth-child(2){border-right:1px solid var(--divider)}
+    #viewApp .stats.resumo>.stat:last-child{border-bottom:0}
+    #viewApp .stats.resumo>#lcPagar{grid-column:1/-1;border-top:1px solid var(--divider)}
+  }
+
+  /* menu lateral */
+  .side-ctrl{display:flex;align-items:center;gap:10px;padding:4px 6px 14px;margin:0 0 6px;border-bottom:1px solid var(--divider);cursor:pointer;position:relative}
+  .side-ctrl img{flex:none;border-radius:6px}
+  .side-ctrl-tx{display:flex;flex-direction:column;min-width:0;flex:1}
+  .side-ctrl select{appearance:none;-webkit-appearance:none;border:0;background:none;padding:0;margin:0;font:inherit;font-size:14px;font-weight:600;color:var(--text);cursor:pointer;width:100%;text-overflow:ellipsis}
+  .side-ctrl select:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+  .side-ctrl small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .side-ctrl-seta{flex:none;color:var(--muted);pointer-events:none}
+  .side-item{padding:8px 10px !important;border-radius:6px !important;font-size:14px !important;font-weight:500 !important;color:#3c4257 !important;gap:10px !important}
+  html[data-tema="escuro"] .side-item{color:var(--muted) !important}
+  .side-item svg{width:17px !important;height:17px !important;color:var(--muted)}
+  .side-item:hover{background:rgba(var(--fg-rgb),.05) !important}
+  .side-item.on{background:rgba(var(--fg-rgb),.06) !important;color:var(--text) !important;font-weight:600 !important}
+  .side-item.on svg{color:var(--accent-text) !important}
+  .side-sec{font-size:12px;color:var(--muted);padding:16px 10px 4px}
+  .sidenav .side-user{border-top:1px solid var(--divider) !important;border-radius:0 !important;padding:12px 6px 4px !important;border-left:0;border-right:0;border-bottom:0}
+  .bottomnav button.on{color:var(--text) !important}
+  .bottomnav button.on svg{color:var(--accent-text)}
+
+  /* barra do topo (só no computador) */
+  .topbar{display:none}
+  @media (min-width:900px){
+    .sidenav{width:236px !important;padding:14px 12px 12px !important}
+    #viewApp{padding-left:236px !important}
+    .topbar{display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:15;height:56px;padding:0 28px;background:rgba(var(--surface-rgb),.96);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-bottom:1px solid var(--divider)}
+    .topbar .busca{display:flex;align-items:center;gap:8px;width:min(360px,45%);background:rgba(var(--fg-rgb),.04);border-radius:6px;padding:0 12px;color:var(--muted)}
+    .topbar .busca input{flex:1;min-width:0;border:0;background:none;font:inherit;font-size:14px;color:var(--text);padding:8px 0;outline:none}
+    .topbar .busca:focus-within{box-shadow:0 0 0 2px var(--focus)}
+    .topbar #topNovo{margin-left:auto}
+    #viewApp .wrap{padding-top:22px}
+  }
+  body:not(.aba-lanc) .topbar .busca{visibility:hidden}
+
+  /* Lançamentos: lista à esquerda, formulário e "Para onde foi" à direita */
+  .lanc-grid{display:grid;gap:20px;grid-template-columns:minmax(0,1fr);grid-template-areas:"form" "lista" "cats";align-items:start}
+  .lanc-form{grid-area:form}
+  .lanc-lista{grid-area:lista}
+  .lanc-cats{grid-area:cats}
+  .lanc-lista,.lanc-cats{border:1px solid var(--divider);border-radius:8px;background:var(--surface);overflow:hidden}
+  .lanc-lista{gap:0 !important}
+  .lanc-lista .lanc-hd,.lanc-cats>h2{padding:13px 16px;border-bottom:1px solid var(--divider)}
+  .lanc-lista #empty{padding:24px 16px !important}
+  .lanc-lista #filtroInfo{padding:0}
+  .lanc-cats{gap:0 !important}
+  .lanc-cats #cats{padding:14px 16px}
+  .lanc-form{padding:16px !important;gap:12px !important}
+  @media (min-width:1180px){
+    .lanc-grid{grid-template-columns:minmax(0,1fr) 340px;grid-template-areas:"lista form" "lista cats"}
+    .lanc-form #form{grid-template-columns:1fr 1fr !important;gap:10px !important}
+    .lanc-form #form .span2,.lanc-form #addBtn{grid-column:1/-1}
+    .lanc-form .rp-destaque{flex-direction:column;align-items:stretch}
+    .lanc-form .rp-d-bt{width:100%}
+    .lanc-form .vinc-row{flex-direction:column;align-items:stretch}
+    .lanc-form #vincHint{font-size:12px}
+    .lanc-form .vinc-row>*{flex:none !important;width:100%}
+    .lanc-form .vinc{display:flex;align-items:center;gap:10px}
+    .lanc-form .vinc select{flex:1;min-width:0}
+  }
+  .lanc-form .rp-destaque{background:rgba(var(--fg-rgb),.035) !important;border:0 !important;border-radius:8px !important;padding:12px !important;gap:10px !important}
+  .lanc-form .rp-d-tx span{font-size:12.5px}
+  .lanc-form .rp-d-op{background:var(--surface) !important;border:1px solid #d5dbe1 !important;border-radius:6px !important;min-height:40px !important;padding:8px 10px !important;font-size:13.5px !important}
+  html[data-tema="escuro"] .lanc-form .rp-d-op{border-color:var(--divider) !important}
+  @media (min-width:900px){
+    #viewApp .ctrlbar #ctrlSelect,#viewApp .ctrlbar #ctrlInfo{display:none}
+    .hmg-tag{left:auto !important;right:230px;top:19px !important;transform:none !important;box-shadow:none !important}
+  }
+  #addBtn{background:var(--text);border-color:var(--text);color:var(--surface)}
+  #addBtn:hover{opacity:.9}
 </style>
 </head>
 <body>
@@ -1311,12 +1425,15 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
 <div id="viewApp" hidden>
 <div class="off-bar" id="offBar" role="status" aria-live="polite" hidden></div>
 <aside class="sidenav" aria-label="Navegação">
-  <div class="side-brand"><img class="marca-img" src="../logo/logo-simbolo.svg" alt="" width="44" height="44"><span class="marca-nome">Pra onde<br>foi<span class="q">?</span></span></div>
+  <label class="side-ctrl"><img src="../logo/logo-simbolo.svg" alt="" width="30" height="30"><span class="side-ctrl-tx"><select id="sideCtrl" aria-label="Escolher controle"></select><small id="sideCtrlInfo"></small></span><svg class="side-ctrl-seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></label>
   <button class="side-item" type="button" data-tab="lanc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Lançamentos</button>
-  <button class="side-item" type="button" data-tab="cartoes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg>Cartões<span class="side-new">Novo</span></button>
+  <button class="side-item" type="button" data-tab="cartoes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg>Cartões</button>
   <button class="side-item" type="button" data-tab="contas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="3"/><path d="M3 10h18M8 2.5v4M16 2.5v4"/></svg>Contas a pagar<span class="badge" data-badge="contas" hidden></span></button>
-  <button class="side-item" type="button" data-tab="metas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>Metas<span class="side-new">Novo</span></button>
-  <button class="side-item" type="button" data-tab="invest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Investimentos<span class="side-new">Novo</span></button>
+  <button class="side-item" type="button" data-tab="metas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>Metas</button>
+  <button class="side-item" type="button" data-tab="invest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Investimentos</button>
+  <span class="side-sec" id="sideContaSec" hidden>Conta</span>
+  <button class="side-item" type="button" id="sideBot" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4M9.5 13h.01M14.5 13h.01"/></svg>Detetive Grana</button>
+  <button class="side-item" type="button" id="sideLimites" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16M7 15V9M12 15V5M17 15v-4"/></svg>Limites</button>
   <button class="menu-btn side-user" id="menuBtn" type="button" aria-label="Abrir menu" aria-haspopup="dialog">
     <span class="avatar" id="meAvatar"></span>
     <span class="who ellip" id="userEmail"></span>
@@ -1330,12 +1447,16 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
 </button>
 <nav class="bottomnav" aria-label="Navegação">
   <button type="button" data-tab="lanc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="lbl">Lançamentos</span></button>
-  <button type="button" data-tab="cartoes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg><span class="lbl">Cartões</span><span class="nav-new">Novo</span></button>
+  <button type="button" data-tab="cartoes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg><span class="lbl">Cartões</span></button>
   <button type="button" data-tab="contas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="3"/><path d="M3 10h18M8 2.5v4M16 2.5v4"/></svg><span class="lbl">Contas</span><span class="badge" data-badge="contas" hidden></span></button>
-  <button type="button" data-tab="metas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg><span class="lbl">Metas</span><span class="nav-new">Novo</span></button>
-  <button type="button" data-tab="invest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span class="lbl">Investir</span><span class="nav-new">Novo</span></button>
+  <button type="button" data-tab="metas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg><span class="lbl">Metas</span></button>
+  <button type="button" data-tab="invest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span class="lbl">Investir</span></button>
   <button type="button" id="navMenu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span class="lbl">Menu</span></button>
 </nav>
+<div class="topbar" role="search">
+  <label class="busca"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="busca" type="search" placeholder="Pesquisar lançamentos do mês" autocomplete="off" maxlength="60" aria-label="Pesquisar lançamentos do mês"></label>
+  <button class="btn btn-primary btn-sm" id="topNovo" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Novo lançamento</button>
+</div>
 <div class="wrap">
 
 
@@ -1392,6 +1513,11 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
       <span class="big" id="expVal">R$ 0,00</span>
       <span class="note" id="expNote"></span>
     </div>
+    <div class="stat stat-filtro" id="lcPagar" role="button" tabindex="0" title="Abrir Contas a pagar" hidden>
+      <span class="kicker">Contas a pagar</span>
+      <span class="big" id="lcPagarVal">R$ 0,00</span>
+      <span class="note" id="lcPagarNote"></span>
+    </div>
   </section>
   <div class="cmp-linha"><button class="btn btn-secondary btn-sm" id="btnComparar" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Comparar meses</button><button class="btn btn-secondary btn-sm" id="btnImp" type="button" aria-expanded="false" aria-controls="impCard" hidden><span aria-hidden="true">🧾</span><span id="btnImpTxt">Impostos</span><svg class="imp-seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="imp" id="impCard" hidden></div></div>
 
@@ -1405,7 +1531,8 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
     </div>
   </section>
 
-  <section class="blueprint" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4);">
+  <div class="lanc-grid">
+  <section class="blueprint lanc-form" id="lancForm" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4);">
     <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
       <h2 style="font-size:22px;text-transform:uppercase;">Novo lançamento</h2>
       <div class="seg" id="typeSeg" role="group" aria-label="Tipo">
@@ -1459,10 +1586,9 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
     <span id="error" style="font-size:13px;color:var(--alerta);" hidden></span>
   </section>
 
-  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:var(--space-8);align-items:start;">
-    <div class="span2" style="display:flex;flex-direction:column;gap:var(--space-3);min-width:0;">
-      <div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--space-3);">
-        <h2 style="font-size:22px;text-transform:uppercase;">Lançamentos</h2>
+    <div class="span2 lanc-lista" style="display:flex;flex-direction:column;gap:var(--space-3);min-width:0;">
+      <div class="lanc-hd" style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--space-3);">
+        <h2 style="font-size:22px;text-transform:uppercase;">Lançamentos do mês</h2>
         <span class="by" id="filtroInfo" hidden style="margin:0;font-size:13px;">Mostrando só <b id="filtroNome" style="color:var(--text);"></b> · <button class="btn btn-ghost btn-sm" id="filtroLimpar" type="button" style="padding:8px 6px;margin:-8px 0;">limpar</button></span>
         <button class="btn btn-ghost" id="importLocal" hidden></button>
       </div>
@@ -1472,14 +1598,14 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
           <tbody id="rows"></tbody>
         </table>
       </div>
-      <div id="empty" hidden style="padding:var(--space-8) 0;color:var(--muted);font-size:14px;">Nenhum lançamento neste mês. Use o formulário acima para adicionar o primeiro.</div>
+      <div id="empty" hidden style="padding:var(--space-8) 0;color:var(--muted);font-size:14px;">Nenhum lançamento neste mês.</div>
     </div>
 
-    <div style="display:flex;flex-direction:column;gap:var(--space-4);">
+    <div class="lanc-cats" style="display:flex;flex-direction:column;gap:var(--space-4);">
       <h2 style="font-size:22px;text-transform:uppercase;">Para onde foi</h2>
       <div id="cats" style="display:flex;flex-direction:column;gap:var(--space-4);"></div>
     </div>
-  </section>
+  </div>
 </div>
 
 <div id="tabCartoes" style="display:contents" hidden>
@@ -1852,6 +1978,6 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=3"></script>
-<script src="app.js?v=121"></script>
+<script src="app.js?v=122"></script>
 </body>
 </html>

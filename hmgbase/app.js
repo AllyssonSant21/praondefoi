@@ -1370,7 +1370,20 @@ document.querySelectorAll('.stat-filtro').forEach(el => {
   el.addEventListener('click', () => toggleFiltro(el.dataset.filtro));
   el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleFiltro(el.dataset.filtro); } });
 });
-$('filtroLimpar').onclick = () => { state.filtro = null; state.filtroCat = null; render(); };
+$('filtroLimpar').onclick = () => { state.filtro = null; state.filtroCat = null; state.busca = ''; $('busca').value = ''; render(); };
+/* ---- visual v122: busca, "+ Novo lançamento", controle no menu, atalhos da conta ---- */
+state.busca = '';
+$('busca').addEventListener('input', e => { state.busca = e.target.value; render(); });
+$('topNovo').addEventListener('click', () => {
+  if (state.tab !== 'lanc') setTab('lanc');
+  $('lancForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(() => $('desc').focus({ preventScroll: true }), 250);
+});
+$('sideCtrl').addEventListener('change', e => { $('ctrlSelect').value = e.target.value; $('ctrlSelect').dispatchEvent(new Event('change')); });
+$('sideBot').addEventListener('click', () => $('botFab').click());
+$('sideLimites').addEventListener('click', () => openLimites());
+$('lcPagar').addEventListener('click', () => setTab('contas'));
+$('lcPagar').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); setTab('contas'); } });
 // "Para onde foi": tocar numa categoria mostra só os lançamentos dela (tocar de novo volta a mostrar tudo)
 state.filtroCat = null;
 $('cats').addEventListener('click', e => {
@@ -1584,6 +1597,10 @@ function renderCtrlBar(){
   $('ctrlInfo').textContent = !c ? '' : c.pessoal
     ? 'Só você vê'
     : `Compartilhado · ${plural(c.participantes,'pessoa')}${c.sou_dono ? ' · você é o dono' : ''}`;
+  // o mesmo seletor no alto do menu lateral (computador)
+  $('sideCtrl').innerHTML = state.controles.map(x => `<option value="${esc(x.id)}"${x.id === state.cid ? ' selected' : ''}>${esc(x.nome)}</option>`).join('');
+  $('sideCtrl').value = state.cid || '';
+  $('sideCtrlInfo').textContent = !c ? '' : c.pessoal ? 'Pessoal · só você vê' : `Compartilhado · ${plural(c.participantes,'pessoa')}`;
 }
 
 function render(){
@@ -1632,10 +1649,13 @@ function render(){
   const fc = state.filtroCat;
   $('filtroInfo').hidden = !f && !fc;
   $('filtroNome').textContent = fc ? rotuloCat(fc) : f === 'inc' ? 'entradas' : 'saídas';
-  const shown = month.filter(e => (!f || e.type === f) && (!fc || (e.cat === fc && e.type === 'exp')));
+  const busca = semAcento(state.busca || '').trim();
+  if (busca){ $('filtroInfo').hidden = false; $('filtroNome').textContent = `“${state.busca.trim()}”`; }
+  const shown = month.filter(e => (!f || e.type === f) && (!fc || (e.cat === fc && e.type === 'exp'))
+    && (!busca || semAcento(`${e.desc} ${rotuloCat(e.cat)}`).includes(busca)));
   $('tableWrap').hidden = shown.length === 0;
   $('empty').hidden = shown.length > 0;
-  $('empty').textContent = fc ? `Nenhum gasto em ${rotuloCat(fc)} neste mês.` : !f ? 'Nenhum lançamento neste mês. Use o formulário acima para adicionar o primeiro.'
+  $('empty').textContent = busca ? `Nada encontrado para “${state.busca.trim()}” neste mês.` : fc ? `Nenhum gasto em ${rotuloCat(fc)} neste mês.` : !f ? 'Nenhum lançamento neste mês. Use o formulário acima para adicionar o primeiro.'
     : f === 'inc' ? 'Nenhuma entrada neste mês.' : 'Nenhuma saída neste mês.';
   $('rows').innerHTML = shown.map(e => {
     const mine = currentUser && e.uid === currentUser.id;
@@ -1660,6 +1680,9 @@ function render(){
   const max = list.length ? list[0][1] : 0;
   renderTabs();
   renderContas();
+  { const ok = modOn('contas') && state.contasOk;
+    $('lcPagar').hidden = !ok;
+    if (ok){ $('lcPagarVal').textContent = $('billLeft').textContent; $('lcPagarNote').textContent = $('billLeftNote').textContent; } }
   renderCartoes();
   renderMetas();
   renderInvest();
@@ -1828,6 +1851,7 @@ function syncAlerta(){
   $('billAlert').hidden = !state.alertaN || !modOn('contas') || state.tab !== 'contas';
 }
 function renderTabs(){
+  document.body.classList.toggle('aba-lanc', state.tab === 'lanc');
   const mods = modulosDe(current());
   document.querySelectorAll('[data-tab]').forEach(b => { b.hidden = !mods.includes(b.dataset.tab); });
   const desligada = !mods.includes(state.tab);
@@ -4155,6 +4179,7 @@ async function checarIA(){
   document.querySelector('.rp-d-bt').classList.toggle('um', !iaDisponivel);
   $('rpDestTx').textContent = iaDisponivel ? 'Mande a foto da nota ou o extrato do banco. Vários lançamentos de uma vez.' : 'Importe o extrato do banco e lance o mês inteiro de uma vez.';
   if (iaDisponivel) $('drLimites').hidden = false;   // Limites aparece se a conta tem IA ou Detetive
+  $('sideLimites').hidden = $('drLimites').hidden; $('sideContaSec').hidden = $('sideBot').hidden && $('sideLimites').hidden;
 }
 async function checarBot(){
   if (!BOT_LIGADO) return;   // prod: o bot ainda não foi lançado
@@ -4166,6 +4191,9 @@ async function checarBot(){
   }
   $('botFab').hidden = !botDisponivel;
   if (botDisponivel) $('drLimites').hidden = false;
+  $('sideBot').hidden = !botDisponivel;
+  $('sideLimites').hidden = $('drLimites').hidden;
+  $('sideContaSec').hidden = $('sideBot').hidden && $('sideLimites').hidden;
   let visto = false; try { visto = localStorage.getItem(botFabKey()) === '1'; } catch {}
   const novo = botDisponivel && !visto && !(data || []).length;
   $('botFabNovo').hidden = !novo;
