@@ -33,7 +33,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 
 ## Planos e limites decididos
 - **Decidido em 14/11/2026:** plano **único de R$ 15,90/mês** (app + Telegram sem limite + WhatsApp + IA). Substitui Básico/Completo.
-- WhatsApp: **150 respostas/mês** por assinante (conta respostas do bot, não só lançamentos; zera dia 1º). IA: 30 leituras/mês. Admin ajusta por conta. (Hoje o banco ainda tem 300 de padrão: trocar quando ligar a cobrança.)
+- WhatsApp: **120 respostas/mês** por pessoa (licença) (conta respostas do bot, não só lançamentos; zera dia 1º). IA: 30 leituras/mês. Admin ajusta por conta. (Hoje o banco ainda tem 300 de padrão: trocar quando ligar a cobrança.)
 - **Licenças (ideia aprovada, falta construir):** a pessoa escolhe quantas pessoas vão usar. 1 pessoa = R$ 15,90; 2 ou mais = **R$ 12,95 por pessoa** (≈18,6% de desconto; 2 = R$ 25,90, 3 = R$ 38,85, 4 = R$ 51,80). O assinante adiciona o e-mail de cada pessoa. No Stripe: um produto só, preço por volume (1 unid. 15,90; 2+ unid. 12,95 cada) com quantidade = licenças.
 - Cobrança: Stripe. Área restrita (teste) criada; produto único "Pra Onde Foi?" R$ 15,90 mensal. Pagamento numa tela nossa com os campos do Stripe (Payment Element); cartão nunca passa pelo app. Chaves `sk_…`/`whsec_…` só nos Secrets do Supabase. Tarifas (nov/2026): cartão 3,99% + R$ 0,39, Pix 1,19%, Billing 0,7%.
 
