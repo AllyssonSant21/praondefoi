@@ -1322,6 +1322,18 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
   @media (max-width:560px){#form #addBtn{justify-self:stretch}}
   #addBtn{background:var(--text);border-color:var(--text);color:var(--surface)}
   #addBtn:hover{opacity:.9}
+
+  /* Lançar rápido fora do "Novo lançamento" (o extrato e a IA já sabem o que é entrada ou saída) */
+  .lanc-rapido{grid-area:rapido}
+  .lanc-grid{grid-template-areas:"rapido" "form" "lista" "cats"}
+  .lanc-rapido .rp-destaque{background:var(--surface) !important;border:1px solid var(--divider) !important;border-radius:8px !important;padding:16px !important;gap:12px !important}
+  .lanc-rapido .rp-d-op{background:var(--surface) !important;border:1px solid #d5dbe1 !important;border-radius:6px !important;min-height:42px !important;padding:8px 10px !important;font-size:13.5px !important}
+  html[data-tema="escuro"] .lanc-rapido .rp-d-op{border-color:var(--divider) !important}
+  @media (min-width:1180px){
+    .lanc-grid{grid-template-areas:"lista rapido" "lista form" "lista cats";grid-template-rows:auto auto 1fr}
+    .lanc-rapido .rp-destaque{flex-direction:column;align-items:stretch}
+    .lanc-rapido .rp-d-bt{width:100%;min-width:0 !important;grid-template-columns:1fr !important}
+  }
 </style>
 </head>
 <body>
@@ -1535,19 +1547,21 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
   </section>
 
   <div class="lanc-grid">
+  <section class="lanc-rapido" aria-label="Lançar rápido">
+    <div class="rp-destaque" id="rpDestaque">
+      <div class="rp-d-tx"><b>Lançar rápido</b><span id="rpDestTx">Mande a foto da nota ou o extrato do banco. Vários lançamentos de uma vez.</span></div>
+      <div class="rp-d-bt um">
+        <button type="button" class="rp-d-op" data-rp-abrir="ia" id="rpAbrirIa" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Foto, PDF ou áudio</span></button>
+        <button type="button" class="rp-d-op" data-rp-abrir="extrato"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg><span>Extrato do banco</span></button>
+      </div>
+    </div>
+  </section>
   <section class="blueprint lanc-form" id="lancForm" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4);">
     <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
       <h2 style="font-size:22px;text-transform:uppercase;">Novo lançamento</h2>
       <div class="seg" id="typeSeg" role="group" aria-label="Tipo">
         <button type="button" data-type="exp" aria-pressed="true">Saída</button>
         <button type="button" data-type="inc" aria-pressed="false">Entrada</button>
-      </div>
-    </div>
-    <div class="rp-destaque" id="rpDestaque">
-      <div class="rp-d-tx"><b>Lançar rápido</b><span id="rpDestTx">Mande a foto da nota ou o extrato do banco. Vários lançamentos de uma vez.</span></div>
-      <div class="rp-d-bt um">
-        <button type="button" class="rp-d-op" data-rp-abrir="ia" id="rpAbrirIa" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Foto, PDF ou áudio</span></button>
-        <button type="button" class="rp-d-op" data-rp-abrir="extrato"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg><span>Extrato do banco</span></button>
       </div>
     </div>
     <div class="vinc-row">
@@ -1981,6 +1995,6 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=3"></script>
-<script src="app.js?v=127"></script>
+<script src="app.js?v=128"></script>
 </body>
 </html>
