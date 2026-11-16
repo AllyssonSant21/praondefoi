@@ -4152,7 +4152,13 @@ async function renderLimites(){
       ${ia ? barra('📷 Leituras de foto, PDF e áudio', ia.usadas, ia.limite, 'Feitas pela IA no app e no Detetive.') : ''}
       ${wa ? barra('💬 Mensagens do Detetive no WhatsApp', wa.usadas, wa.limite, 'Cada resposta do Detetive no WhatsApp conta 1.') : ''}
     </div>
-    <p class="hint" style="margin:0;">✅ <b>Sem limite:</b> lançar pelo app, texto, voz, extrato do banco${BOT_LIGADO ? ' e o Detetive no Telegram' : ''}.</p>`;
+    <div class="lim-tabela"><b>Como funciona cada um</b><dl>
+      <dt>✍️ Lançar pelo app</dt><dd>Sem limite.</dd>
+      <dt>🏦 Extrato do banco</dt><dd>Sem limite. O arquivo é lido só no seu aparelho.</dd>
+      ${BOT_LIGADO ? `<dt>✈️ Detetive no Telegram</dt><dd>Sem limite. Mande quantas mensagens quiser.</dd>
+      <dt>💬 Detetive no WhatsApp</dt><dd>${wa ? wa.limite : 120} respostas por mês. Cada resposta do Detetive conta 1 (lançar, perguntar o saldo…). Avisamos quando chegar em 80%.</dd>` : ''}
+      <dt>📷 Foto, PDF e áudio</dt><dd>${ia ? ia.limite : 30} leituras por mês, lidas pela IA, no app ou no Detetive.</dd>
+    </dl><small>Os limites renovam no dia 1º de cada mês e não acumulam.</small></div>`;
 }
 
 /* ---------- Detetive Grana (bot do WhatsApp e do Telegram) ---------- */

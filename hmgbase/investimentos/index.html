@@ -1384,6 +1384,15 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
     .gd-kp b{font-size:15px}
     .gd-tab .gd-n{display:none}
   }
+
+  /* Limites: explicação de cada recurso */
+  .lim-tabela{border:1px solid var(--divider);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+  .lim-tabela>b{font-size:14px}
+  .lim-tabela dl{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:0;font-size:13.5px}
+  .lim-tabela dt{font-weight:600;white-space:nowrap}
+  .lim-tabela dd{margin:0;color:var(--muted)}
+  .lim-tabela small{color:var(--muted);font-size:12px}
+  @media (max-width:480px){.lim-tabela dl{grid-template-columns:1fr;gap:2px}.lim-tabela dd{margin-bottom:8px}}
 </style>
 </head>
 <body>
@@ -2045,6 +2054,6 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=3"></script>
-<script src="app.js?v=132"></script>
+<script src="app.js?v=133"></script>
 </body>
 </html>
