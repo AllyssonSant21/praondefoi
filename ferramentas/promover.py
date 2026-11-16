@@ -40,6 +40,7 @@ for f in (('privacidade.html','termos.html') if LEGAL else ()):
     assert '../' not in t; open(R+f,'w').write(t)
 shutil.copy(R+'hmgbase/tema.js', R+'tema.js')
 shutil.copy(R+'hmgbase/entender.js', R+'entender.js')
+shutil.copy(R+'hmgbase/sw.js', R+'sw.js')   # o mesmo service worker (cache separado por pasta)
 for f in ('404.html','robots.txt','sitemap.xml'):   # só funcionam na raiz do site
     shutil.copy(R+'hmgbase/'+f, R+f)
 import subprocess; subprocess.run(['python3', R+'ferramentas/rotas.py', '.'], check=True)

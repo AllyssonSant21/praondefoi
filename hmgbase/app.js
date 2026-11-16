@@ -1778,6 +1778,8 @@ async function loadContas(){
   const seq = ++contasSeq;
   if (!state.cid){ state.contas = []; return true; }
   const cid = state.cid;
+  // contas e dívidas vêm juntas (antes eram duas idas ao servidor, uma depois da outra)
+  const dvPedido = sb.rpc('listar_dividas', { cid });
   const { data: cs, error } = await sb.from('contas').select('*').eq('controle_id', cid).order('dia').order('nome');
   if (seq !== contasSeq) return false;
   if (error){
@@ -1787,7 +1789,7 @@ async function loadContas(){
   }
   const t = new Date();
   // dívidas (supabase-dividas.sql); banco sem a tabela: a área de dívidas fica escondida
-  const dv = await sb.rpc('listar_dividas', { cid });
+  const dv = await dvPedido;
   if (seq !== contasSeq) return false;
   state.dividasOk = !dv.error;
   state.dividas = dv.error ? [] : (dv.data || []);
@@ -4682,8 +4684,25 @@ document.querySelectorAll('.olho-btn').forEach(b => b.addEventListener('click', 
 }));
 aplicarOlho();
 
+// a biblioteca da planilha (~300 KB) só é baixada quando alguém exporta
+let xlsxCarregando = null;
+function carregarXlsx(){
+  if (window.XLSX) return Promise.resolve(true);
+  if (!xlsxCarregando) xlsxCarregando = new Promise(ok => {
+    const base = (document.querySelector('script[src*="vendor/supabase-"]') || {}).src || '';
+    const sc = document.createElement('script');
+    sc.src = base.replace(/supabase-[^/]*$/, 'xlsx-0.18.5.full.min.js');
+    sc.onload = () => ok(!!window.XLSX);
+    sc.onerror = () => { xlsxCarregando = null; ok(false); };
+    document.head.appendChild(sc);
+  });
+  return xlsxCarregando;
+}
 $('export').onclick = async () => {
-  if (!window.XLSX){ toast('Não foi possível gerar a planilha. Verifique a conexão e tente de novo.'); return; }
+  $('export').disabled = true;
+  const temXlsx = await carregarXlsx();
+  $('export').disabled = false;
+  if (!temXlsx){ toast('Não foi possível gerar a planilha. Verifique a conexão e tente de novo.'); return; }
   const c = current(); if (!c) return;
   $('export').disabled = true;
   const entries = await fetchAllEntries();
@@ -5012,7 +5031,8 @@ async function acaoAdmin(e){
 
 /* ======================= APP INSTALÁVEL ======================= */
 if (false && 'serviceWorker' in navigator && location.protocol === 'https:'){   // HMG: sem app instalável
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  // o service worker fica na mesma pasta do app.js (raiz no prod, hmgbase/ no HMG), não na pasta da aba
+  window.addEventListener('load', () => { const s = document.querySelector('script[src*="app.js"]'); navigator.serviceWorker.register(new URL('sw.js', s ? s.src : location.href)).catch(() => {}); });
 }
 
 /* ======================= INÍCIO ======================= */
