@@ -1301,6 +1301,7 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
     .lanc-grid{grid-template-columns:minmax(0,1fr) 340px;grid-template-areas:"lista form" "lista cats"}
     .lanc-form #form{grid-template-columns:1fr 1fr !important;gap:10px !important}
     .lanc-form #form .span2,.lanc-form #addBtn{grid-column:1/-1}
+    .lanc-form #form #addBtn{justify-self:stretch}
     .lanc-form .rp-destaque{flex-direction:column;align-items:stretch}
     .lanc-form .rp-d-bt{width:100%;min-width:0 !important;grid-template-columns:1fr !important}
     .lanc-form .vinc-row{flex-direction:column;align-items:stretch}
@@ -1317,6 +1318,9 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
     #viewApp .ctrlbar #ctrlSelect,#viewApp .ctrlbar #ctrlInfo{display:none}
     .hmg-tag{left:auto !important;right:230px;top:19px !important;transform:none !important;box-shadow:none !important}
   }
+  /* Adicionar sempre numa linha própria, no mesmo lugar em Saída e Entrada */
+  #form #addBtn{grid-column:1/-1;justify-self:start;min-width:180px}
+  @media (max-width:560px){#form #addBtn{justify-self:stretch}}
   #addBtn{background:var(--text);border-color:var(--text);color:var(--surface)}
   #addBtn:hover{opacity:.9}
 </style>
@@ -1978,6 +1982,6 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=3"></script>
-<script src="app.js?v=123"></script>
+<script src="app.js?v=124"></script>
 </body>
 </html>
