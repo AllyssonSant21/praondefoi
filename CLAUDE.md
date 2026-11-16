@@ -29,7 +29,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Foto/PDF/áudio lido com clareza é **lançado direto** (pede confirmação só se a IA ficar em dúvida). Nome da loja; nunca cidade/endereço (vira "Compras de mercado", "Compras diversas"...).
 - Lançamentos do bot guardam `origem` (telegram, whatsapp, telegram_ia, whatsapp_ia) e o app mostra um 🤖 com a explicação.
 - WhatsApp: ainda **sem número** (Meta não liberou) → aparece "Em breve". Telegram e WhatsApp podem ficar ligados juntos (um de cada).
-- **Aviso de aparelho novo (só HMG, v133):** o app guarda um código por navegador (`pof-aparelho`) e chama `registrar_aparelho`; se é novo e não é o primeiro, chama a função `supabase/functions/aviso-login/index.ts` (Verify JWT LIGADO, independente do montar.py), que manda e-mail pela Resend (segredo `RESEND_KEY`; `APP_URL`/`APP_ORIGENS` no HMG). Só nome do aparelho e datas são guardados (sem IP/cidade).
+- **Aviso de aparelho novo (só HMG, v133):** o app guarda um código por navegador (`pof-aparelho`) e chama `registrar_aparelho`; se é novo e não é o primeiro, chama a função `supabase/functions/aviso-login/index.ts` (Verify JWT LIGADO, independente do montar.py), que manda e-mail pela Resend (segredo `RESEND_KEY`; `APP_URL`/`APP_ORIGENS` no HMG). Só nome do aparelho e datas são guardados (sem IP/cidade). HMG configurado em 16/11 (SQL + função + segredos); prod ainda não.
 - **Liberação por conta:** o admin liga IA, Detetive e Fundador no **⋮** de cada conta no painel. Quem não foi liberado não vê nada, e o banco recusa. Admin sempre tem tudo.
 
 ## Planos e limites decididos
