@@ -1592,6 +1592,9 @@ function renderCtrlBar(){
   // o mesmo seletor no alto do menu lateral (computador)
   $('sideCtrl').innerHTML = state.controles.map(x => `<option value="${esc(x.id)}"${x.id === state.cid ? ' selected' : ''}>${esc(x.nome)}</option>`).join('');
   $('sideCtrl').value = state.cid || '';
+  $('sideCtrlNome').textContent = c ? c.nome : '';
+  document.querySelector('.side-ctrl').classList.toggle('varios', state.controles.length > 1);
+  $('sideCtrl').tabIndex = state.controles.length > 1 ? 0 : -1;
   $('sideCtrlInfo').textContent = !c ? '' : c.pessoal ? 'Pessoal · só você vê' : `Compartilhado · ${plural(c.participantes,'pessoa')}`;
 }
 
