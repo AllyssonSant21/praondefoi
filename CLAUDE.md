@@ -50,7 +50,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - **Dívidas (HMG e prod desde 16/11):** tocar numa dívida abre o resumo com "O que aconteceu?" (Quitei, Fechei um acordo, Paguei uma parte, Estou negociando; em Pagando: Quitei antes, Atrasei, Renegociei) e o histórico.
 
 ## SQL (ordem no README.md, itens 19 a 36)
-- HMG já tem tudo até `supabase-liberacoes.sql`; `supabase-dividas.sql` rodou no HMG e no prod `supabase-dividas2.sql` (ações + histórico) rodou no HMG; no prod precisa rodar a versão nova do dividas.sql + dividas2.sql (app do prod já tem a tela desde 16/11).
+- Prod rodou (16/11) a versão nova do `supabase-dividas.sql`, o `supabase-dividas2.sql` e o `supabase-limite120.sql`. HMG tem tudo até o `supabase-dividas2.sql`; conferir se o `supabase-limite120.sql` rodou no HMG.
 - Prod rodou `supabase-alimentacao.sql` e o `supabase-prod-detetive-ia.sql` (junta whatsapp, bot-telegram, bot2…bot8, ia e liberacoes; pode rodar de novo).
 - Banco novo de testes: `supabase-hmg-tudo.sql`.
 
