@@ -939,9 +939,15 @@
   .kc-mes-tit{margin:var(--space-4) 0 2px;font-size:13px;font-weight:700;color:var(--muted)}
   .kc-mes-tit:first-child{margin-top:0}
   .kc-compra .kc-sub{display:block;font-size:12px;color:var(--muted);text-align:right;font-weight:500}
-  .kc-nova-row{display:flex}
+  .kc-nova-row{display:flex;flex-wrap:wrap;gap:10px}
   .kc-nova{min-height:48px;padding:0 22px;font-size:15px}
-  @media (max-width:700px){ .kc-nova{flex:1} }
+  /* Importar fatura: grande, ao lado do "Lançar compra" (contorno escuro, ícone de nota com seta) */
+  .kc-importar{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:48px;padding:0 20px;font:600 15px var(--font-body);border:1.5px solid var(--text);background:var(--surface);color:var(--text);border-radius:var(--r-btn);cursor:pointer}
+  .kc-importar svg{color:var(--accent-text);flex:none}
+  .kc-importar:hover{background:rgba(var(--accent-rgb),.12)}
+  .kc-importar:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+  .kc-importar:disabled{opacity:.45;cursor:not-allowed}
+  @media (max-width:700px){ .kc-nova,.kc-importar{flex:1 1 100%} }
   .ct-perigo{border:1px solid rgba(var(--alerta-rgb,220,60,60),.35);border-radius:var(--r-cartao);padding:14px;display:flex;flex-direction:column;gap:10px}
   .ct-perigo h3{color:var(--alerta);margin:0}
   .mc-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--divider)}
@@ -1929,12 +1935,12 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
 
   <div class="kc-nova-row">
     <button class="btn btn-primary kc-nova" id="kcNova" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Lançar compra no cartão</button>
+    <button class="kc-importar" id="kcImportar" type="button"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2.5h8l4 4V21l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2L6 21z"/><path d="M14 2.5v4h4"/><path d="M12 9v6"/><path d="m9.5 12.5 2.5 2.5 2.5-2.5"/></svg>Importar fatura</button>
   </div>
   <section class="blueprint" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4);">
     <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
       <h2 style="font-size:22px;text-transform:uppercase;" id="kcFatTit">Faturas</h2>
       <span style="display:flex;flex-wrap:wrap;gap:var(--space-2);">
-        <button class="btn btn-secondary" id="kcImportar" type="button">📄 Importar fatura</button>
         <button class="btn btn-secondary" id="kcMeus" type="button">Meus cartões</button>
       </span>
     </div>
@@ -2283,6 +2289,6 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=4"></script>
-<script src="app.js?v=140"></script>
+<script src="app.js?v=141"></script>
 </body>
 </html>
