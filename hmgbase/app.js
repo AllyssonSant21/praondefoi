@@ -981,7 +981,8 @@ function openRapido(aba){
   if (!PE()) return toast('Não deu para abrir agora. Atualize a página.');
   if (!state.cid) return toast('Escolha um controle primeiro.');
   rp = { aba: aba === 'ia' && iaDisponivel ? 'ia' : 'extrato', itens: [], aviso: '', ouvindo: null, arquivo: '', ia: null, lendo: false, gravador: null };
-  openDlg2('Lançar rápido', 'Do jeito mais fácil pra você', '', { tipo: 'rapido', largo: true });
+  // cada botão abre só a sua opção (sem abas repetindo os botões do formulário)
+  openDlg2('Lançar rápido', rp.aba === 'ia' ? 'Ler foto, PDF ou áudio' : 'Importar extrato do banco', '', { tipo: 'rapido', largo: true });
   renderRapido();
   carregarDic();
   sb.rpc('ia_meu_saldo').then(r => { if (!r.error && r.data){ rp.ia = r.data; if (rp.aba === 'ia') renderRapido(); } }, () => {});
@@ -993,10 +994,6 @@ function renderRapido(){
   const texto = $('rpTexto') ? $('rpTexto').value : '';
   const cel = (tipo, atual) => listaCats(tipo, atual).map(c => `<option value="${esc(c)}"${c === atual ? ' selected' : ''}>${esc(rotuloCat(c))}</option>`).join('');
   $('dlg2Body').innerHTML = `
-    ${iaDisponivel ? `<div class="seg rp-abas" role="group" aria-label="Como lançar">
-      <button type="button" data-rp-aba="ia" aria-pressed="${rp.aba === 'ia'}">Foto, PDF, áudio</button>
-      <button type="button" data-rp-aba="extrato" aria-pressed="${rp.aba === 'extrato'}">Extrato</button>
-    </div>` : ''}
     ${rp.aba === 'texto' ? `
       <div style="display:flex;flex-direction:column;gap:10px;">
         <label for="rpTexto" class="hint">Fale, escreva ou cole a notificação do banco. Pode ser mais de um gasto.</label>
