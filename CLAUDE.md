@@ -16,7 +16,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Commits terminam com as linhas de coautoria que o ambiente indicar.
 
 ## Como publicar
-1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v124**) e `entender.js?v=N` (hoje **v3**) no `hmgbase/index.html`.
+1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v125**) e `entender.js?v=N` (hoje **v3**) no `hmgbase/index.html`.
 2. `python3 ferramentas/rotas.py hmgbase` (copia o index para as pastas das abas: lancamentos/, cartoes/, contas/, metas/, investimentos/).
 3. Commit + push em `main` → HMG no ar.
 4. Prod (só com ok): rodar da raiz `python3 ferramentas/promover.py` (gera index/app/privacidade/termos/tema.js/entender.js do prod, troca banco e chaves, tira os blocos `<!--BOT-->…<!--/BOT-->` da capa, põe o bot `@Praondefoi_bot`) → commit + push.
@@ -33,7 +33,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 
 ## Planos e limites decididos
 - **Decidido em 14/11/2026:** plano **único de R$ 15,90/mês** (app + Telegram sem limite + WhatsApp + IA). Substitui Básico/Completo.
-- WhatsApp: **120 respostas/mês** por pessoa (licença) (conta respostas do bot, não só lançamentos; zera dia 1º). IA: 30 leituras/mês. Admin ajusta por conta. (Hoje o banco ainda tem 300 de padrão: trocar quando ligar a cobrança.)
+- WhatsApp: **120 respostas/mês** por pessoa (licença) (conta respostas do bot, não só lançamentos; zera dia 1º). IA: 30 leituras/mês. Admin ajusta por conta. Banco: `supabase-limite120.sql` (fundador também 120).
 - **Licenças (ideia aprovada, falta construir):** a pessoa escolhe quantas pessoas vão usar. 1 pessoa = R$ 15,90; 2 ou mais = **R$ 12,95 por pessoa** (≈18,6% de desconto; 2 = R$ 25,90, 3 = R$ 38,85, 4 = R$ 51,80). O assinante adiciona o e-mail de cada pessoa. No Stripe: um produto só, preço por volume (1 unid. 15,90; 2+ unid. 12,95 cada) com quantidade = licenças.
 - **Adicional (decidido):** R$ 4,90/mês somado à assinatura (mesma fatura), dá **+60 respostas no WhatsApp e +30 leituras de IA** por mês. A pessoa liga/desliga quando quiser. No Stripe: produto "Adicional" recorrente mensal R$ 4,90 (item extra na assinatura).
 - **Teste grátis (decidido):** 7 dias **sem pedir cartão** (controlado no nosso banco, Stripe só entra ao assinar), só **app + Telegram** (sem WhatsApp e sem IA). Ao acabar, aparece a **tela de preços** para assinar. Na tela **Limites**, botão para contratar o **Adicional**. (Telas: mandar prévia antes de construir.)
@@ -48,7 +48,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - **Visual estilo painel do Stripe (no HMG e no prod desde 16/11, v124):** letra Inter, bordas finas, cantos 6–8px; menu lateral com o seletor de controle no topo e seção "Conta" (Detetive Grana, Limites); barra do topo com busca de lançamentos e "+ Novo lançamento"; 4 números numa faixa (inclui Contas a pagar); no computador largo, lista à esquerda e formulário + "Para onde foi" à direita.
 - **Dívidas (HMG e prod desde 16/11):** tocar numa dívida abre o resumo com "O que aconteceu?" (Quitei, Fechei um acordo, Paguei uma parte, Estou negociando; em Pagando: Quitei antes, Atrasei, Renegociei) e o histórico.
 
-## SQL (ordem no README.md, itens 19 a 35)
+## SQL (ordem no README.md, itens 19 a 36)
 - HMG já tem tudo até `supabase-liberacoes.sql`; `supabase-dividas.sql` rodou no HMG e no prod `supabase-dividas2.sql` (ações + histórico) rodou no HMG; no prod precisa rodar a versão nova do dividas.sql + dividas2.sql (app do prod já tem a tela desde 16/11).
 - Prod rodou `supabase-alimentacao.sql` e o `supabase-prod-detetive-ia.sql` (junta whatsapp, bot-telegram, bot2…bot8, ia e liberacoes; pode rodar de novo).
 - Banco novo de testes: `supabase-hmg-tudo.sql`.

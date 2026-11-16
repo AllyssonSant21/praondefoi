@@ -4221,7 +4221,7 @@ const BOT_IC_WA = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" s
 // explica os limites de cada canal (fica embaixo dos botões do Detetive)
 const botComoFunciona = () => `<details class="bot-info"><summary>Como funciona e limites</summary><dl>
   <dt>Telegram</dt><dd>Sem limite. Mande quantas mensagens quiser.</dd>
-  <dt>WhatsApp</dt><dd>300 respostas do Detetive por mês. O saldo vale o mês inteiro e zera no dia 1º. Avisamos quando chegar em 80%.</dd>
+  <dt>WhatsApp</dt><dd>120 respostas do Detetive por mês. O saldo vale o mês inteiro e zera no dia 1º. Avisamos quando chegar em 80%.</dd>
   <dt>Foto, PDF e áudio</dt><dd>Lidos com IA: 30 leituras por mês, em qualquer canal.</dd>
   <dt>No app</dt><dd>Sem limite.</dd></dl></details>`;
 let botQtd = 0;   // quantos canais estavam ligados quando a tela abriu (para saber quando ligou mais um)
@@ -4253,7 +4253,7 @@ async function renderBot(){
   };
   const lista = `<div class="bot-canais">
       ${canal('telegram', 'Telegram', tgV, linkTg, BOT_IC_TG, '#2a9fd8', 'Sem limite de mensagens')}
-      ${canal('whatsapp', 'WhatsApp', waV, linkWa, BOT_IC_WA, '#1fa855', 'Até 300 mensagens por mês')}
+      ${canal('whatsapp', 'WhatsApp', waV, linkWa, BOT_IC_WA, '#1fa855', 'Até 120 mensagens por mês')}
     </div>`;
   const podeLigar = !!cod && ((!tgV && linkTg) || (!waV && linkWa));
   const espera = podeLigar ? `<p class="hint" id="botEspera" style="margin:0;font-size:12.5px;">${lig.length ? 'Para ligar o outro canal, toque em <b>Conectar</b>.' : 'Toque em <b>Conectar</b> e, na conversa, em <b>Iniciar</b>.'} Esta tela avisa sozinha quando conectar.</p>` : '';
@@ -4973,7 +4973,7 @@ async function acaoAdmin(e){
   }
   if (act === 'walimite'){
     const padrao = Number(b.dataset.padrao);
-    const v = await pedirTexto('Mensagens no WhatsApp por mês', `Quantas respostas do Detetive no WhatsApp ${b.dataset.email} pode receber por mês. Cada uma custa cerca de R$ 0,035. Deixe vazio para usar o padrão (${padrao}: ${padrao === 150 ? 'fundador' : 'assinante'}).`,
+    const v = await pedirTexto('Mensagens no WhatsApp por mês', `Quantas respostas do Detetive no WhatsApp ${b.dataset.email} pode receber por mês. Cada uma custa cerca de R$ 0,035. Deixe vazio para usar o padrão (${padrao}).`,
       { rotulo: 'Respostas por mês', tipo: 'number', modo: 'numeric', valor: b.dataset.lim, placeholder: String(padrao), okTxt: 'Salvar', vazioOk: true });
     if (v === null) return;
     const n = String(v).trim() === '' ? null : Math.round(Number(v));
