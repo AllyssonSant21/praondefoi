@@ -7,7 +7,7 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f5f6f8">
-<script src="tema.js?v=3"></script>
+<script src="tema.js?v=4"></script>
 <meta name="description" content="Anote gastos, contas, cartões e metas num lugar só, sozinho ou a dois. No celular e no PC. Não conecta no seu banco e não pede CPF nem dados do cartão.">
 <meta name="robots" content="noindex, nofollow">
 <link rel="canonical" href="https://praondefoiapp.com.br/">
@@ -1520,6 +1520,49 @@ html:not([data-tema="escuro"]) .cv-rolo{background:#fff}
   .cv .cp-login{order:2}.cv-texto{order:1}.cv-cena{order:3}
   .cv-q2{width:260px;height:340px;top:auto;bottom:400px}
 }
+
+  /* importar fatura do cartão */
+  .fi-op{display:flex;flex-direction:column;gap:6px;border:1.5px dashed var(--divider);border-radius:8px;padding:14px;cursor:pointer}
+  .fi-op b{font-size:14.5px}.fi-op span{color:var(--muted);font-size:12.5px}
+  .fi-op:hover{border-color:var(--accent)}
+  .fi-op input{font-size:13px;max-width:100%}
+  .fi-ops{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+  .fi-res{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--divider);border-radius:8px}
+  .fi-res>div{padding:10px 12px;border-right:1px solid var(--divider);min-width:0}.fi-res>div:last-child{border:0}
+  .fi-res small{display:block;color:var(--muted);font-size:12px}.fi-res b{font-size:17px;font-variant-numeric:tabular-nums}
+  .fi-tab{width:100%;border-collapse:collapse}
+  .fi-tab th{font-size:12px;color:var(--muted);text-align:left;font-weight:600;padding:7px 6px;border-bottom:1px solid var(--divider)}
+  .fi-tab td{padding:7px 6px;border-bottom:1px solid rgba(var(--fg-rgb),.07);font-size:13.5px;vertical-align:middle}
+  .fi-tab td small{display:block;color:var(--muted);font-size:12px}
+  .fi-tab .v{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .fi-tab tr.off td{opacity:.5}
+  .fi-tab select,.fi-tab input[type=text]{font:inherit;font-size:12.5px;padding:3px 6px;border:1px solid var(--divider);border-radius:5px;background:var(--field);color:var(--text);max-width:150px}
+  .fi-tab input.fi-par{width:62px;text-align:center}
+  .fi-tag{font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap;background:rgba(var(--fg-rgb),.07);color:var(--muted)}
+  .fi-tag.par{background:rgba(91,141,239,.16);color:#3f6fd8}.fi-tag.dup{background:rgba(192,18,60,.12);color:var(--out)}
+  html[data-tema="escuro"] .fi-tag.par{color:#8fb0ff}
+  .fi-lista{max-height:min(52vh,520px);overflow:auto;border:1px solid var(--divider);border-radius:8px}
+  .fi-dt2{display:none !important}
+  @media (max-width:640px){ .fi-dt{display:none}.fi-dt2{display:block !important}.fi-tab select{max-width:120px}.fi-bts{flex-direction:column-reverse;align-items:stretch}.fi-res{grid-template-columns:1fr 1fr}.fi-res>div:nth-child(2){border-right:0}.fi-res>div:nth-child(-n+2){border-bottom:1px solid var(--divider)} .fi-tab .fi-tot{display:none} }
+/* ===== estilo da capa dentro do app (v137): Rubik, marinho no escuro, brilho amarelo e "?" de marca d'água ===== */
+:root{--font-body:"Rubik",system-ui,sans-serif !important;--font-heading:"Rubik",system-ui,sans-serif !important}
+html:not([data-tema="escuro"]){--bg:#ffffff;--text:#0e1525;--muted:#5b6578;--divider:#e6e9ef;--fg-rgb:14,21,37}
+html[data-tema="escuro"]{--bg:#0e1525;--surface:#141c2e;--surface-rgb:20,28,46;--field:#101828;--side-bg:#0f1729;--nav-bg:rgba(15,23,41,.97);--text:#f6f0df;--muted:#a9b2c5;--divider:#243049;--fg-rgb:246,240,223}
+body{font-family:var(--font-body)}
+#viewApp{background:radial-gradient(700px 420px at 0% 0%,rgba(254,209,61,.20),transparent 70%),radial-gradient(600px 500px at 100% 100%,rgba(254,209,61,.10),transparent 70%),var(--bg)}
+#viewApp::after{content:"";position:fixed;right:-60px;bottom:-40px;width:420px;height:550px;pointer-events:none;z-index:0;opacity:.07;background:#fed13d;-webkit-mask:url(../logo/marca-dagua.svg) center/contain no-repeat;mask:url(../logo/marca-dagua.svg) center/contain no-repeat}
+html:not([data-tema="escuro"]) #viewApp::after{opacity:.16}
+#viewApp .wrap{position:relative;z-index:1}
+#viewApp h1{font-family:Rubik,sans-serif !important;font-weight:900 !important;font-size:30px !important;letter-spacing:-.03em !important;
+  text-shadow:1px 1px 0 rgba(var(--fg-rgb),.35),2px 2px 0 rgba(var(--fg-rgb),.22),3px 3px 0 rgba(var(--fg-rgb),.12)}
+#viewApp .wrap h2{font-weight:800 !important;letter-spacing:-.01em !important}
+#viewApp .big{font-family:Rubik,sans-serif !important;font-weight:800 !important;letter-spacing:-.02em}
+#viewApp .stat-bal .big{font-size:30px}
+.side-ctrl b,.side-ctrl-tx b{font-weight:800 !important}
+.side-item.on svg,.bottomnav button.on svg{color:#fed13d !important}
+html:not([data-tema="escuro"]) .side-item.on svg{color:#b07a00 !important}
+#viewApp .blueprint,#viewApp .stats,.lanc-lista,.lanc-cats,.lanc-rapido .rp-destaque{box-shadow:0 10px 30px rgba(14,21,37,.06) !important}
+html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .stats,html[data-tema="escuro"] .lanc-lista,html[data-tema="escuro"] .lanc-cats{box-shadow:0 14px 34px rgba(0,0,0,.35) !important}
 </style>
 </head>
 <body>
@@ -1847,6 +1890,7 @@ html:not([data-tema="escuro"]) .cv-rolo{background:#fff}
     <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
       <h2 style="font-size:22px;text-transform:uppercase;" id="kcFatTit">Faturas</h2>
       <span style="display:flex;flex-wrap:wrap;gap:var(--space-2);">
+        <button class="btn btn-secondary" id="kcImportar" type="button">📄 Importar fatura</button>
         <button class="btn btn-secondary" id="kcMeus" type="button">Meus cartões</button>
       </span>
     </div>
@@ -2190,7 +2234,7 @@ html:not([data-tema="escuro"]) .cv-rolo{background:#fff}
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
-<script src="entender.js?v=3"></script>
-<script src="app.js?v=136"></script>
+<script src="entender.js?v=4"></script>
+<script src="app.js?v=137"></script>
 </body>
 </html>

@@ -70,7 +70,10 @@ if (Deno_?.serve) Deno_.serve(async (req: Request) => {
   if (s.erro) return resposta(req, s, s.erro === 'sem_saldo' ? 429 : 403);
 
   try {
-    const { itens, modelo } = await lerComIA(bytes, mime, hoje, cats);
+    // modo "fatura": a fatura do cartão inteira (tela Cartões); senão, comprovante/nota/áudio
+    const { itens, modelo } = corpo?.modo === 'fatura' && mime !== 'audio' && !mime.startsWith('audio/')
+      ? await lerFaturaComIA(bytes, mime, hoje, cats)
+      : await lerComIA(bytes, mime, hoje, cats);
     if (!itens.length) await rpc('ia_devolver', { p_uid: uid }).catch(() => {});   // não leu nada: não gasta o saldo
     return resposta(req, { itens, restam: itens.length ? s.restam : s.restam + 1, limite: s.limite, modelo });
   } catch (err) {

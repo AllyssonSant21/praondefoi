@@ -3364,6 +3364,7 @@ function renderCartoes(){
   const ativos = cartoesAtivos();
   const lista = state.kcSel ? [findCartao(state.kcSel)].filter(Boolean) : (state.cartoes || []);
   $('kcNova').disabled = !state.cartOk || !ativos.length;
+  $('kcImportar').disabled = !state.cartOk || !ativos.length;
   $('kcMeus').disabled = !state.cartOk;
   if (!state.cartOk){
     ['kcFat','kcLim','kcProx'].forEach(id => { $(id).textContent = brl(0); });
@@ -5555,5 +5556,191 @@ $('dlg2Body').addEventListener('click', e => {
     state.filtroCat = tr.dataset.gdCat; state.filtro = null;
     closeDlg2(); render();
     $('tableWrap').closest('div.span2').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+});
+
+
+/* ======================= IMPORTAR FATURA DO CARTÃO =======================
+   CSV/OFX: lido neste aparelho (sem IA). PDF/foto: função "leitor" no modo "fatura" (gasta 1 leitura, só com IA liberada).
+   Nada é salvo antes de a pessoa conferir e tocar em "Adicionar". Parcelado "3 de 10": entra com parcela_ini = 3 na
+   fatura escolhida (as parcelas que faltam caem nas próximas; as anteriores não são criadas). */
+const fi = { kid: '', mk: '', itens: [], lendo: false, aviso: '', salvando: false };
+// "MAGAZINE LUIZA PARC 03/10", "Amazon - Parcela 2/6", "ZARA 3 DE 4", "LOJA X 03/10"
+function fiParcela(desc){
+  const t = String(desc || '');
+  const res = [/\s*[-–]?\s*parc(?:ela)?\.?\s*(\d{1,2})\s*(?:\/|de)\s*(\d{1,2})\b/i, /\s+(\d{1,2})\s+de\s+(\d{1,2})\s*$/i, /\s+(\d{1,2})\/(\d{1,2})\s*$/];
+  for (const re of res){
+    const m = t.match(re);
+    if (m){ const a = Number(m[1]), b = Number(m[2]);
+      if (b >= 2 && b <= 24 && a >= 1 && a <= b) return { parcela: a, parcelas: b, desc: t.replace(m[0], '').replace(/\s*[-–]\s*$/, '').trim() }; }
+  }
+  return { parcela: 1, parcelas: 1, desc: t.trim() };
+}
+const fiCartao = () => findCartao(fi.kid) || cartoesAtivos()[0];
+function fiMeses(k){
+  const base = faturaAbertaDoMes(k, mkey(state.y, state.m)), y = Number(base.slice(0, 4)), m = Number(base.slice(5, 7)) - 1;
+  return [-2, -1, 0, 1].map(d => mkey(y, m + d));
+}
+// data da compra (1ª parcela) para a parcela "parcela" cair na fatura escolhida. O banco calcula:
+// fatura da 1ª parcela = fatura da data; a parcela n cai n-1 meses depois (salvar_compra, supabase-cartoes3.sql)
+function fiDataNaFatura(k, iso, mk, parcela = 1){
+  const alvo = mkey(Number(mk.slice(0, 4)), Number(mk.slice(5, 7)) - 1 - (parcela - 1));
+  const isoDe = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  if (iso && faturaDaCompra(k, iso) === alvo) return iso;                 // a fatura já mostra a data original da compra
+  if (iso && parcela > 1){                                                // a fatura mostra a data desta parcela: volta os meses
+    const [y, m, d] = iso.split('-').map(Number), t = new Date(y, m - 1 - (parcela - 1), 1);
+    const volta = isoDe(new Date(t.getFullYear(), t.getMonth(), Math.min(d, ultimoDia(t.getFullYear(), t.getMonth()))));
+    if (faturaDaCompra(k, volta) === alvo) return volta;
+  }
+  const f = datasFatura(k, alvo).fecha; f.setDate(f.getDate() - 1);       // senão: véspera do fechamento da fatura certa
+  return isoDe(f);
+}
+function fiDuplicada(k, it){
+  const n = PE().norm(it.desc).split(' ')[0] || '';
+  return (state.compras || []).some(c => c.cartao_id === k.id && !c.ajuste && Number(c.parcelas) === it.parcelas &&
+    Math.abs(Number(c.valor) / c.parcelas - it.valor) < 0.02 && (it.parcelas > 1 ? PE().norm(c.descricao).startsWith(n) : Math.abs((new Date(c.data) - new Date(it.data)) / 864e5) <= 1));
+}
+function fiMontar(brutos){
+  const k = fiCartao();
+  fi.itens = brutos.map(b => {
+    const it = { ...b, sel: b.tipo === 'compra' };
+    if (it.tipo === 'compra' && fiDuplicada(k, it)){ it.dup = true; it.sel = false; }
+    return it;
+  });
+  // fatura mais provável: onde cai a maioria das compras à vista
+  const cont = {};
+  fi.itens.filter(i => i.tipo === 'compra' && i.parcelas === 1 && i.data).forEach(i => { const m = faturaDaCompra(k, i.data); cont[m] = (cont[m] || 0) + 1; });
+  const melhor = Object.entries(cont).sort((a, b) => b[1] - a[1])[0];
+  if (melhor && fiMeses(k).includes(melhor[0])) fi.mk = melhor[0];
+}
+async function fiArquivoTexto(file){
+  if (file.size > 5 * 1024 * 1024) return toast('Arquivo grande demais (máximo 5 MB).');
+  fi.lendo = true; fi.aviso = 'Lendo a fatura…'; renderFatura();
+  try {
+    const buf = await file.arrayBuffer();
+    let txt = new TextDecoder('utf-8').decode(buf);
+    if (txt.includes('�')) txt = new TextDecoder('windows-1252').decode(buf);
+    const ofx = /<OFX>|<STMTTRN>/i.test(txt);
+    let itens = (ofx ? lerOFX(txt) : lerCSV(txt).itens).filter(i => i.data && isFinite(i.valor) && i.valor !== 0);
+    if (!itens.length){ fi.itens = []; fi.aviso = 'Não consegui ler esse arquivo. Exporte a fatura em <b>CSV</b> ou <b>OFX</b> no app do banco, ou use o PDF.'; return; }
+    // na fatura, a maioria das linhas são compras: o sinal da maioria é o das compras
+    const pos = itens.filter(i => i.valor > 0).length, sinal = pos >= itens.length - pos ? 1 : -1;
+    const dic = await carregarDic(), cats = catsCtl(), E = PE();
+    fiMontar(itens.slice(0, 300).map(i => {
+      const p = fiParcela(i.desc), desc = descBonita(p.desc), valor = Math.abs(i.valor);
+      const tipo = Math.sign(i.valor) === sinal ? 'compra' : (/pagamento|pgto|pagto|pag fat/i.test(i.desc) ? 'pagamento' : 'estorno');
+      return { tipo, desc, valor, data: i.data, cat: E.categorizar(desc, 'exp', cats, dic), parcela: p.parcela, parcelas: p.parcelas };
+    }));
+    fi.aviso = '';
+  } catch { fi.aviso = 'Não consegui ler esse arquivo.'; }
+  finally { fi.lendo = false; renderFatura(); }
+}
+async function fiArquivoIA(file){
+  if (file.size > 5 * 1024 * 1024) return toast('Arquivo grande demais (máximo 5 MB).');
+  const mime = (file.type || '').toLowerCase() || (/\.pdf$/i.test(file.name) ? 'application/pdf' : 'image/jpeg');
+  fi.lendo = true; fi.aviso = '🕵️ A IA está lendo a fatura… (pode levar até 1 minuto)'; renderFatura();
+  try {
+    const blob = mime.startsWith('image/') ? await reduzirImagem(file) : file;
+    const cats = { exp: listaCats('exp'), inc: listaCats('inc') };
+    const { data, error } = await sb.functions.invoke('leitor', { body: { modo: 'fatura', mime: blob.type || mime, dados: await paraB64(blob), hoje: todayISO(), cats } });
+    let r = data;
+    if (error){ try { r = await error.context.json(); } catch { r = { erro: ehRede(error) ? 'rede' : 'falhou' }; } }
+    const MSG = { sem_saldo: 'Suas leituras de IA deste mês acabaram. Use o CSV ou OFX da fatura (sem limite).', nao_liberado: 'A leitura por IA não está liberada para a sua conta.',
+      sem_ia: 'A leitura por IA ainda não está ligada.', tipo: 'Use PDF ou foto da fatura.', tamanho: 'Arquivo grande demais (máximo 5 MB).', rede: 'Sem internet.' };
+    if (!r || r.erro){ fi.aviso = MSG[r?.erro] || 'Não consegui ler agora. Tente de novo daqui a pouco.'; return; }
+    // função antiga (sem o modo fatura) devolve itens sem "parcelas": avisa para atualizar
+    if (r.itens.length && r.itens[0].parcelas == null){ fi.aviso = 'A função "leitor" do Supabase precisa ser atualizada para ler faturas.'; return; }
+    if (!r.itens.length){ fi.aviso = 'Não achei compras nesse arquivo (não gastou sua leitura).'; return; }
+    fiMontar(r.itens.map(i => ({ tipo: i.tipo, desc: i.descricao, valor: i.valor, data: i.data, cat: i.categoria, parcela: i.parcela, parcelas: i.parcelas })));
+    fi.aviso = `🕵️ A IA leu ${plural(r.itens.length, 'linha')} da fatura. Confira antes de adicionar.${r.restam != null ? ` · ${plural(r.restam, 'leitura')} de IA restante${r.restam === 1 ? '' : 's'} no mês` : ''}`;
+  } catch { fi.aviso = 'Não consegui ler agora. Tente de novo daqui a pouco.'; }
+  finally { fi.lendo = false; renderFatura(); }
+}
+function openImportarFatura(){
+  const ativos = cartoesAtivos(); if (!ativos.length) return toast('Cadastre um cartão primeiro.');
+  Object.assign(fi, { kid: state.kcSel && findCartao(state.kcSel) ? state.kcSel : ativos[0].id, mk: '', itens: [], aviso: '', lendo: false, salvando: false });
+  fi.mk = faturaAbertaDoMes(fiCartao(), mkey(state.y, state.m));
+  openDlg2(`Cartão ${fiCartao().nome}`, 'Importar fatura', '', { tipo: 'fatura', largo: true });
+  renderFatura();
+}
+function renderFatura(){
+  if (dlg2.tipo !== 'fatura') return;
+  const k = fiCartao(), ativos = cartoesAtivos();
+  const marc = fi.itens.filter(i => i.sel && i.tipo === 'compra');
+  const tot = r2(marc.reduce((s, i) => s + i.valor, 0));
+  const nomeMk = mk => `${MONTHS[Number(mk.slice(5, 7)) - 1].toLowerCase()} de ${mk.slice(0, 4)}`;
+  const linha = (i, n) => {
+    const par = i.parcelas > 1, total = r2(i.valor * i.parcelas);
+    const tag = i.tipo === 'pagamento' ? '<span class="fi-tag">Pagamento · ignorado</span>' : i.tipo === 'estorno' ? '<span class="fi-tag">Estorno</span>'
+      : i.dup ? '<span class="fi-tag dup">Já cadastrada</span>' : par ? `<span class="fi-tag par">${i.parcela} de ${i.parcelas}</span>` : '<span class="fi-tag">À vista</span>';
+    const nota = i.tipo === 'estorno' ? 'Estorno: desconte pelo botão Ajustar da fatura' : i.tipo === 'pagamento' ? 'Não é compra' : i.dup ? 'Já está no app' : '';
+    const pode = i.tipo === 'compra';
+    return `<tr class="${i.sel ? '' : 'off'}">
+      <td><input type="checkbox" data-fi-sel="${n}" ${i.sel ? 'checked' : ''} ${pode ? '' : 'disabled'} aria-label="Adicionar ${esc(i.desc)}"></td>
+      <td class="fi-dt">${esc(dvDia(i.data))}</td>
+      <td>${esc(i.desc)}<small class="fi-dt2">${esc(dvDia(i.data))}</small>${nota ? `<small>${nota}</small>` : ''}${pode ? `<small><select data-fi-cat="${n}" aria-label="Categoria">${opcoesCat('exp', i.cat, false)}</select></small>` : ''}</td>
+      <td>${tag}${pode ? `<small><input type="text" class="fi-par" data-fi-par="${n}" value="${i.parcela}/${i.parcelas}" aria-label="Parcela (ex.: 3/10)" inputmode="numeric"></small>` : ''}</td>
+      <td class="v">${i.tipo === 'estorno' ? '+ ' : ''}${brl(i.valor)}</td>
+      <td class="v fi-tot">${par ? brl(total) : '—'}</td></tr>`;
+  };
+  $('dlg2Body').innerHTML = `
+    <div class="row" style="gap:10px;flex-wrap:wrap;">
+      <div class="field" style="flex:1;min-width:180px;"><label for="fiCartao">Cartão</label><select class="input" id="fiCartao">${ativos.map(x => `<option value="${esc(x.id)}"${x.id === k.id ? ' selected' : ''}>${esc(iconeCartao(x))} ${esc(x.nome)}</option>`).join('')}</select></div>
+      <div class="field" style="flex:1;min-width:180px;"><label for="fiMes">Esta é a fatura de</label><select class="input" id="fiMes">${fiMeses(k).map(m => `<option value="${m}"${m === fi.mk ? ' selected' : ''}>${nomeMk(m)}</option>`).join('')}</select></div>
+    </div>
+    ${!fi.itens.length ? `<div class="fi-ops">
+      <label class="fi-op"><b>📊 CSV ou OFX</b><span>Exporte a fatura no app do banco. É lida só neste aparelho e não gasta leitura de IA.</span><input type="file" id="fiTxt" accept=".csv,.ofx,.txt,text/csv,application/x-ofx" ${fi.lendo ? 'disabled' : ''}></label>
+      ${iaDisponivel ? `<label class="fi-op"><b>📄 PDF ou foto da fatura <span class="tag tag-amber">IA</span></b><span>A IA lê a fatura inteira. Usa 1 leitura de IA.</span><input type="file" id="fiIa" accept="application/pdf,image/*" ${fi.lendo ? 'disabled' : ''}></label>` : ''}
+    </div>` : `<div class="fi-res">
+      <div><small>Para adicionar</small><b>${marc.length}</b></div><div><small>Parceladas</small><b>${marc.filter(i => i.parcelas > 1).length}</b></div>
+      <div><small>Já cadastradas</small><b>${fi.itens.filter(i => i.dup).length}</b></div><div><small>Valor nesta fatura</small><b>${brl(tot)}</b></div></div>
+      <div class="fi-lista"><table class="fi-tab"><thead><tr><th></th><th class="fi-dt">Data</th><th>Descrição</th><th>Tipo</th><th class="v">Nesta fatura</th><th class="v fi-tot">Total da compra</th></tr></thead>
+      <tbody>${fi.itens.map(linha).join('')}</tbody></table></div>
+      <p class="hint" style="margin:0;">Parcelada "3 de 10": entra a partir da parcela 3 nesta fatura, e as que faltam aparecem nas próximas. Ajuste a parcela escrevendo, por exemplo, <b>3/10</b>.</p>`}
+    ${fi.aviso ? `<p class="hint" style="margin:0;">${fi.aviso}</p>` : ''}
+    <div class="row fi-bts" style="justify-content:flex-end;gap:8px;">
+      ${fi.itens.length ? '<button class="btn btn-ghost" type="button" data-fi="outro">Outro arquivo</button>' : ''}
+      <button class="btn btn-secondary" type="button" data-fi="fechar">Cancelar</button>
+      ${fi.itens.length ? `<button class="btn btn-primary" type="button" data-fi="salvar" ${!marc.length || fi.salvando ? 'disabled' : ''}>${fi.salvando ? 'Adicionando…' : `Adicionar ${plural(marc.length, 'compra')} ao cartão`}</button>` : ''}
+    </div>`;
+  if (valoresOcultos) mascararValores();
+}
+$('kcImportar').onclick = () => openImportarFatura();
+$('dlg2Body').addEventListener('change', e => {
+  if (dlg2.tipo !== 'fatura') return;
+  const t = e.target;
+  if (t.id === 'fiTxt' && t.files[0]) return fiArquivoTexto(t.files[0]);
+  if (t.id === 'fiIa' && t.files[0]) return fiArquivoIA(t.files[0]);
+  if (t.id === 'fiCartao'){ fi.kid = t.value; fi.mk = faturaAbertaDoMes(fiCartao(), mkey(state.y, state.m)); if (fi.itens.length) fiMontar(fi.itens); return renderFatura(); }
+  if (t.id === 'fiMes'){ fi.mk = t.value; return; }
+  if (t.dataset.fiSel != null){ fi.itens[+t.dataset.fiSel].sel = t.checked; return renderFatura(); }
+  if (t.dataset.fiCat != null){ fi.itens[+t.dataset.fiCat].cat = t.value; return; }
+  if (t.dataset.fiPar != null){
+    const i = fi.itens[+t.dataset.fiPar], m = t.value.match(/^\s*(\d{1,2})\s*(?:\/|de)\s*(\d{1,2})\s*$/i);
+    if (m && +m[2] >= 1 && +m[2] <= 24 && +m[1] >= 1 && +m[1] <= +m[2]){ i.parcela = +m[1]; i.parcelas = +m[2]; }
+    else toast('Escreva a parcela assim: 3/10 (ou 1/1 para à vista).');
+    return renderFatura();
+  }
+});
+$('dlg2Body').addEventListener('click', async e => {
+  if (dlg2.tipo !== 'fatura') return;
+  const b = e.target.closest('[data-fi]'); if (!b) return;
+  if (b.dataset.fi === 'fechar') return closeDlg2();
+  if (b.dataset.fi === 'outro'){ fi.itens = []; fi.aviso = ''; return renderFatura(); }
+  if (b.dataset.fi === 'salvar'){
+    const k = fiCartao(), lista = fi.itens.filter(i => i.sel && i.tipo === 'compra');
+    if (!lista.length) return;
+    fi.salvando = true; renderFatura();
+    let ok = 0, falhas = 0, ultimo = '';
+    for (const i of lista){
+      const { error } = await sb.rpc('salvar_compra', { p_id: null, p_cartao: k.id, p_desc: i.desc.slice(0, 200), p_cat: i.cat || 'Outros',
+        p_valor: r2(i.valor * i.parcelas), p_parcelas: i.parcelas, p_data: fiDataNaFatura(k, i.data, fi.mk, i.parcela), p_parcela_ini: i.parcela });
+      if (error){ falhas++; ultimo = rpcMsg(error); } else { ok++; i.sel = false; i.dup = true; }
+    }
+    fi.salvando = false;
+    await loadCartoes(); render();
+    if (!falhas){ closeDlg2(); return toast(`${plural(ok, 'compra')} adicionada${ok === 1 ? '' : 's'} ao cartão ${k.nome}.`, true); }
+    fi.aviso = `${ok} adicionada${ok === 1 ? '' : 's'}; ${falhas} não deu${falhas === 1 ? '' : 'ram'}: ${esc(ultimo)}`;
+    renderFatura();
   }
 });
