@@ -1405,6 +1405,8 @@ $('filtroLimpar').onclick = () => { state.filtro = null; state.filtroCat = null;
 /* ---- visual v122: busca, controle no menu, atalhos da conta ---- */
 state.busca = '';
 $('busca').addEventListener('input', e => { state.busca = e.target.value; render(); });
+// mês (‹ Novembro ›) e o olho moram na barra do topo, que fica fixa ao rolar
+$('topbarDir').appendChild($('topoDir'));
 $('sideCtrl').addEventListener('change', e => { $('ctrlSelect').value = e.target.value; $('ctrlSelect').dispatchEvent(new Event('change')); });
 $('sideBot').addEventListener('click', () => $('botFab').click());
 $('sideLimites').addEventListener('click', () => openLimites());
