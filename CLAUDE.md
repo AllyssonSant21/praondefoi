@@ -16,7 +16,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Commits terminam com as linhas de coautoria que o ambiente indicar.
 
 ## Como publicar
-1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v134**) e `entender.js?v=N` (hoje **v3**) no `hmgbase/index.html`.
+1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v136**) e `entender.js?v=N` (hoje **v3**) no `hmgbase/index.html`.
 2. `python3 ferramentas/rotas.py hmgbase` (copia o index para as pastas das abas: lancamentos/, cartoes/, contas/, metas/, investimentos/).
 3. Commit + push em `main` → HMG no ar.
 4. Prod (só com ok): rodar da raiz `python3 ferramentas/promover.py` (gera index/app/privacidade/termos/tema.js/entender.js do prod, troca banco e chaves, tira os blocos `<!--BOT-->…<!--/BOT-->` da capa, põe o bot `@Praondefoi_bot`) → commit + push.
@@ -41,7 +41,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Cobrança: Stripe. Área restrita (teste) com 2 produtos (15/11): "Pra Onde Foi?" (volume: 1 = 15,90; 2+ = 12,95/unid., chave de pesquisa `pof_licenca_mensal`) e "Pra Onde Foi? Adicional" (4,90/mês, chave `pof_adicional_mensal`). Usar as chaves de pesquisa no código (iguais na produção). Pagamento numa tela nossa com os campos do Stripe (Payment Element); cartão nunca passa pelo app. Chaves `sk_…`/`whsec_…` só nos Secrets do Supabase. Tarifas (nov/2026): cartão 3,99% + R$ 0,39, Pix 1,19%, Billing 0,7%.
 
 ## O que existe hoje (13/11/2026)
-- Capa nova clara e centralizada (faixa "Mandou? Está lançado." e card do Detetive só no HMG).
+- **Capa nova (só HMG, v136):** fundo contínuo (marinho #0E1525 no escuro, branco no claro, amarelo #FED13D), marca d'água de dados + "?" grande, título "Descubra / pra onde foi / seu dinheiro?" (Rubik 900 com volume 3D + Yellowtail), celular 3D com print real do app (`logo/capa-app-claro|escuro.webp`), login à direita; seção "Mandou? Está lançado." sem caixas (mensagens soltas → papel "Seus lançamentos" com carimbo). Classes `cv-*`. Os 3 blocos `<!--BOT-->` agora são: "ou por mensagem" no subtítulo, a bolha no celular e a seção Mandou. Prod ainda com a capa antiga.
 - Categoria padrão **Alimentação** (🍽️) com palavras de comida; "Para onde foi" filtra a lista ao clicar numa categoria.
 - "Lançar rápido" em destaque: **Foto, PDF ou áudio** (só com IA liberada) e **Extrato do banco**. A opção de escrever/falar foi tirada (no app se lança direto pelo formulário).
 - Menu: item **Limites**; **ponte** entre a conta do dono e a conta master (duas sessões guardadas no aparelho: "Ir para minha conta" ↔ "Painel do administrador").
