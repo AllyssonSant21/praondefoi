@@ -5564,7 +5564,7 @@ $('dlg2Body').addEventListener('click', e => {
    CSV/OFX: lido neste aparelho (sem IA). PDF/foto: função "leitor" no modo "fatura" (gasta 1 leitura, só com IA liberada).
    Nada é salvo antes de a pessoa conferir e tocar em "Adicionar". Parcelado "3 de 10": entra com parcela_ini = 3 na
    fatura escolhida (as parcelas que faltam caem nas próximas; as anteriores não são criadas). */
-const fi = { kid: '', mk: '', itens: [], lendo: false, aviso: '', salvando: false };
+const fi = { kid: '', mk: '', itens: [], lendo: false, aviso: '', salvando: false, ajuda: false };
 // "MAGAZINE LUIZA PARC 03/10", "Amazon - Parcela 2/6", "ZARA 3 DE 4", "LOJA X 03/10"
 function fiParcela(desc){
   const t = String(desc || '');
@@ -5689,16 +5689,20 @@ function renderFatura(){
       <div class="field" style="flex:1;min-width:180px;"><label for="fiMes">Esta é a fatura de</label><select class="input" id="fiMes">${fiMeses(k).map(m => `<option value="${m}"${m === fi.mk ? ' selected' : ''}>${nomeMk(m)}</option>`).join('')}</select></div>
     </div>
     ${!fi.itens.length ? `<div class="fi-ops">
-      <label class="fi-op"><b>📊 CSV ou OFX</b><span>Exporte a fatura no app do banco. É lida só neste aparelho e não gasta leitura de IA.</span><input type="file" id="fiTxt" accept=".csv,.ofx,.txt,text/csv,application/x-ofx" ${fi.lendo ? 'disabled' : ''}></label>
-      ${iaDisponivel ? `<label class="fi-op"><b>📄 PDF ou foto da fatura <span class="tag tag-amber">IA</span></b><span>A IA lê a fatura inteira. Usa 1 leitura de IA.</span><input type="file" id="fiIa" accept="application/pdf,image/*" ${fi.lendo ? 'disabled' : ''}></label>` : ''}
+      <label class="fi-op"><b>📊 CSV ou OFX <span class="fi-g ok">Não gasta IA</span></b><span>Exporte a fatura no app do banco. É lida só neste aparelho.</span><input type="file" id="fiTxt" accept=".csv,.ofx,.txt,text/csv,application/x-ofx" ${fi.lendo ? 'disabled' : ''}></label>
+      ${iaDisponivel ? `<label class="fi-op"><b>📄 PDF ou foto da fatura <span class="fi-g ia">Gasta 1 leitura de IA</span></b><span>A IA lê a fatura inteira.</span><input type="file" id="fiIa" accept="application/pdf,image/*" ${fi.lendo ? 'disabled' : ''}></label>` : ''}
     </div>
-    <div class="lim-tabela"><b>Como funciona</b><dl>
-      <dt>1. Arquivo</dt><dd>No app do banco, baixe a fatura em <b>CSV</b> ou <b>OFX</b>${iaDisponivel ? ' (ou use o <b>PDF</b>, lido pela IA)' : ''} e escolha aqui.</dd>
-      <dt>2. Conferir</dt><dd>Aparece a lista das compras. Troque a categoria ou a parcela (ex.: <b>3/10</b>) se precisar.</dd>
-      <dt>3. Parceladas</dt><dd>"3 de 10" entra como parcela 3 nesta fatura; as que faltam aparecem nas próximas.</dd>
-      <dt>4. Ficam de fora</dt><dd>Compras já cadastradas, estornos e o pagamento da fatura vêm desmarcados.</dd>
-      <dt>5. Salvar</dt><dd>Nada é salvo até você tocar em <b>Adicionar</b>.</dd>
-    </dl><small>O CSV/OFX é lido só neste aparelho. O PDF usa 1 leitura de IA.</small></div>` : `<div class="fi-res">
+    <div class="fi-ajuda">
+      <button type="button" class="fi-ajuda-bt" data-fi="ajuda" aria-expanded="${fi.ajuda ? 'true' : 'false'}"><img src="../logo/logo-simbolo.svg" alt="" width="22" height="22">Como funciona</button>
+      ${fi.ajuda ? `<div class="fi-balao" role="note"><dl>
+        <dt>1. Arquivo</dt><dd>No app do banco, baixe a fatura em <b>CSV</b> ou <b>OFX</b>${iaDisponivel ? ', ou use o <b>PDF</b> ou uma foto' : ''} e escolha aqui.</dd>
+        <dt>2. Conferir</dt><dd>Aparece a lista das compras. Troque a categoria ou a parcela (ex.: <b>3/10</b>) se precisar.</dd>
+        <dt>3. Parceladas</dt><dd>"3 de 10" entra como parcela 3 nesta fatura; as que faltam aparecem nas próximas.</dd>
+        <dt>4. Ficam de fora</dt><dd>Compras já cadastradas, estornos e o pagamento da fatura vêm desmarcados.</dd>
+        <dt>5. Salvar</dt><dd>Nada é salvo até você tocar em <b>Adicionar</b>.</dd>
+      </dl>
+      <div class="fi-gasto"><span class="fi-g ok">✓ CSV ou OFX: <b>não gasta</b> leitura de IA (é lido neste aparelho)</span>${iaDisponivel ? '<span class="fi-g ia">⚡ PDF ou foto: <b>gasta 1 leitura de IA</b> por arquivo. Se a IA não achar nada, não gasta.</span>' : ''}</div></div>` : ''}
+    </div>` : `<div class="fi-res">
       <div><small>Para adicionar</small><b>${marc.length}</b></div><div><small>Parceladas</small><b>${marc.filter(i => i.parcelas > 1).length}</b></div>
       <div><small>Já cadastradas</small><b>${fi.itens.filter(i => i.dup).length}</b></div><div><small>Valor nesta fatura</small><b>${brl(tot)}</b></div></div>
       <div class="fi-lista"><table class="fi-tab"><thead><tr><th></th><th class="fi-dt">Data</th><th>Descrição</th><th>Tipo</th><th class="v">Nesta fatura</th><th class="v fi-tot">Total da compra</th></tr></thead>
@@ -5733,6 +5737,7 @@ $('dlg2Body').addEventListener('click', async e => {
   if (dlg2.tipo !== 'fatura') return;
   const b = e.target.closest('[data-fi]'); if (!b) return;
   if (b.dataset.fi === 'fechar') return closeDlg2();
+  if (b.dataset.fi === 'ajuda'){ fi.ajuda = !fi.ajuda; return renderFatura(); }
   if (b.dataset.fi === 'outro'){ fi.itens = []; fi.aviso = ''; return renderFatura(); }
   if (b.dataset.fi === 'salvar'){
     const k = fiCartao(), lista = fi.itens.filter(i => i.sel && i.tipo === 'compra');
