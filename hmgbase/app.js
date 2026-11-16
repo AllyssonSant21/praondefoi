@@ -5565,10 +5565,11 @@ $('dlg2Body').addEventListener('click', e => {
    Nada é salvo antes de a pessoa conferir e tocar em "Adicionar". Parcelado "3 de 10": entra com parcela_ini = 3 na
    fatura escolhida (as parcelas que faltam caem nas próximas; as anteriores não são criadas). */
 const fi = { kid: '', mk: '', itens: [], lendo: false, aviso: '', salvando: false, ajuda: false };
-// "MAGAZINE LUIZA PARC 03/10", "Amazon - Parcela 2/6", "ZARA 3 DE 4", "LOJA X 03/10"
+// "MAGAZINE LUIZA PARC 03/10", "Amazon - Parcela 2/6", "ZARA 3 DE 4", "LOJA X 03/10", "LOJA (2/10)", "PARC.02/10", "2/10 LOJA"
 function fiParcela(desc){
   const t = String(desc || '');
-  const res = [/\s*[-–]?\s*parc(?:ela)?\.?\s*(\d{1,2})\s*(?:\/|de)\s*(\d{1,2})\b/i, /\s+(\d{1,2})\s+de\s+(\d{1,2})\s*$/i, /\s+(\d{1,2})\/(\d{1,2})\s*$/];
+  const res = [/\s*[-–]?\s*\(?\s*parc(?:ela)?s?\.?\s*(\d{1,2})\s*(?:\/|de|-)\s*(\d{1,2})\s*\)?/i, /\s*\(\s*(\d{1,2})\s*(?:\/|de)\s*(\d{1,2})\s*\)/i,
+    /\s+(\d{1,2})\s+de\s+(\d{1,2})\b/i, /(?:^|\s+)(\d{1,2})\/(\d{1,2})(?=\s|$)/];
   for (const re of res){
     const m = t.match(re);
     if (m){ const a = Number(m[1]), b = Number(m[2]);
@@ -5613,6 +5614,28 @@ function fiMontar(brutos){
   const melhor = Object.entries(cont).sort((a, b) => b[1] - a[1])[0];
   if (melhor && fiMeses(k).includes(melhor[0])) fi.mk = melhor[0];
 }
+// CSV de fatura: como o lerCSV, mas acha a coluna de parcela ("Parcela", "Tipo": "Parcela 2/10", "1/3", "Única")
+// e, se houver valor em dólar e em reais, usa o de reais
+function fiLerCSV(txt){
+  const l1 = txt.split(/\r?\n/).slice(0, 5).join('\n');
+  const sep = (l1.match(/;/g) || []).length > (l1.match(/,/g) || []).length ? ';' : ((l1.match(/\t/g) || []).length > 2 ? '\t' : ',');
+  const rows = linhasCSV(txt, sep), n = x => PE().norm(x || '');
+  const h = rows.findIndex(r => r.some(c => /(^| )(data|date|dt)/.test(n(c))) && r.some(c => /(valor|amount|value|quantia)/.test(n(c))));
+  if (h < 0) return [];
+  const cab = rows[h].map(n);
+  const iData = cab.findIndex(c => /(^| )(data|date|dt)/.test(c));
+  const valores = cab.map((c, i) => [c, i]).filter(([c]) => /(valor|amount|value|quantia)/.test(c) && !/saldo|cotacao|us\$|usd|dolar|dollar/.test(c));
+  const iValor = (valores.find(([c]) => /r\$|brl|real/.test(c)) || valores[0] || [null, -1])[1];
+  const achar = re => cab.findIndex(c => re.test(c) && !/(^| )(data|date)/.test(c));
+  const iDesc = [/descri/, /title|titulo/, /estabelecimento/, /lancamento/, /memo/, /histor/, /detalhe|nome/].map(achar).find(i => i >= 0) ?? -1;
+  const iParc = cab.findIndex(c => /parcela|installment|^tipo/.test(c));
+  return rows.slice(h + 1).map(r => {
+    // a parcela pode estar na coluna própria ou em qualquer outra coluna de texto
+    const outras = r.filter((c, i) => i !== iDesc && i !== iData && i !== iValor).join(' ');
+    return { valor: numBanco(r[iValor]), data: dataBanco(r[iData]), desc: iDesc >= 0 ? (r[iDesc] || '') : '',
+      parcTxt: [iParc >= 0 ? r[iParc] : '', outras].join(' ').replace(/\b(unica|única|a vista|à vista)\b/gi, ' ') };
+  });
+}
 async function fiArquivoTexto(file){
   if (file.size > 5 * 1024 * 1024) return toast('Arquivo grande demais (máximo 5 MB).');
   fi.lendo = true; fi.aviso = 'Lendo a fatura…'; renderFatura();
@@ -5621,13 +5644,15 @@ async function fiArquivoTexto(file){
     let txt = new TextDecoder('utf-8').decode(buf);
     if (txt.includes('�')) txt = new TextDecoder('windows-1252').decode(buf);
     const ofx = /<OFX>|<STMTTRN>/i.test(txt);
-    let itens = (ofx ? lerOFX(txt) : lerCSV(txt).itens).filter(i => i.data && isFinite(i.valor) && i.valor !== 0);
+    let itens = (ofx ? lerOFX(txt) : fiLerCSV(txt)).filter(i => i.data && isFinite(i.valor) && i.valor !== 0);
     if (!itens.length){ fi.itens = []; fi.aviso = 'Não consegui ler esse arquivo. Exporte a fatura em <b>CSV</b> ou <b>OFX</b> no app do banco, ou use o PDF.'; return; }
     // na fatura, a maioria das linhas são compras: o sinal da maioria é o das compras
     const pos = itens.filter(i => i.valor > 0).length, sinal = pos >= itens.length - pos ? 1 : -1;
     const dic = await carregarDic(), cats = catsCtl(), E = PE();
     fiMontar(itens.slice(0, 300).map(i => {
-      const p = fiParcela(i.desc), desc = descBonita(p.desc), valor = Math.abs(i.valor);
+      let p = fiParcela(i.desc);
+      if (p.parcelas === 1 && i.parcTxt){ const q = fiParcela(' ' + i.parcTxt); if (q.parcelas > 1) p = { ...q, desc: p.desc }; }
+      const desc = descBonita(p.desc), valor = Math.abs(i.valor);
       const tipo = Math.sign(i.valor) === sinal ? 'compra' : (/pagamento|pgto|pagto|pag fat/i.test(i.desc) ? 'pagamento' : 'estorno');
       return { tipo, desc, valor, data: i.data, cat: E.categorizar(desc, 'exp', cats, dic), parcela: p.parcela, parcelas: p.parcelas };
     }));
