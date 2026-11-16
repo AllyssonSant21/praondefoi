@@ -45,6 +45,7 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   34. `supabase-dividas.sql` — Dívidas dentro de Contas a pagar: a situação (pagando, atrasada, acordo...) cria as parcelas em Contas do mês.
   35. `supabase-dividas2.sql` — Ações da dívida (quitei, fechei um acordo, paguei uma parte, estou negociando) e histórico.
   36. `supabase-limite120.sql` — WhatsApp passa a 120 respostas por mês por pessoa (fundador também).
+  37. `supabase-aparelhos.sql` — aviso por e-mail quando a conta é aberta num aparelho novo (com a função `aviso-login`).
 - **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os 15 scripts na ordem; ative pg_net e pg_cron antes e rode uma vez só.
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.
 - **Marca:** pasta `logo/` (SVG e PNG).

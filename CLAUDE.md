@@ -11,12 +11,12 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Ideia nova: conversar antes de construir quando ele pedir.
 - Botões com cantos pouco arredondados (sem "pílula"). Texto em português correto.
 - **Nunca pedir dados de cartão ou banco.** Ele cadastra cartão direto nos sites.
-- **Segredos nunca vêm pro chat:** Turnstile, Resend, token do WhatsApp/Meta, chaves Anthropic/OpenAI, token do Telegram, `GEMINI_KEY`, `TG_SECRET`. Vão direto nos Secrets do Supabase.
+- **Segredos nunca vêm pro chat:** Turnstile, Resend, token do WhatsApp/Meta, chaves Anthropic/OpenAI, token do Telegram, `GEMINI_KEY`, `TG_SECRET`, `RESEND_KEY`. Vão direto nos Secrets do Supabase.
 - Não salvar o SQL de reset de senha. `supabase-hmg-convidados.sql` é **só HMG**.
 - Commits terminam com as linhas de coautoria que o ambiente indicar.
 
 ## Como publicar
-1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v132**) e `entender.js?v=N` (hoje **v3**) no `hmgbase/index.html`.
+1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v133**) e `entender.js?v=N` (hoje **v3**) no `hmgbase/index.html`.
 2. `python3 ferramentas/rotas.py hmgbase` (copia o index para as pastas das abas: lancamentos/, cartoes/, contas/, metas/, investimentos/).
 3. Commit + push em `main` → HMG no ar.
 4. Prod (só com ok): rodar da raiz `python3 ferramentas/promover.py` (gera index/app/privacidade/termos/tema.js/entender.js do prod, troca banco e chaves, tira os blocos `<!--BOT-->…<!--/BOT-->` da capa, põe o bot `@Praondefoi_bot`) → commit + push.
@@ -29,6 +29,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Foto/PDF/áudio lido com clareza é **lançado direto** (pede confirmação só se a IA ficar em dúvida). Nome da loja; nunca cidade/endereço (vira "Compras de mercado", "Compras diversas"...).
 - Lançamentos do bot guardam `origem` (telegram, whatsapp, telegram_ia, whatsapp_ia) e o app mostra um 🤖 com a explicação.
 - WhatsApp: ainda **sem número** (Meta não liberou) → aparece "Em breve". Telegram e WhatsApp podem ficar ligados juntos (um de cada).
+- **Aviso de aparelho novo (só HMG, v133):** o app guarda um código por navegador (`pof-aparelho`) e chama `registrar_aparelho`; se é novo e não é o primeiro, chama a função `supabase/functions/aviso-login/index.ts` (Verify JWT LIGADO, independente do montar.py), que manda e-mail pela Resend (segredo `RESEND_KEY`; `APP_URL`/`APP_ORIGENS` no HMG). Só nome do aparelho e datas são guardados (sem IP/cidade).
 - **Liberação por conta:** o admin liga IA, Detetive e Fundador no **⋮** de cada conta no painel. Quem não foi liberado não vê nada, e o banco recusa. Admin sempre tem tudo.
 
 ## Planos e limites decididos
@@ -49,7 +50,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - **HMG e prod (16/11, v132):** Lançar rápido numa caixa própria (fora do Novo lançamento); sem o botão "+ Novo lançamento" do topo; seletor de controle com logo maior (seta só com 2+ controles); botão **Detalhes** no "Para onde foi" abre janela com total, média/dia, comparação com o mês anterior, rosca por categoria, tabela e gasto por semana/dia; app mais leve (planilha só ao exportar, sem Rubik, service worker novo `hmgbase/sw.js` copiado para a raiz pelo promover).
 - **Dívidas (HMG e prod desde 16/11):** tocar numa dívida abre o resumo com "O que aconteceu?" (Quitei, Fechei um acordo, Paguei uma parte, Estou negociando; em Pagando: Quitei antes, Atrasei, Renegociei) e o histórico.
 
-## SQL (ordem no README.md, itens 19 a 36)
+## SQL (ordem no README.md, itens 19 a 37)
 - Prod rodou (16/11) a versão nova do `supabase-dividas.sql`, o `supabase-dividas2.sql` e o `supabase-limite120.sql`. HMG tem tudo até o `supabase-dividas2.sql`; conferir se o `supabase-limite120.sql` rodou no HMG.
 - Prod rodou `supabase-alimentacao.sql` e o `supabase-prod-detetive-ia.sql` (junta whatsapp, bot-telegram, bot2…bot8, ia e liberacoes; pode rodar de novo).
 - Banco novo de testes: `supabase-hmg-tudo.sql`.

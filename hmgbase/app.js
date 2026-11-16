@@ -368,6 +368,29 @@ let authErroVolta = null;
 
 // painel de uso do admin: registra quando a conta abriu o app (o banco guarda no máximo a cada 15 min)
 function marcarAcesso(){ if (sb && currentUser) sb.rpc('registrar_acesso').then(() => {}, () => {}); }
+/* ---------- aviso de acesso por aparelho novo (supabase-aparelhos.sql + função aviso-login) ----------
+   Cada navegador guarda um código só dele. Se a conta abre num aparelho que o banco ainda não conhecia
+   (e não é o primeiro da pessoa), a função manda um e-mail "Novo acesso à sua conta". */
+function nomeAparelho(){
+  const ua = navigator.userAgent || '';
+  const nav = /Edg\//.test(ua) ? 'Edge' : /OPR\/|Opera/.test(ua) ? 'Opera' : /SamsungBrowser/.test(ua) ? 'Samsung Internet'
+    : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Navegador';
+  const so = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows'
+    : /Mac OS X|Macintosh/.test(ua) ? 'Mac' : /CrOS/.test(ua) ? 'Chromebook' : /Linux/.test(ua) ? 'Linux' : '';
+  const app = matchMedia('(display-mode: standalone)').matches ? ' (app instalado)' : '';
+  return `${nav}${so ? ' no ' + so : ''}${app}`;
+}
+function registrarAparelho(){
+  if (!sb || !currentUser) return;
+  let id = lsLer('pof-aparelho');
+  if (!id || !/^[A-Za-z0-9-]{16,64}$/.test(id)){
+    id = (crypto.randomUUID ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join(''));
+    lsGravar('pof-aparelho', id);
+  }
+  sb.rpc('registrar_aparelho', { p_id: id, p_nome: nomeAparelho() }).then(({ data, error }) => {
+    if (!error && data && data.avisar) sb.functions.invoke('aviso-login', { body: { aparelho: id } }).catch(() => {});
+  }, () => {});   // banco sem o supabase-aparelhos.sql: segue sem aviso
+}
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && profile && profile.status === 'aprovado') marcarAcesso(); });
 
 async function handleSession(session, force){
@@ -409,6 +432,7 @@ async function handleSession(session, force){
 
   renderMe();
   marcarAcesso();
+  registrarAparelho();
   $('adminEmail').textContent = displayName(profile.email);
   // entrou com a conta comum no modo do painel: devolve a sessão para o lugar normal
   if (MODO_ADMIN && !profile.is_admin && CHAVE_PADRAO){ lsGravar(CHAVE_PADRAO, lsLer(CHAVE_ADMIN)); lsGravar(CHAVE_ADMIN, null); return irPara(''); }
