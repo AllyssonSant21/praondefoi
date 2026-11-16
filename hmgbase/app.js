@@ -1368,11 +1368,9 @@ document.querySelectorAll('.stat-filtro').forEach(el => {
   el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleFiltro(el.dataset.filtro); } });
 });
 $('filtroLimpar').onclick = () => { state.filtro = null; state.filtroCat = null; state.busca = ''; $('busca').value = ''; render(); };
-/* ---- visual v122: busca, "+ Novo lançamento", controle no menu, atalhos da conta ---- */
+/* ---- visual v122: busca, controle no menu, atalhos da conta ---- */
 state.busca = '';
 $('busca').addEventListener('input', e => { state.busca = e.target.value; render(); });
-  setTimeout(() => $('desc').focus({ preventScroll: true }), 250);
-});
 $('sideCtrl').addEventListener('change', e => { $('ctrlSelect').value = e.target.value; $('ctrlSelect').dispatchEvent(new Event('change')); });
 $('sideBot').addEventListener('click', () => $('botFab').click());
 $('sideLimites').addEventListener('click', () => openLimites());
