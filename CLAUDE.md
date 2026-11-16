@@ -45,11 +45,11 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - "Lançar rápido" em destaque: **Foto, PDF ou áudio** (só com IA liberada) e **Extrato do banco**. A opção de escrever/falar foi tirada (no app se lança direto pelo formulário).
 - Menu: item **Limites**; **ponte** entre a conta do dono e a conta master (duas sessões guardadas no aparelho: "Ir para minha conta" ↔ "Painel do administrador").
 - Janela do Detetive compacta (cabe na tela sem zoom).
-- **Visual estilo painel do Stripe (só HMG, v122):** letra Inter, bordas finas, cantos 6–8px; menu lateral com o seletor de controle no topo e seção "Conta" (Detetive Grana, Limites); barra do topo com busca de lançamentos e "+ Novo lançamento"; 4 números numa faixa (inclui Contas a pagar); no computador largo, lista à esquerda e formulário + "Para onde foi" à direita. Prod ainda no visual antigo.
-- **Dívidas (só HMG):** tocar numa dívida abre o resumo com "O que aconteceu?" (Quitei, Fechei um acordo, Paguei uma parte, Estou negociando; em Pagando: Quitei antes, Atrasei, Renegociei) e o histórico.
+- **Visual estilo painel do Stripe (no HMG e no prod desde 16/11, v124):** letra Inter, bordas finas, cantos 6–8px; menu lateral com o seletor de controle no topo e seção "Conta" (Detetive Grana, Limites); barra do topo com busca de lançamentos e "+ Novo lançamento"; 4 números numa faixa (inclui Contas a pagar); no computador largo, lista à esquerda e formulário + "Para onde foi" à direita.
+- **Dívidas (HMG e prod desde 16/11):** tocar numa dívida abre o resumo com "O que aconteceu?" (Quitei, Fechei um acordo, Paguei uma parte, Estou negociando; em Pagando: Quitei antes, Atrasei, Renegociei) e o histórico.
 
 ## SQL (ordem no README.md, itens 19 a 35)
-- HMG já tem tudo até `supabase-liberacoes.sql`; `supabase-dividas.sql` rodou no HMG e no prod (o app do prod ainda não tem a tela de Dívidas). `supabase-dividas2.sql` (ações + histórico) precisa rodar no HMG e no prod.
+- HMG já tem tudo até `supabase-liberacoes.sql`; `supabase-dividas.sql` rodou no HMG e no prod `supabase-dividas2.sql` (ações + histórico) rodou no HMG; no prod precisa rodar a versão nova do dividas.sql + dividas2.sql (app do prod já tem a tela desde 16/11).
 - Prod rodou `supabase-alimentacao.sql` e o `supabase-prod-detetive-ia.sql` (junta whatsapp, bot-telegram, bot2…bot8, ia e liberacoes; pode rodar de novo).
 - Banco novo de testes: `supabase-hmg-tudo.sql`.
 
