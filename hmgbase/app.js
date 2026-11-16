@@ -1371,9 +1371,6 @@ $('filtroLimpar').onclick = () => { state.filtro = null; state.filtroCat = null;
 /* ---- visual v122: busca, "+ Novo lançamento", controle no menu, atalhos da conta ---- */
 state.busca = '';
 $('busca').addEventListener('input', e => { state.busca = e.target.value; render(); });
-$('topNovo').addEventListener('click', () => {
-  if (state.tab !== 'lanc') setTab('lanc');
-  $('lancForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
   setTimeout(() => $('desc').focus({ preventScroll: true }), 250);
 });
 $('sideCtrl').addEventListener('change', e => { $('ctrlSelect').value = e.target.value; $('ctrlSelect').dispatchEvent(new Event('change')); });
