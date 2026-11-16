@@ -425,7 +425,7 @@
     .ctrlbar>span:last-of-type .btn{flex:1 1 auto}
   }
   /* ===== HMG ===== */
-  .hmg-tag{white-space:nowrap;position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:70;background:var(--red);color:#fff;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding:3px 10px;border-radius:999px;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+  .hmg-tag{white-space:nowrap;position:fixed;bottom:12px;right:12px;z-index:70;background:var(--red);color:#fff;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding:3px 10px;border-radius:999px;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.35)}@media (max-width:899px){.hmg-tag{bottom:calc(78px + env(safe-area-inset-bottom))}}
 
   /* ===== navegação: barra embaixo (celular) e menu lateral (PC) ===== */
   #viewApp .userbar{display:none}
@@ -1321,7 +1321,6 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
   html[data-tema="escuro"] .lanc-form .rp-d-op{border-color:var(--divider) !important}
   @media (min-width:900px){
     #viewApp .ctrlbar #ctrlSelect,#viewApp .ctrlbar #ctrlInfo{display:none}
-    /* (selo HMG: agora fica embaixo à direita, ver "selo HMG embaixo") */
   }
   /* Adicionar sempre numa linha própria, no mesmo lugar em Saída e Entrada */
   #form #addBtn{grid-column:1/-1;justify-self:start;min-width:180px}
@@ -1609,9 +1608,6 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
     .topbar-dir .olho-topo{display:inline-grid !important;width:44px;height:40px}
     .olho-mini{display:none !important}
   }
-  /* selo HMG embaixo, para não cobrir a barra do topo */
-  .hmg-tag{top:auto !important;bottom:12px;left:auto !important;right:12px;transform:none !important}
-  @media (max-width:899px){.hmg-tag{bottom:calc(78px + env(safe-area-inset-bottom))}}
 </style>
 </head>
 <body>

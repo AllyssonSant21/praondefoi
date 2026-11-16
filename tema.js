@@ -16,7 +16,7 @@ if (window.top !== window.self){
     var e = escolha(), t = e === 'auto' ? (mq && mq.matches ? 'escuro' : 'claro') : e;
     document.documentElement.setAttribute('data-tema', t);
     var m = document.querySelector('meta[name="theme-color"]');
-    if (m) m.setAttribute('content', t === 'escuro' ? '#141414' : '#f5f6f8');
+    if (m) m.setAttribute('content', t === 'escuro' ? '#0e1525' : '#ffffff');
   }
   window.temaEscolhido = escolha;
   window.definirTema = function(e){ try { localStorage.setItem(KEY, e); } catch(err){} aplicar(); };

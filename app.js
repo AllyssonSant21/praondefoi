@@ -367,9 +367,42 @@ let authErroVolta = null;
 
 // painel de uso do admin: registra quando a conta abriu o app (o banco guarda no máximo a cada 15 min)
 function marcarAcesso(){ if (sb && currentUser) sb.rpc('registrar_acesso').then(() => {}, () => {}); }
+/* ---------- aviso de acesso por aparelho novo (supabase-aparelhos.sql + função aviso-login) ----------
+   Cada navegador guarda um código só dele. Se a conta abre num aparelho que o banco ainda não conhecia
+   (e não é o primeiro da pessoa), a função manda um e-mail "Novo acesso à sua conta". */
+function nomeAparelho(){
+  const ua = navigator.userAgent || '';
+  const nav = /Edg\//.test(ua) ? 'Edge' : /OPR\/|Opera/.test(ua) ? 'Opera' : /SamsungBrowser/.test(ua) ? 'Samsung Internet'
+    : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Navegador';
+  const so = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows'
+    : /Mac OS X|Macintosh/.test(ua) ? 'Mac' : /CrOS/.test(ua) ? 'Chromebook' : /Linux/.test(ua) ? 'Linux' : '';
+  const app = matchMedia('(display-mode: standalone)').matches ? ' (app instalado)' : '';
+  return `${nav}${so ? ' no ' + so : ''}${app}`;
+}
+function registrarAparelho(){
+  if (!sb || !currentUser) return;
+  let id = lsLer('pof-aparelho');
+  if (!id || !/^[A-Za-z0-9-]{16,64}$/.test(id)){
+    id = (crypto.randomUUID ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join(''));
+    lsGravar('pof-aparelho', id);
+  }
+  sb.rpc('registrar_aparelho', { p_id: id, p_nome: nomeAparelho() }).then(({ data, error }) => {
+    if (!error && data && data.avisar) sb.functions.invoke('aviso-login', { body: { aparelho: id } }).catch(() => {});
+  }, () => {});   // banco sem o supabase-aparelhos.sql: segue sem aviso
+}
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && profile && profile.status === 'aprovado') marcarAcesso(); });
 
+// a mesma conta podia ser carregada duas vezes ao abrir (getSession + aviso do login chegando juntos):
+// enquanto uma carga da mesma conta está em andamento, a segunda é ignorada
+let sessaoEmCurso = null;
 async function handleSession(session, force){
+  const uid = session && session.user ? session.user.id : null;
+  if (uid && !force && sessaoEmCurso === uid) return;
+  if (uid) sessaoEmCurso = uid;
+  try { return await handleSession0(session, force); }
+  finally { if (uid && sessaoEmCurso === uid) sessaoEmCurso = null; }
+}
+async function handleSession0(session, force){
   // link de troca de senha: abre a tela de senha nova, nunca o app direto
   if (session && recovering){ show('viewAuth'); setAuthMode('nova'); return; }
   if (!session){
@@ -408,6 +441,7 @@ async function handleSession(session, force){
 
   renderMe();
   marcarAcesso();
+  registrarAparelho();
   $('adminEmail').textContent = displayName(profile.email);
   // entrou com a conta comum no modo do painel: devolve a sessão para o lugar normal
   if (MODO_ADMIN && !profile.is_admin && CHAVE_PADRAO){ lsGravar(CHAVE_PADRAO, lsLer(CHAVE_ADMIN)); lsGravar(CHAVE_ADMIN, null); return irPara(''); }
@@ -1370,6 +1404,8 @@ $('filtroLimpar').onclick = () => { state.filtro = null; state.filtroCat = null;
 /* ---- visual v122: busca, controle no menu, atalhos da conta ---- */
 state.busca = '';
 $('busca').addEventListener('input', e => { state.busca = e.target.value; render(); });
+// mês (‹ Novembro ›) e o olho moram na barra do topo, que fica fixa ao rolar
+$('topbarDir').appendChild($('topoDir'));
 $('sideCtrl').addEventListener('change', e => { $('ctrlSelect').value = e.target.value; $('ctrlSelect').dispatchEvent(new Event('change')); });
 $('sideBot').addEventListener('click', () => $('botFab').click());
 $('sideLimites').addEventListener('click', () => openLimites());
@@ -1897,6 +1933,15 @@ function partsLine(i){
   return i.parts.map(p => `${esc(quem(p.uid))} ${p.falta <= 0 ? '<span style="color:var(--green)">✓</span>' : 'falta ' + brl(p.falta)}`).join(' · ');
 }
 
+// contas que aparecem num mês (no mês atual, também as parcelas atrasadas de dívidas)
+function contasListaDoMes(mk){
+  const atrasosDiv = mk === mkey(new Date().getFullYear(), new Date().getMonth()) ? state.contas
+    .filter(c => (state.contaDivida[c.id] || {}).papel === 'atraso' && c.inicio < mk)
+    .map(c => instancia(c, c.inicio)).filter(i => !i.paid) : [];
+  return atrasosDiv.concat(state.contas.filter(c => ocorre(c, mk)).map(c => instancia(c, mk))
+    .filter(i => !(i.antes && i.c.tipo === 'parcelada' && i.pago === 0))
+    .sort((a, b) => (a.paid - b.paid) || (a.due - b.due) || a.c.nome.localeCompare(b.c.nome)));
+}
 function renderContas(){
   const { late, hoje } = alertas();
   const n = late + hoje;
@@ -1919,12 +1964,7 @@ function renderContas(){
   $('billNew').disabled = false;
   const mk = mkey(state.y, state.m);
   const me = myId();
-  const atrasosDiv = mk === mkey(new Date().getFullYear(), new Date().getMonth()) ? state.contas
-    .filter(c => (state.contaDivida[c.id] || {}).papel === 'atraso' && c.inicio < mk)
-    .map(c => instancia(c, c.inicio)).filter(i => !i.paid) : [];
-  const list = atrasosDiv.concat(state.contas.filter(c => ocorre(c, mk)).map(c => instancia(c, mk))
-    .filter(i => !(i.antes && i.c.tipo === 'parcelada' && i.pago === 0))
-    .sort((a, b) => (a.paid - b.paid) || (a.due - b.due) || a.c.nome.localeCompare(b.c.nome)));
+  const list = contasListaDoMes(mk);
   const fats = faturasDoMes(mk);
   const total = r2(list.reduce((s, i) => s + i.total, 0) + fats.reduce((s, i) => s + i.total, 0));
   const pago = r2(list.reduce((s, i) => s + i.pago, 0) + fats.reduce((s, i) => s + i.pago, 0));
@@ -3329,6 +3369,7 @@ function renderCartoes(){
   const ativos = cartoesAtivos();
   const lista = state.kcSel ? [findCartao(state.kcSel)].filter(Boolean) : (state.cartoes || []);
   $('kcNova').disabled = !state.cartOk || !ativos.length;
+  $('kcImportar').disabled = !state.cartOk || !ativos.length;
   $('kcMeus').disabled = !state.cartOk;
   if (!state.cartOk){
     ['kcFat','kcLim','kcProx'].forEach(id => { $(id).textContent = brl(0); });
@@ -5452,11 +5493,35 @@ async function gdGastosAntes(y, m){
   }
   return (gdCacheAntes[chave] = todos.map(fromRow).filter(gdEhGasto));
 }
-let gdModo = 'semana';
-async function openGraficoMes(){
-  const { y, m } = state;
-  const lista = state.entries.filter(gdEhGasto);
-  const antes = (await gdGastosAntes(y, m)) || [];
+let gdModo = 'semana', gdFonte = 'lanc';
+// itens de uma aba num mês: { cat, amount, dia }
+const GD_FATURA = '__fatura';
+function gdItensCartao(y, m){
+  return parcelasDoMes(state.kcSel, mkey(y, m)).filter(p => !p.c.ajuste)
+    .map(p => ({ cat: p.c.categoria, amount: p.valor, dia: parseInt(p.c.data.slice(8, 10), 10) }));
+}
+function gdItensContas(y, m){
+  const mk = mkey(y, m);
+  return contasListaDoMes(mk).map(i => ({ cat: i.c.categoria || 'Contas', amount: i.total, dia: i.due.getDate(), pago: i.pago }))
+    .concat(faturasDoMes(mk).map(i => ({ cat: GD_FATURA, amount: i.total, dia: Math.min(i.k.vence, ultimoDia(y, m)), pago: i.pago })));
+}
+const GD_TEXTOS = {
+  lanc:    { tit: 'Para onde foi', sub: 'Gastos de', total: 'Total gasto', barras: 'Gasto por', vazio: 'Sem gastos neste mês.' },
+  cartoes: { tit: 'No que gastou no cartão', sub: 'Compras e parcelas de', total: 'Gasto no cartão', barras: 'Compras por', vazio: 'Nenhuma compra no cartão neste mês.' },
+  contas:  { tit: 'Contas do mês', sub: 'Contas a pagar de', total: 'Total de contas', barras: 'Vencimentos por', vazio: 'Nenhuma conta neste mês.' },
+};
+async function openGraficoMes(fonte){
+  if (fonte) gdFonte = fonte;
+  const { y, m } = state, T = GD_TEXTOS[gdFonte];
+  let lista, antes;
+  if (gdFonte === 'cartoes'){ lista = gdItensCartao(y, m); antes = gdItensCartao(y, m - 1); }
+  else if (gdFonte === 'contas'){ lista = gdItensContas(y, m); antes = gdItensContas(y, m - 1); }
+  else {
+    lista = state.entries.filter(gdEhGasto).map(e => ({ cat: e.cat, amount: e.amount, dia: parseInt(e.date.slice(8, 10), 10) }));
+    antes = (await gdGastosAntes(y, m)) || [];
+  }
+  const nomeCat = c => c === GD_FATURA ? '💳 Faturas de cartão' : c === '__outras' ? 'Outras' : rotuloCat(c);
+  const filtra = gdFonte === 'lanc';
   const total = r2(lista.reduce((s, e) => s + e.amount, 0)), totAntes = r2(antes.reduce((s, e) => s + e.amount, 0));
   const porCat = {}, qtd = {}, porCatAntes = {};
   lista.forEach(e => { porCat[e.cat] = r2((porCat[e.cat] || 0) + e.amount); qtd[e.cat] = (qtd[e.cat] || 0) + 1; });
@@ -5478,39 +5543,46 @@ async function openGraficoMes(){
   // barras: por semana (1–7, 8–14, 15–21, 22–fim) ou por dia
   const barras = () => {
     const dias = Array.from({ length: diasMes }, () => 0);
-    lista.forEach(e => { const d = parseInt(e.date.slice(8, 10), 10); if (d >= 1 && d <= diasMes) dias[d - 1] = r2(dias[d - 1] + e.amount); });
+    lista.forEach(e => { const d = e.dia; if (d >= 1 && d <= diasMes) dias[d - 1] = r2(dias[d - 1] + e.amount); });
     let itens;
-    if (gdModo === 'dia') itens = dias.map((v, i) => [String(i + 1), v, i + 1 > diasCont]);
-    else itens = [[1, 7], [8, 14], [15, 21], [22, diasMes]].map(([a, b]) => [`${a}–${b}`, r2(dias.slice(a - 1, b).reduce((s, v) => s + v, 0)), a > diasCont]);
+    const apaga = gdFonte !== 'contas';
+    if (gdModo === 'dia') itens = dias.map((v, i) => [String(i + 1), v, apaga && i + 1 > diasCont]);
+    else itens = [[1, 7], [8, 14], [15, 21], [22, diasMes]].map(([a, b]) => [`${a}–${b}`, r2(dias.slice(a - 1, b).reduce((s, v) => s + v, 0)), apaga && a > diasCont]);
     const max = Math.max(...itens.map(i => i[1]), 0) || 1;
     return `<div class="gd-barras ${gdModo}">${itens.map(([, v, futuro]) => `<div title="${brl(v)}"><small class="v">${v ? brl(v).replace(/,\d\d$/, '') : ''}</small><i style="height:${Math.max(v / max * 100, v ? 3 : 0)}%;${futuro ? 'opacity:.3;' : ''}"></i></div>`).join('')}</div>
       <div class="gd-eixo">${itens.map(([r], i) => `<span>${gdModo === 'dia' ? ((i + 1) % 5 === 1 || i + 1 === diasMes ? r : '') : `${r} ${MONTHS[m].slice(0, 3).toLowerCase()}`}</span>`).join('')}</div>`;
   };
-  openDlg2('Para onde foi', `Gastos de ${MONTHS[m].toLowerCase()}${y !== hoje.getFullYear() ? ' de ' + y : ''}`, `
+  const pago = r2(lista.reduce((s, e) => s + (e.pago || 0), 0));
+  openDlg2(T.tit, `${T.sub} ${MONTHS[m].toLowerCase()}${y !== hoje.getFullYear() ? ' de ' + y : ''}`, `
     <div class="graf-det">
       <div class="gd-kp">
-        <div><small>Total gasto</small><b>${brl(total)}</b></div>
-        <div><small>Média por dia${atual ? ' (até hoje)' : ''}</small><b>${brl(media)}</b></div>
-        <div><small>vs ${nomeAntes}</small><b class="${!totAntes ? '' : dif > 0 ? 'gd-mais' : dif < 0 ? 'gd-menos' : ''}">${!totAntes ? 'sem gastos antes' : dif === 0 ? 'igual' : `${dif > 0 ? '+' : '−'} ${pct}% (${brl(Math.abs(dif))})`}</b></div>
+        <div><small>${T.total}</small><b>${brl(total)}</b></div>
+        ${gdFonte === 'contas' ? `<div><small>Já pago</small><b class="${pago ? 'gd-menos' : ''}">${brl(pago)}</b></div>`
+          : `<div><small>Média por dia${atual ? ' (até hoje)' : ''}</small><b>${brl(media)}</b></div>`}
+        <div><small>vs ${nomeAntes}</small><b class="${!totAntes ? '' : dif > 0 ? 'gd-mais' : dif < 0 ? 'gd-menos' : ''}">${!totAntes ? (gdFonte === 'contas' ? 'sem contas antes' : 'sem gastos antes') : dif === 0 ? 'igual' : `${dif > 0 ? '+' : '−'} ${pct}% (${brl(Math.abs(dif))})`}</b></div>
       </div>
       ${total ? `<div class="gd-top">
         <div class="gd-rosca"><svg viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="${R}" fill="none" stroke="var(--track)" stroke-width="6"/>${arcos}</svg><div><small>Total</small><b>${brl(total).replace(/,\d\d$/, '')}</b></div></div>
-        <table class="gd-tab"><thead><tr><th>Categoria</th><th class="v">Valor</th><th class="v">%</th><th class="v gd-n">Lanç.</th><th class="v">vs ${nomeAntes.slice(0, 3)}</th></tr></thead><tbody>
-          ${cats.map(([c, v]) => { const d = r2(v - (porCatAntes[c] || 0)); return `<tr data-gd-cat="${esc(c)}" title="Ver só ${esc(c)}">
-            <td><span class="gd-dot" style="background:${cor(c)}"></span>${esc(rotuloCat(c)).replace(' ', '\u00a0')}</td><td class="v">${brl(v)}</td><td class="v">${Math.round(v / total * 100)}%</td><td class="v gd-n">${qtd[c]}</td>
+        <table class="gd-tab"><thead><tr><th>Categoria</th><th class="v">Valor</th><th class="v">%</th><th class="v gd-n">${gdFonte === 'cartoes' ? 'Compras' : gdFonte === 'contas' ? 'Contas' : 'Lanç.'}</th><th class="v">vs ${nomeAntes.slice(0, 3)}</th></tr></thead><tbody>
+          ${cats.map(([c, v]) => { const d = r2(v - (porCatAntes[c] || 0)); return `<tr${filtra ? ` data-gd-cat="${esc(c)}" title="Ver só ${esc(c)}"` : ''}>
+            <td><span class="gd-dot" style="background:${cor(c)}"></span>${esc(nomeCat(c)).replace(' ', '\u00a0')}</td><td class="v">${brl(v)}</td><td class="v">${Math.round(v / total * 100)}%</td><td class="v gd-n">${qtd[c]}</td>
             <td class="v ${!porCatAntes[c] ? 'gd-novo' : d > 0 ? 'gd-mais' : d < 0 ? 'gd-menos' : ''}">${!porCatAntes[c] ? 'novo' : d === 0 ? '=' : `${d > 0 ? '+' : '−'} ${brl(Math.abs(d)).replace(/,\d\d$/, '')}`}</td></tr>`; }).join('')}
         </tbody></table>
       </div>
       <div class="gd-box">
-        <div class="gd-box-hd"><b>Gasto por ${gdModo === 'dia' ? 'dia' : 'semana'}</b>
+        <div class="gd-box-hd"><b>${T.barras} ${gdModo === 'dia' ? 'dia' : 'semana'}</b>
           <div class="seg" role="group" aria-label="Agrupar por"><button type="button" data-gd-modo="semana" aria-pressed="${gdModo === 'semana'}">Semana</button><button type="button" data-gd-modo="dia" aria-pressed="${gdModo === 'dia'}">Dia</button></div></div>
         ${barras()}
       </div>
-      <p class="hint" style="margin:0;">Toque numa categoria da tabela para ver só os lançamentos dela.</p>` : '<p class="hint">Sem gastos neste mês.</p>'}
+      ${filtra ? '<p class="hint" style="margin:0;">Toque numa categoria da tabela para ver só os lançamentos dela.</p>'
+        : gdFonte === 'cartoes' ? `<p class="hint" style="margin:0;">Conta as compras e as parcelas que caem em ${MONTHS[m].toLowerCase()}${state.kcSel && findCartao(state.kcSel) ? ` no ${esc(findCartao(state.kcSel).nome)}` : ''}. O dia é o da compra.</p>`
+        : '<p class="hint" style="margin:0;">O gráfico mostra quando cada conta vence. As faturas de cartão entram pelo total; o detalhe delas fica na aba Cartões.</p>'}` : `<p class="hint">${T.vazio}</p>`}
     </div>`, { tipo: 'grafico', largo: true });
   if (valoresOcultos) mascararValores();
 }
-$('catsGraf').addEventListener('click', async () => { $('catsGraf').disabled = true; try { await openGraficoMes(); } finally { $('catsGraf').disabled = false; } });
+[['catsGraf', 'lanc'], ['kcGraf', 'cartoes'], ['ctGraf', 'contas']].forEach(([id, fonte]) => $(id).addEventListener('click', async () => {
+  $(id).disabled = true; try { await openGraficoMes(fonte); } finally { $(id).disabled = false; }
+}));
 $('dlg2Body').addEventListener('click', e => {
   if (dlg2.tipo !== 'grafico') return;
   const md = e.target.closest('[data-gd-modo]');
@@ -5520,5 +5592,228 @@ $('dlg2Body').addEventListener('click', e => {
     state.filtroCat = tr.dataset.gdCat; state.filtro = null;
     closeDlg2(); render();
     $('tableWrap').closest('div.span2').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+});
+
+
+/* ======================= IMPORTAR FATURA DO CARTÃO =======================
+   CSV/OFX: lido neste aparelho (sem IA). PDF/foto: função "leitor" no modo "fatura" (gasta 1 leitura, só com IA liberada).
+   Nada é salvo antes de a pessoa conferir e tocar em "Adicionar". Parcelado "3 de 10": entra com parcela_ini = 3 na
+   fatura escolhida (as parcelas que faltam caem nas próximas; as anteriores não são criadas). */
+const fi = { kid: '', mk: '', itens: [], lendo: false, aviso: '', salvando: false, ajuda: false };
+// "MAGAZINE LUIZA PARC 03/10", "Amazon - Parcela 2/6", "ZARA 3 DE 4", "LOJA X 03/10", "LOJA (2/10)", "PARC.02/10", "2/10 LOJA"
+function fiParcela(desc){
+  const t = String(desc || '');
+  const res = [/\s*[-–]?\s*\(?\s*parc(?:ela)?s?\.?\s*(\d{1,2})\s*(?:\/|de|-)\s*(\d{1,2})\s*\)?/i, /\s*\(\s*(\d{1,2})\s*(?:\/|de)\s*(\d{1,2})\s*\)/i,
+    /\s+(\d{1,2})\s+de\s+(\d{1,2})\b/i, /(?:^|\s+)(\d{1,2})\/(\d{1,2})(?=\s|$)/];
+  for (const re of res){
+    const m = t.match(re);
+    if (m){ const a = Number(m[1]), b = Number(m[2]);
+      if (b >= 2 && b <= 24 && a >= 1 && a <= b) return { parcela: a, parcelas: b, desc: t.replace(m[0], '').replace(/\s*[-–]\s*$/, '').trim() }; }
+  }
+  return { parcela: 1, parcelas: 1, desc: t.trim() };
+}
+const fiCartao = () => findCartao(fi.kid) || cartoesAtivos()[0];
+function fiMeses(k){
+  const base = faturaAbertaDoMes(k, mkey(state.y, state.m)), y = Number(base.slice(0, 4)), m = Number(base.slice(5, 7)) - 1;
+  return [-2, -1, 0, 1].map(d => mkey(y, m + d));
+}
+// data da compra (1ª parcela) para a parcela "parcela" cair na fatura escolhida. O banco calcula:
+// fatura da 1ª parcela = fatura da data; a parcela n cai n-1 meses depois (salvar_compra, supabase-cartoes3.sql)
+function fiDataNaFatura(k, iso, mk, parcela = 1){
+  const alvo = mkey(Number(mk.slice(0, 4)), Number(mk.slice(5, 7)) - 1 - (parcela - 1));
+  const isoDe = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  if (iso && faturaDaCompra(k, iso) === alvo) return iso;                 // a fatura já mostra a data original da compra
+  if (iso && parcela > 1){                                                // a fatura mostra a data desta parcela: volta os meses
+    const [y, m, d] = iso.split('-').map(Number), t = new Date(y, m - 1 - (parcela - 1), 1);
+    const volta = isoDe(new Date(t.getFullYear(), t.getMonth(), Math.min(d, ultimoDia(t.getFullYear(), t.getMonth()))));
+    if (faturaDaCompra(k, volta) === alvo) return volta;
+  }
+  const f = datasFatura(k, alvo).fecha; f.setDate(f.getDate() - 1);       // senão: véspera do fechamento da fatura certa
+  return isoDe(f);
+}
+function fiDuplicada(k, it){
+  const n = PE().norm(it.desc).split(' ')[0] || '';
+  return (state.compras || []).some(c => c.cartao_id === k.id && !c.ajuste && Number(c.parcelas) === it.parcelas &&
+    Math.abs(Number(c.valor) / c.parcelas - it.valor) < 0.02 && (it.parcelas > 1 ? PE().norm(c.descricao).startsWith(n) : Math.abs((new Date(c.data) - new Date(it.data)) / 864e5) <= 1));
+}
+function fiMontar(brutos){
+  const k = fiCartao();
+  fi.itens = brutos.map(b => {
+    const it = { ...b, sel: b.tipo === 'compra' };
+    if (it.tipo === 'compra' && fiDuplicada(k, it)){ it.dup = true; it.sel = false; }
+    return it;
+  });
+  // fatura mais provável: onde cai a maioria das compras à vista
+  const cont = {};
+  fi.itens.filter(i => i.tipo === 'compra' && i.parcelas === 1 && i.data).forEach(i => { const m = faturaDaCompra(k, i.data); cont[m] = (cont[m] || 0) + 1; });
+  const melhor = Object.entries(cont).sort((a, b) => b[1] - a[1])[0];
+  if (melhor && fiMeses(k).includes(melhor[0])) fi.mk = melhor[0];
+}
+// CSV de fatura: como o lerCSV, mas acha a coluna de parcela ("Parcela", "Tipo": "Parcela 2/10", "1/3", "Única")
+// e, se houver valor em dólar e em reais, usa o de reais
+function fiLerCSV(txt){
+  const l1 = txt.split(/\r?\n/).slice(0, 5).join('\n');
+  const sep = (l1.match(/;/g) || []).length > (l1.match(/,/g) || []).length ? ';' : ((l1.match(/\t/g) || []).length > 2 ? '\t' : ',');
+  const rows = linhasCSV(txt, sep), n = x => PE().norm(x || '');
+  const h = rows.findIndex(r => r.some(c => /(^| )(data|date|dt)/.test(n(c))) && r.some(c => /(valor|amount|value|quantia)/.test(n(c))));
+  if (h < 0) return [];
+  const cab = rows[h].map(n);
+  const iData = cab.findIndex(c => /(^| )(data|date|dt)/.test(c));
+  const valores = cab.map((c, i) => [c, i]).filter(([c]) => /(valor|amount|value|quantia)/.test(c) && !/saldo|cotacao|us\$|usd|dolar|dollar/.test(c));
+  const iValor = (valores.find(([c]) => /r\$|brl|real/.test(c)) || valores[0] || [null, -1])[1];
+  const achar = re => cab.findIndex(c => re.test(c) && !/(^| )(data|date)/.test(c));
+  const iDesc = [/descri/, /title|titulo/, /estabelecimento/, /lancamento/, /memo/, /histor/, /detalhe|nome/].map(achar).find(i => i >= 0) ?? -1;
+  const iParc = cab.findIndex(c => /parcela|installment|^tipo/.test(c));
+  return rows.slice(h + 1).map(r => {
+    // a parcela pode estar na coluna própria ou em qualquer outra coluna de texto
+    const outras = r.filter((c, i) => i !== iDesc && i !== iData && i !== iValor).join(' ');
+    return { valor: numBanco(r[iValor]), data: dataBanco(r[iData]), desc: iDesc >= 0 ? (r[iDesc] || '') : '',
+      parcTxt: [iParc >= 0 ? r[iParc] : '', outras].join(' ').replace(/\b(unica|única|a vista|à vista)\b/gi, ' ') };
+  });
+}
+async function fiArquivoTexto(file){
+  if (file.size > 5 * 1024 * 1024) return toast('Arquivo grande demais (máximo 5 MB).');
+  fi.lendo = true; fi.aviso = 'Lendo a fatura…'; renderFatura();
+  try {
+    const buf = await file.arrayBuffer();
+    let txt = new TextDecoder('utf-8').decode(buf);
+    if (txt.includes('�')) txt = new TextDecoder('windows-1252').decode(buf);
+    const ofx = /<OFX>|<STMTTRN>/i.test(txt);
+    let itens = (ofx ? lerOFX(txt) : fiLerCSV(txt)).filter(i => i.data && isFinite(i.valor) && i.valor !== 0);
+    if (!itens.length){ fi.itens = []; fi.aviso = 'Não consegui ler esse arquivo. Exporte a fatura em <b>CSV</b> ou <b>OFX</b> no app do banco, ou use o PDF.'; return; }
+    // na fatura, a maioria das linhas são compras: o sinal da maioria é o das compras
+    const pos = itens.filter(i => i.valor > 0).length, sinal = pos >= itens.length - pos ? 1 : -1;
+    const dic = await carregarDic(), cats = catsCtl(), E = PE();
+    fiMontar(itens.slice(0, 300).map(i => {
+      let p = fiParcela(i.desc);
+      if (p.parcelas === 1 && i.parcTxt){ const q = fiParcela(' ' + i.parcTxt); if (q.parcelas > 1) p = { ...q, desc: p.desc }; }
+      const desc = descBonita(p.desc), valor = Math.abs(i.valor);
+      const tipo = Math.sign(i.valor) === sinal ? 'compra' : (/pagamento|pgto|pagto|pag fat/i.test(i.desc) ? 'pagamento' : 'estorno');
+      return { tipo, desc, valor, data: i.data, cat: E.categorizar(desc, 'exp', cats, dic), parcela: p.parcela, parcelas: p.parcelas };
+    }));
+    fi.aviso = '';
+  } catch { fi.aviso = 'Não consegui ler esse arquivo.'; }
+  finally { fi.lendo = false; renderFatura(); }
+}
+async function fiArquivoIA(file){
+  if (file.size > 5 * 1024 * 1024) return toast('Arquivo grande demais (máximo 5 MB).');
+  const mime = (file.type || '').toLowerCase() || (/\.pdf$/i.test(file.name) ? 'application/pdf' : 'image/jpeg');
+  fi.lendo = true; fi.aviso = '🕵️ A IA está lendo a fatura… (pode levar até 1 minuto)'; renderFatura();
+  try {
+    const blob = mime.startsWith('image/') ? await reduzirImagem(file) : file;
+    const cats = { exp: listaCats('exp'), inc: listaCats('inc') };
+    const { data, error } = await sb.functions.invoke('leitor', { body: { modo: 'fatura', mime: blob.type || mime, dados: await paraB64(blob), hoje: todayISO(), cats } });
+    let r = data;
+    if (error){ try { r = await error.context.json(); } catch { r = { erro: ehRede(error) ? 'rede' : 'falhou' }; } }
+    const MSG = { sem_saldo: 'Suas leituras de IA deste mês acabaram. Use o CSV ou OFX da fatura (sem limite).', nao_liberado: 'A leitura por IA não está liberada para a sua conta.',
+      sem_ia: 'A leitura por IA ainda não está ligada.', tipo: 'Use PDF ou foto da fatura.', tamanho: 'Arquivo grande demais (máximo 5 MB).', rede: 'Sem internet.' };
+    if (!r || r.erro){ fi.aviso = MSG[r?.erro] || 'Não consegui ler agora. Tente de novo daqui a pouco.'; return; }
+    // função antiga (sem o modo fatura) devolve itens sem "parcelas": avisa para atualizar
+    if (r.itens.length && r.itens[0].parcelas == null){ fi.aviso = 'A função "leitor" do Supabase precisa ser atualizada para ler faturas.'; return; }
+    if (!r.itens.length){ fi.aviso = 'Não achei compras nesse arquivo (não gastou sua leitura).'; return; }
+    fiMontar(r.itens.map(i => ({ tipo: i.tipo, desc: i.descricao, valor: i.valor, data: i.data, cat: i.categoria, parcela: i.parcela, parcelas: i.parcelas })));
+    fi.aviso = `🕵️ A IA leu ${plural(r.itens.length, 'linha')} da fatura. Confira antes de adicionar.${r.restam != null ? ` · ${plural(r.restam, 'leitura')} de IA restante${r.restam === 1 ? '' : 's'} no mês` : ''}`;
+  } catch { fi.aviso = 'Não consegui ler agora. Tente de novo daqui a pouco.'; }
+  finally { fi.lendo = false; renderFatura(); }
+}
+function openImportarFatura(){
+  const ativos = cartoesAtivos(); if (!ativos.length) return toast('Cadastre um cartão primeiro.');
+  Object.assign(fi, { kid: state.kcSel && findCartao(state.kcSel) ? state.kcSel : ativos[0].id, mk: '', itens: [], aviso: '', lendo: false, salvando: false });
+  fi.mk = faturaAbertaDoMes(fiCartao(), mkey(state.y, state.m));
+  openDlg2(`Cartão ${fiCartao().nome}`, 'Importar fatura', '', { tipo: 'fatura', largo: true });
+  renderFatura();
+}
+function renderFatura(){
+  if (dlg2.tipo !== 'fatura') return;
+  const k = fiCartao(), ativos = cartoesAtivos();
+  const marc = fi.itens.filter(i => i.sel && i.tipo === 'compra');
+  const tot = r2(marc.reduce((s, i) => s + i.valor, 0));
+  const nomeMk = mk => `${MONTHS[Number(mk.slice(5, 7)) - 1].toLowerCase()} de ${mk.slice(0, 4)}`;
+  const linha = (i, n) => {
+    const par = i.parcelas > 1, total = r2(i.valor * i.parcelas);
+    const tag = i.tipo === 'pagamento' ? '<span class="fi-tag">Pagamento · ignorado</span>' : i.tipo === 'estorno' ? '<span class="fi-tag">Estorno</span>'
+      : i.dup ? '<span class="fi-tag dup">Já cadastrada</span>' : par ? `<span class="fi-tag par">${i.parcela} de ${i.parcelas}</span>` : '<span class="fi-tag">À vista</span>';
+    const nota = i.tipo === 'estorno' ? 'Estorno: desconte pelo botão Ajustar da fatura' : i.tipo === 'pagamento' ? 'Não é compra' : i.dup ? 'Já está no app' : '';
+    const pode = i.tipo === 'compra';
+    return `<tr class="${i.sel ? '' : 'off'}">
+      <td><input type="checkbox" data-fi-sel="${n}" ${i.sel ? 'checked' : ''} ${pode ? '' : 'disabled'} aria-label="Adicionar ${esc(i.desc)}"></td>
+      <td class="fi-dt">${esc(dvDia(i.data))}</td>
+      <td>${esc(i.desc)}<small class="fi-dt2">${esc(dvDia(i.data))}</small>${nota ? `<small>${nota}</small>` : ''}${pode ? `<small><select data-fi-cat="${n}" aria-label="Categoria">${opcoesCat('exp', i.cat, false)}</select></small>` : ''}</td>
+      <td>${tag}${pode ? `<small><input type="text" class="fi-par" data-fi-par="${n}" value="${i.parcela}/${i.parcelas}" aria-label="Parcela (ex.: 3/10)" inputmode="numeric"></small>` : ''}</td>
+      <td class="v">${i.tipo === 'estorno' ? '+ ' : ''}${brl(i.valor)}</td>
+      <td class="v fi-tot">${par ? brl(total) : '—'}</td></tr>`;
+  };
+  $('dlg2Body').innerHTML = `
+    <div class="row" style="gap:10px;flex-wrap:wrap;">
+      <div class="field" style="flex:1;min-width:180px;"><label for="fiCartao">Cartão</label><select class="input" id="fiCartao">${ativos.map(x => `<option value="${esc(x.id)}"${x.id === k.id ? ' selected' : ''}>${esc(iconeCartao(x))} ${esc(x.nome)}</option>`).join('')}</select></div>
+      <div class="field" style="flex:1;min-width:180px;"><label for="fiMes">Esta é a fatura de</label><select class="input" id="fiMes">${fiMeses(k).map(m => `<option value="${m}"${m === fi.mk ? ' selected' : ''}>${nomeMk(m)}</option>`).join('')}</select></div>
+    </div>
+    ${!fi.itens.length ? `<div class="fi-ops">
+      <label class="fi-op"><b>📊 CSV ou OFX <span class="fi-g ok">Não gasta IA</span></b><span>Exporte a fatura no app do banco. É lida só neste aparelho.</span><input type="file" id="fiTxt" accept=".csv,.ofx,.txt,text/csv,application/x-ofx" ${fi.lendo ? 'disabled' : ''}></label>
+      ${iaDisponivel ? `<label class="fi-op"><b>📄 PDF ou foto da fatura <span class="fi-g ia">Gasta 1 leitura de IA</span></b><span>A IA lê a fatura inteira.</span><input type="file" id="fiIa" accept="application/pdf,image/*" ${fi.lendo ? 'disabled' : ''}></label>` : ''}
+    </div>
+    <div class="fi-ajuda">
+      <button type="button" class="fi-ajuda-bt" data-fi="ajuda" aria-expanded="${fi.ajuda ? 'true' : 'false'}"><img src="../logo/logo-simbolo.svg" alt="" width="22" height="22">Como funciona</button>
+      ${fi.ajuda ? `<div class="fi-balao" role="note"><dl>
+        <dt>1. Arquivo</dt><dd>No app do banco, baixe a fatura em <b>CSV</b> ou <b>OFX</b>${iaDisponivel ? ', ou use o <b>PDF</b> ou uma foto' : ''} e escolha aqui.</dd>
+        <dt>2. Conferir</dt><dd>Aparece a lista das compras. Troque a categoria ou a parcela (ex.: <b>3/10</b>) se precisar.</dd>
+        <dt>3. Parceladas</dt><dd>"3 de 10" entra como parcela 3 nesta fatura; as que faltam aparecem nas próximas.</dd>
+        <dt>4. Ficam de fora</dt><dd>Compras já cadastradas, estornos e o pagamento da fatura vêm desmarcados.</dd>
+        <dt>5. Salvar</dt><dd>Nada é salvo até você tocar em <b>Adicionar</b>.</dd>
+      </dl>
+      <div class="fi-gasto"><span class="fi-g ok">✓ CSV ou OFX: <b>não gasta</b> leitura de IA (é lido neste aparelho)</span>${iaDisponivel ? '<span class="fi-g ia">⚡ PDF ou foto: <b>gasta 1 leitura de IA</b> por arquivo. Se a IA não achar nada, não gasta.</span>' : ''}</div></div>` : ''}
+    </div>` : `<div class="fi-res">
+      <div><small>Para adicionar</small><b>${marc.length}</b></div><div><small>Parceladas</small><b>${marc.filter(i => i.parcelas > 1).length}</b></div>
+      <div><small>Já cadastradas</small><b>${fi.itens.filter(i => i.dup).length}</b></div><div><small>Valor nesta fatura</small><b>${brl(tot)}</b></div></div>
+      <div class="fi-lista"><table class="fi-tab"><thead><tr><th></th><th class="fi-dt">Data</th><th>Descrição</th><th>Tipo</th><th class="v">Nesta fatura</th><th class="v fi-tot">Total da compra</th></tr></thead>
+      <tbody>${fi.itens.map(linha).join('')}</tbody></table></div>
+      <p class="hint" style="margin:0;">Parcelada "3 de 10": entra a partir da parcela 3 nesta fatura, e as que faltam aparecem nas próximas. Ajuste a parcela escrevendo, por exemplo, <b>3/10</b>.</p>`}
+    ${fi.aviso ? `<p class="hint" style="margin:0;">${fi.aviso}</p>` : ''}
+    <div class="row fi-bts" style="justify-content:flex-end;gap:8px;">
+      ${fi.itens.length ? '<button class="btn btn-ghost" type="button" data-fi="outro">Outro arquivo</button>' : ''}
+      <button class="btn btn-secondary" type="button" data-fi="fechar">Cancelar</button>
+      ${fi.itens.length ? `<button class="btn btn-primary" type="button" data-fi="salvar" ${!marc.length || fi.salvando ? 'disabled' : ''}>${fi.salvando ? 'Adicionando…' : `Adicionar ${plural(marc.length, 'compra')} ao cartão`}</button>` : ''}
+    </div>`;
+  if (valoresOcultos) mascararValores();
+}
+$('kcImportar').onclick = () => openImportarFatura();
+$('dlg2Body').addEventListener('change', e => {
+  if (dlg2.tipo !== 'fatura') return;
+  const t = e.target;
+  if (t.id === 'fiTxt' && t.files[0]) return fiArquivoTexto(t.files[0]);
+  if (t.id === 'fiIa' && t.files[0]) return fiArquivoIA(t.files[0]);
+  if (t.id === 'fiCartao'){ fi.kid = t.value; fi.mk = faturaAbertaDoMes(fiCartao(), mkey(state.y, state.m)); if (fi.itens.length) fiMontar(fi.itens); return renderFatura(); }
+  if (t.id === 'fiMes'){ fi.mk = t.value; return; }
+  if (t.dataset.fiSel != null){ fi.itens[+t.dataset.fiSel].sel = t.checked; return renderFatura(); }
+  if (t.dataset.fiCat != null){ fi.itens[+t.dataset.fiCat].cat = t.value; return; }
+  if (t.dataset.fiPar != null){
+    const i = fi.itens[+t.dataset.fiPar], m = t.value.match(/^\s*(\d{1,2})\s*(?:\/|de)\s*(\d{1,2})\s*$/i);
+    if (m && +m[2] >= 1 && +m[2] <= 24 && +m[1] >= 1 && +m[1] <= +m[2]){ i.parcela = +m[1]; i.parcelas = +m[2]; }
+    else toast('Escreva a parcela assim: 3/10 (ou 1/1 para à vista).');
+    return renderFatura();
+  }
+});
+$('dlg2Body').addEventListener('click', async e => {
+  if (dlg2.tipo !== 'fatura') return;
+  const b = e.target.closest('[data-fi]'); if (!b) return;
+  if (b.dataset.fi === 'fechar') return closeDlg2();
+  if (b.dataset.fi === 'ajuda'){ fi.ajuda = !fi.ajuda; return renderFatura(); }
+  if (b.dataset.fi === 'outro'){ fi.itens = []; fi.aviso = ''; return renderFatura(); }
+  if (b.dataset.fi === 'salvar'){
+    const k = fiCartao(), lista = fi.itens.filter(i => i.sel && i.tipo === 'compra');
+    if (!lista.length) return;
+    fi.salvando = true; renderFatura();
+    let ok = 0, falhas = 0, ultimo = '';
+    for (const i of lista){
+      const { error } = await sb.rpc('salvar_compra', { p_id: null, p_cartao: k.id, p_desc: i.desc.slice(0, 200), p_cat: i.cat || 'Outros',
+        p_valor: r2(i.valor * i.parcelas), p_parcelas: i.parcelas, p_data: fiDataNaFatura(k, i.data, fi.mk, i.parcela), p_parcela_ini: i.parcela });
+      if (error){ falhas++; ultimo = rpcMsg(error); } else { ok++; i.sel = false; i.dup = true; }
+    }
+    fi.salvando = false;
+    await loadCartoes(); render();
+    if (!falhas){ closeDlg2(); return toast(`${plural(ok, 'compra')} adicionada${ok === 1 ? '' : 's'} ao cartão ${k.nome}.`, true); }
+    fi.aviso = `${ok} adicionada${ok === 1 ? '' : 's'}; ${falhas} não deu${falhas === 1 ? '' : 'ram'}: ${esc(ultimo)}`;
+    renderFatura();
   }
 });
