@@ -393,7 +393,17 @@ function registrarAparelho(){
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && profile && profile.status === 'aprovado') marcarAcesso(); });
 
+// a mesma conta podia ser carregada duas vezes ao abrir (getSession + aviso do login chegando juntos):
+// enquanto uma carga da mesma conta está em andamento, a segunda é ignorada
+let sessaoEmCurso = null;
 async function handleSession(session, force){
+  const uid = session && session.user ? session.user.id : null;
+  if (uid && !force && sessaoEmCurso === uid) return;
+  if (uid) sessaoEmCurso = uid;
+  try { return await handleSession0(session, force); }
+  finally { if (uid && sessaoEmCurso === uid) sessaoEmCurso = null; }
+}
+async function handleSession0(session, force){
   // link de troca de senha: abre a tela de senha nova, nunca o app direto
   if (session && recovering){ show('viewAuth'); setAuthMode('nova'); return; }
   if (!session){
