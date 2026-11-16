@@ -5691,7 +5691,14 @@ function renderFatura(){
     ${!fi.itens.length ? `<div class="fi-ops">
       <label class="fi-op"><b>📊 CSV ou OFX</b><span>Exporte a fatura no app do banco. É lida só neste aparelho e não gasta leitura de IA.</span><input type="file" id="fiTxt" accept=".csv,.ofx,.txt,text/csv,application/x-ofx" ${fi.lendo ? 'disabled' : ''}></label>
       ${iaDisponivel ? `<label class="fi-op"><b>📄 PDF ou foto da fatura <span class="tag tag-amber">IA</span></b><span>A IA lê a fatura inteira. Usa 1 leitura de IA.</span><input type="file" id="fiIa" accept="application/pdf,image/*" ${fi.lendo ? 'disabled' : ''}></label>` : ''}
-    </div>` : `<div class="fi-res">
+    </div>
+    <div class="lim-tabela"><b>Como funciona</b><dl>
+      <dt>1. Arquivo</dt><dd>No app do banco, baixe a fatura em <b>CSV</b> ou <b>OFX</b>${iaDisponivel ? ' (ou use o <b>PDF</b>, lido pela IA)' : ''} e escolha aqui.</dd>
+      <dt>2. Conferir</dt><dd>Aparece a lista das compras. Troque a categoria ou a parcela (ex.: <b>3/10</b>) se precisar.</dd>
+      <dt>3. Parceladas</dt><dd>"3 de 10" entra como parcela 3 nesta fatura; as que faltam aparecem nas próximas.</dd>
+      <dt>4. Ficam de fora</dt><dd>Compras já cadastradas, estornos e o pagamento da fatura vêm desmarcados.</dd>
+      <dt>5. Salvar</dt><dd>Nada é salvo até você tocar em <b>Adicionar</b>.</dd>
+    </dl><small>O CSV/OFX é lido só neste aparelho. O PDF usa 1 leitura de IA.</small></div>` : `<div class="fi-res">
       <div><small>Para adicionar</small><b>${marc.length}</b></div><div><small>Parceladas</small><b>${marc.filter(i => i.parcelas > 1).length}</b></div>
       <div><small>Já cadastradas</small><b>${fi.itens.filter(i => i.dup).length}</b></div><div><small>Valor nesta fatura</small><b>${brl(tot)}</b></div></div>
       <div class="fi-lista"><table class="fi-tab"><thead><tr><th></th><th class="fi-dt">Data</th><th>Descrição</th><th>Tipo</th><th class="v">Nesta fatura</th><th class="v fi-tot">Total da compra</th></tr></thead>

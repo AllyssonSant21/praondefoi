@@ -1563,6 +1563,15 @@ html:not([data-tema="escuro"]) #viewApp::after{opacity:.16}
 html:not([data-tema="escuro"]) .side-item.on svg{color:#b07a00 !important}
 #viewApp .blueprint,#viewApp .stats,.lanc-lista,.lanc-cats,.lanc-rapido .rp-destaque{box-shadow:0 10px 30px rgba(14,21,37,.06) !important}
 html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .stats,html[data-tema="escuro"] .lanc-lista,html[data-tema="escuro"] .lanc-cats{box-shadow:0 14px 34px rgba(0,0,0,.35) !important}
+
+  /* caixa "Como funciona" (mesmo jeito da explicação de Limites) */
+  .lim-tabela{border:1px solid var(--divider);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+  .lim-tabela>b{font-size:14px}
+  .lim-tabela dl{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:0;font-size:13.5px}
+  .lim-tabela dt{font-weight:600;white-space:nowrap}
+  .lim-tabela dd{margin:0;color:var(--muted)}
+  .lim-tabela small{color:var(--muted);font-size:12px}
+  @media (max-width:480px){.lim-tabela dl{grid-template-columns:1fr;gap:2px}.lim-tabela dd{margin-bottom:8px}}
 </style>
 </head>
 <body>
@@ -2235,6 +2244,6 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=4"></script>
-<script src="app.js?v=137"></script>
+<script src="app.js?v=138"></script>
 </body>
 </html>
