@@ -31,9 +31,8 @@
 <title>Pra Onde Foi? · Controle financeiro para casais e famílias</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@900&family=Inter:wght@400;500;600;700&family=Rubik:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="vendor/supabase-2.117.3.js"></script>
-<script src="vendor/xlsx-0.18.5.full.min.js" defer></script>
 <style>
   /* ===== TEMAS ===== claro é o padrão; escuro (grafite) é opção no Menu → Aparência */
   :root{
@@ -49,8 +48,8 @@
     --focus:#b08400; --overlay:rgba(20,20,20,.42); --shadow:0 10px 30px rgba(20,20,20,.12);
     --divider:rgba(var(--fg-rgb),.14);
     --track:rgba(var(--fg-rgb),.08);
-    --font-heading:"Rubik",system-ui,sans-serif;
-    --font-body:"Rubik",system-ui,sans-serif;
+    --font-heading:"Inter",system-ui,sans-serif;
+    --font-body:"Inter",system-ui,sans-serif;
     --space-1:3.4px;--space-2:6.8px;--space-3:10.2px;--space-4:13.6px;--space-6:20.4px;--space-8:27.2px;
     /* formas: menos arredondado */
     --r-btn:8px; --r-campo:8px; --r-cartao:12px; --r-selo:6px;
@@ -753,7 +752,7 @@
   .aparencia .seg button{flex:1;padding:9px 6px}
 
   /* ================= VISUAL B · Space Grotesk, cantos de 4 px, cara de app financeiro ================= */
-  :root{--font-body:"Rubik",system-ui,sans-serif;--font-heading:"Rubik",system-ui,sans-serif;
+  :root{--font-body:"Inter",system-ui,sans-serif;--font-heading:"Inter",system-ui,sans-serif;
         --r-btn:4px;--r-campo:4px;--r-cartao:6px;--r-selo:4px;--track:rgba(var(--fg-rgb),.06)}
   body{font-size:15px;letter-spacing:-.003em}
   h1,h2,h3{font-family:var(--font-body) !important;font-weight:600 !important;text-transform:none !important;letter-spacing:-.015em !important;line-height:1.2 !important}
@@ -1048,7 +1047,7 @@ html[data-tema="escuro"] .capa .cp-h1 em{background:none;color:#fed13d}
 .capa .cp-saldo{background:#fff;border:1px solid #e6e8ec;border-radius:10px;padding:12px 0 0;color:#1f1d1e}
 .capa .cp-saldo>small,.capa .cp-saldo>b,.capa .cp-saldo>span{padding:0 14px}
 .capa .cp-saldo>small{font-size:12px;font-weight:500}
-.capa .cp-saldo>b{font-family:Rubik,system-ui,sans-serif !important;font-weight:700;font-size:26px;color:#1e9e52;letter-spacing:-.02em}
+.capa .cp-saldo>b{font-family:var(--font-body) !important;font-weight:700;font-size:26px;color:#1e9e52;letter-spacing:-.02em}
 .capa .cp-saldo>span{display:block;font-size:11px;color:#6b6b6b;padding-bottom:10px}
 .capa .cp-saldo .cp-mini{margin:0;border-top:1px solid #e6e8ec;gap:0}
 .capa .cp-saldo .cp-mini div{background:none;border-radius:0;padding:9px 12px;color:#1f1d1e;font-size:11px}
@@ -1277,7 +1276,6 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
     .topbar .busca{display:flex;align-items:center;gap:8px;width:min(360px,45%);background:rgba(var(--fg-rgb),.04);border-radius:6px;padding:0 12px;color:var(--muted)}
     .topbar .busca input{flex:1;min-width:0;border:0;background:none;font:inherit;font-size:14px;color:var(--text);padding:8px 0;outline:none}
     .topbar .busca:focus-within{box-shadow:0 0 0 2px var(--focus)}
-    .topbar #topNovo{margin-left:auto}
     #viewApp .wrap{padding-top:22px}
   }
   body:not(.aba-lanc) .topbar .busca{visibility:hidden}
@@ -1289,7 +1287,7 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
   .lanc-cats{grid-area:cats}
   .lanc-lista,.lanc-cats{border:1px solid var(--divider);border-radius:8px;background:var(--surface);overflow:hidden}
   .lanc-lista{gap:0 !important}
-  .lanc-lista .lanc-hd,.lanc-cats>h2{padding:13px 16px;border-bottom:1px solid var(--divider)}
+  .lanc-lista .lanc-hd,.lanc-cats>.cats-hd{padding:11px 16px;border-bottom:1px solid var(--divider)}
   .lanc-lista #empty{padding:24px 16px !important}
   .lanc-lista #filtroInfo{padding:0}
   .lanc-cats{gap:0 !important}
@@ -1321,6 +1319,69 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
   @media (max-width:560px){#form #addBtn{justify-self:stretch}}
   #addBtn{background:var(--text);border-color:var(--text);color:var(--surface)}
   #addBtn:hover{opacity:.9}
+
+  /* Lançar rápido fora do "Novo lançamento" (o extrato e a IA já sabem o que é entrada ou saída) */
+  .lanc-rapido{grid-area:rapido}
+  .lanc-grid{grid-template-areas:"rapido" "form" "lista" "cats"}
+  .lanc-rapido .rp-destaque{background:var(--surface) !important;border:1px solid var(--divider) !important;border-radius:8px !important;padding:16px !important;gap:12px !important}
+  .lanc-rapido .rp-d-op{background:var(--surface) !important;border:1px solid #d5dbe1 !important;border-radius:6px !important;min-height:42px !important;padding:8px 10px !important;font-size:13.5px !important}
+  html[data-tema="escuro"] .lanc-rapido .rp-d-op{border-color:var(--divider) !important}
+  @media (min-width:1180px){
+    .lanc-grid{grid-template-areas:"lista rapido" "lista form" "lista cats";grid-template-rows:auto auto 1fr}
+    .lanc-rapido .rp-destaque{flex-direction:column;align-items:stretch}
+    .lanc-rapido .rp-d-bt{width:100%;min-width:0 !important;grid-template-columns:1fr !important}
+  }
+
+  /* seletor do controle: a caixa inteira abre a lista; a seta só aparece quando há mais de um controle */
+  .side-ctrl{gap:12px}
+  .side-ctrl img{width:42px;height:42px}
+  .side-ctrl-tx b{font-size:14.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .side-ctrl select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+  .side-ctrl:not(.varios){cursor:default}
+  .side-ctrl:not(.varios) select{pointer-events:none}
+  .side-ctrl:not(.varios) .side-ctrl-seta{display:none}
+  .side-ctrl.varios:hover{background:rgba(var(--fg-rgb),.04);border-radius:6px}
+  .side-ctrl:focus-within{outline:2px solid var(--focus);outline-offset:2px;border-radius:6px}
+
+  /* "Para onde foi": botão Detalhes e janela com gráficos */
+  .cats-hd{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .btn-graf{display:inline-flex;align-items:center;gap:7px;border:1px solid #d5dbe1;background:var(--surface);color:var(--text);border-radius:6px;padding:5px 9px;font:600 12.5px var(--font-body);cursor:pointer;min-height:32px}
+  html[data-tema="escuro"] .btn-graf{border-color:var(--divider)}
+  .btn-graf svg{fill:var(--accent)}
+  .btn-graf:hover{border-color:var(--accent)}
+  .graf-det{display:flex;flex-direction:column;gap:18px}
+  .gd-kp{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--divider);border-radius:8px}
+  .gd-kp>div{padding:12px 14px;border-right:1px solid var(--divider);min-width:0}.gd-kp>div:last-child{border:0}
+  .gd-kp small{display:block;color:var(--muted);font-size:12px}.gd-kp b{display:block;font-size:17px;margin-top:3px;font-variant-numeric:tabular-nums}
+  .gd-top{display:grid;grid-template-columns:200px 1fr;gap:22px;align-items:center}
+  .gd-rosca{position:relative;width:200px;height:200px}
+  .gd-rosca svg{width:100%;height:100%;transform:rotate(-90deg)}
+  .gd-rosca div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .gd-rosca small{color:var(--muted);font-size:12px}.gd-rosca b{font-size:18px;font-variant-numeric:tabular-nums}
+  .gd-tab{width:100%;border-collapse:collapse}
+  .gd-tab th{font-size:12px;color:var(--muted);text-align:left;font-weight:600;padding:7px 8px;border-bottom:1px solid var(--divider)}
+  .gd-tab td{padding:8px;border-bottom:1px solid rgba(var(--fg-rgb),.06);font-size:13.5px}
+  .gd-tab .v{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .gd-tab tr[data-gd-cat]{cursor:pointer}.gd-tab tr[data-gd-cat]:hover td{background:rgba(var(--fg-rgb),.04)}
+  .gd-dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:8px;vertical-align:middle}
+  .gd-mais{color:var(--out)}.gd-menos{color:var(--green)}.gd-novo{color:var(--muted)}
+  html[data-tema="escuro"] .gd-menos{color:#4ade80}html[data-tema="escuro"] .gd-mais{color:#ff6b81}
+  .gd-box{border:1px solid var(--divider);border-radius:8px;padding:14px 16px}
+  .gd-box-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
+  .gd-barras{display:flex;align-items:flex-end;gap:6px;height:150px}
+  .gd-barras>div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%;min-width:0}
+  .gd-barras i{display:block;width:100%;max-width:90px;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px}
+  .gd-barras small{font-size:11.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .gd-barras.dia small.v{display:none}
+  .gd-eixo{display:flex;gap:6px;margin-top:6px}.gd-eixo span{flex:1;text-align:center;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden}
+  @media (max-width:640px){
+    .gd-top{grid-template-columns:1fr;justify-items:center}
+    .gd-kp{grid-template-columns:1fr 1fr}
+    .gd-kp>div:nth-child(2){border-right:0}
+    .gd-kp>div:last-child{grid-column:1/-1;border-top:1px solid var(--divider)}
+    .gd-kp b{font-size:15px}
+    .gd-tab .gd-n{display:none}
+  }
 </style>
 </head>
 <body>
@@ -1415,7 +1476,7 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
 <div id="viewApp" hidden>
 <div class="off-bar" id="offBar" role="status" aria-live="polite" hidden></div>
 <aside class="sidenav" aria-label="Navegação">
-  <label class="side-ctrl"><img src="logo/logo-simbolo.svg" alt="" width="30" height="30"><span class="side-ctrl-tx"><select id="sideCtrl" aria-label="Escolher controle"></select><small id="sideCtrlInfo"></small></span><svg class="side-ctrl-seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></label>
+  <label class="side-ctrl"><img src="logo/logo-simbolo.svg" alt="" width="42" height="42"><span class="side-ctrl-tx"><b id="sideCtrlNome"></b><small id="sideCtrlInfo"></small></span><select id="sideCtrl" aria-label="Escolher controle"></select><svg class="side-ctrl-seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></label>
   <button class="side-item" type="button" data-tab="lanc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Lançamentos</button>
   <button class="side-item" type="button" data-tab="cartoes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg>Cartões</button>
   <button class="side-item" type="button" data-tab="contas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="3"/><path d="M3 10h18M8 2.5v4M16 2.5v4"/></svg>Contas a pagar<span class="badge" data-badge="contas" hidden></span></button>
@@ -1445,7 +1506,6 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
 </nav>
 <div class="topbar" role="search">
   <label class="busca"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="busca" type="search" placeholder="Pesquisar lançamentos do mês" autocomplete="off" maxlength="60" aria-label="Pesquisar lançamentos do mês"></label>
-  <button class="btn btn-primary btn-sm" id="topNovo" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Novo lançamento</button>
 </div>
 <div class="wrap">
 
@@ -1522,19 +1582,21 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
   </section>
 
   <div class="lanc-grid">
+  <section class="lanc-rapido" aria-label="Lançar rápido">
+    <div class="rp-destaque" id="rpDestaque">
+      <div class="rp-d-tx"><b>Lançar rápido</b><span id="rpDestTx">Mande a foto da nota ou o extrato do banco. Vários lançamentos de uma vez.</span></div>
+      <div class="rp-d-bt um">
+        <button type="button" class="rp-d-op" data-rp-abrir="ia" id="rpAbrirIa" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Foto, PDF ou áudio</span></button>
+        <button type="button" class="rp-d-op" data-rp-abrir="extrato"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg><span>Extrato do banco</span></button>
+      </div>
+    </div>
+  </section>
   <section class="blueprint lanc-form" id="lancForm" style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4);">
     <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);">
       <h2 style="font-size:22px;text-transform:uppercase;">Novo lançamento</h2>
       <div class="seg" id="typeSeg" role="group" aria-label="Tipo">
         <button type="button" data-type="exp" aria-pressed="true">Saída</button>
         <button type="button" data-type="inc" aria-pressed="false">Entrada</button>
-      </div>
-    </div>
-    <div class="rp-destaque" id="rpDestaque">
-      <div class="rp-d-tx"><b>Lançar rápido</b><span id="rpDestTx">Mande a foto da nota ou o extrato do banco. Vários lançamentos de uma vez.</span></div>
-      <div class="rp-d-bt um">
-        <button type="button" class="rp-d-op" data-rp-abrir="ia" id="rpAbrirIa" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Foto, PDF ou áudio</span></button>
-        <button type="button" class="rp-d-op" data-rp-abrir="extrato"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg><span>Extrato do banco</span></button>
       </div>
     </div>
     <div class="vinc-row">
@@ -1592,7 +1654,8 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
     </div>
 
     <div class="lanc-cats" style="display:flex;flex-direction:column;gap:var(--space-4);">
-      <h2 style="font-size:22px;text-transform:uppercase;">Para onde foi</h2>
+      <div class="cats-hd"><h2 style="font-size:22px;text-transform:uppercase;">Para onde foi</h2>
+        <button type="button" class="btn-graf" id="catsGraf" aria-label="Ver gráfico e detalhes dos gastos do mês"><svg width="30" height="14" viewBox="0 0 34 16" aria-hidden="true"><rect x="0" y="9" width="5" height="7" rx="1"/><rect x="7" y="4" width="5" height="12" rx="1"/><rect x="14" y="7" width="5" height="9" rx="1" opacity=".7"/><rect x="21" y="1" width="5" height="15" rx="1"/><rect x="28" y="10" width="5" height="6" rx="1" opacity=".7"/></svg>Detalhes</button></div>
       <div id="cats" style="display:flex;flex-direction:column;gap:var(--space-4);"></div>
     </div>
   </div>
@@ -1967,6 +2030,6 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="entender.js?v=3"></script>
-<script src="app.js?v=125"></script>
+<script src="app.js?v=132"></script>
 </body>
 </html>

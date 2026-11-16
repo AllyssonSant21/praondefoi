@@ -980,7 +980,8 @@ function openRapido(aba){
   if (!PE()) return toast('Não deu para abrir agora. Atualize a página.');
   if (!state.cid) return toast('Escolha um controle primeiro.');
   rp = { aba: aba === 'ia' && iaDisponivel ? 'ia' : 'extrato', itens: [], aviso: '', ouvindo: null, arquivo: '', ia: null, lendo: false, gravador: null };
-  openDlg2('Lançar rápido', 'Do jeito mais fácil pra você', '', { tipo: 'rapido', largo: true });
+  // cada botão abre só a sua opção (sem abas repetindo os botões do formulário)
+  openDlg2('Lançar rápido', rp.aba === 'ia' ? 'Ler foto, PDF ou áudio' : 'Importar extrato do banco', '', { tipo: 'rapido', largo: true });
   renderRapido();
   carregarDic();
   sb.rpc('ia_meu_saldo').then(r => { if (!r.error && r.data){ rp.ia = r.data; if (rp.aba === 'ia') renderRapido(); } }, () => {});
@@ -992,10 +993,6 @@ function renderRapido(){
   const texto = $('rpTexto') ? $('rpTexto').value : '';
   const cel = (tipo, atual) => listaCats(tipo, atual).map(c => `<option value="${esc(c)}"${c === atual ? ' selected' : ''}>${esc(rotuloCat(c))}</option>`).join('');
   $('dlg2Body').innerHTML = `
-    ${iaDisponivel ? `<div class="seg rp-abas" role="group" aria-label="Como lançar">
-      <button type="button" data-rp-aba="ia" aria-pressed="${rp.aba === 'ia'}">Foto, PDF, áudio</button>
-      <button type="button" data-rp-aba="extrato" aria-pressed="${rp.aba === 'extrato'}">Extrato</button>
-    </div>` : ''}
     ${rp.aba === 'texto' ? `
       <div style="display:flex;flex-direction:column;gap:10px;">
         <label for="rpTexto" class="hint">Fale, escreva ou cole a notificação do banco. Pode ser mais de um gasto.</label>
@@ -1370,14 +1367,9 @@ document.querySelectorAll('.stat-filtro').forEach(el => {
   el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleFiltro(el.dataset.filtro); } });
 });
 $('filtroLimpar').onclick = () => { state.filtro = null; state.filtroCat = null; state.busca = ''; $('busca').value = ''; render(); };
-/* ---- visual v122: busca, "+ Novo lançamento", controle no menu, atalhos da conta ---- */
+/* ---- visual v122: busca, controle no menu, atalhos da conta ---- */
 state.busca = '';
 $('busca').addEventListener('input', e => { state.busca = e.target.value; render(); });
-$('topNovo').addEventListener('click', () => {
-  if (state.tab !== 'lanc') setTab('lanc');
-  $('lancForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
-  setTimeout(() => $('desc').focus({ preventScroll: true }), 250);
-});
 $('sideCtrl').addEventListener('change', e => { $('ctrlSelect').value = e.target.value; $('ctrlSelect').dispatchEvent(new Event('change')); });
 $('sideBot').addEventListener('click', () => $('botFab').click());
 $('sideLimites').addEventListener('click', () => openLimites());
@@ -1599,6 +1591,9 @@ function renderCtrlBar(){
   // o mesmo seletor no alto do menu lateral (computador)
   $('sideCtrl').innerHTML = state.controles.map(x => `<option value="${esc(x.id)}"${x.id === state.cid ? ' selected' : ''}>${esc(x.nome)}</option>`).join('');
   $('sideCtrl').value = state.cid || '';
+  $('sideCtrlNome').textContent = c ? c.nome : '';
+  document.querySelector('.side-ctrl').classList.toggle('varios', state.controles.length > 1);
+  $('sideCtrl').tabIndex = state.controles.length > 1 ? 0 : -1;
   $('sideCtrlInfo').textContent = !c ? '' : c.pessoal ? 'Pessoal · só você vê' : `Compartilhado · ${plural(c.participantes,'pessoa')}`;
 }
 
@@ -1780,6 +1775,8 @@ async function loadContas(){
   const seq = ++contasSeq;
   if (!state.cid){ state.contas = []; return true; }
   const cid = state.cid;
+  // contas e dívidas vêm juntas (antes eram duas idas ao servidor, uma depois da outra)
+  const dvPedido = sb.rpc('listar_dividas', { cid });
   const { data: cs, error } = await sb.from('contas').select('*').eq('controle_id', cid).order('dia').order('nome');
   if (seq !== contasSeq) return false;
   if (error){
@@ -1789,7 +1786,7 @@ async function loadContas(){
   }
   const t = new Date();
   // dívidas (supabase-dividas.sql); banco sem a tabela: a área de dívidas fica escondida
-  const dv = await sb.rpc('listar_dividas', { cid });
+  const dv = await dvPedido;
   if (seq !== contasSeq) return false;
   state.dividasOk = !dv.error;
   state.dividas = dv.error ? [] : (dv.data || []);
@@ -4643,7 +4640,7 @@ const valoresOriginais = new Map();
 let valoresOcultos = false;
 try { valoresOcultos = localStorage.getItem('pof-ocultar') === '1'; } catch(e){}
 // resumos e listas (lançamentos, categorias, contas, metas, investimentos); os campos de digitar ficam de fora
-const areasValores = () => document.querySelectorAll('#viewApp .stats, #viewApp #budget, #rows, #cats, #billList, #metasGrid, #invList, #invDist, #kcFaturas, #kcCompras, #kcCats, #kcTodas, #kcTodasResumo');
+const areasValores = () => document.querySelectorAll('#viewApp .stats, #viewApp #budget, #rows, #cats, #dlg2Body .graf-det, #billList, #metasGrid, #invList, #invDist, #kcFaturas, #kcCompras, #kcCats, #kcTodas, #kcTodasResumo');
 function mascararValores(){
   areasValores().forEach(raiz => {
     const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT); let n;
@@ -4684,8 +4681,25 @@ document.querySelectorAll('.olho-btn').forEach(b => b.addEventListener('click', 
 }));
 aplicarOlho();
 
+// a biblioteca da planilha (~300 KB) só é baixada quando alguém exporta
+let xlsxCarregando = null;
+function carregarXlsx(){
+  if (window.XLSX) return Promise.resolve(true);
+  if (!xlsxCarregando) xlsxCarregando = new Promise(ok => {
+    const base = (document.querySelector('script[src*="vendor/supabase-"]') || {}).src || '';
+    const sc = document.createElement('script');
+    sc.src = base.replace(/supabase-[^/]*$/, 'xlsx-0.18.5.full.min.js');
+    sc.onload = () => ok(!!window.XLSX);
+    sc.onerror = () => { xlsxCarregando = null; ok(false); };
+    document.head.appendChild(sc);
+  });
+  return xlsxCarregando;
+}
 $('export').onclick = async () => {
-  if (!window.XLSX){ toast('Não foi possível gerar a planilha. Verifique a conexão e tente de novo.'); return; }
+  $('export').disabled = true;
+  const temXlsx = await carregarXlsx();
+  $('export').disabled = false;
+  if (!temXlsx){ toast('Não foi possível gerar a planilha. Verifique a conexão e tente de novo.'); return; }
   const c = current(); if (!c) return;
   $('export').disabled = true;
   const entries = await fetchAllEntries();
@@ -5014,7 +5028,8 @@ async function acaoAdmin(e){
 
 /* ======================= APP INSTALÁVEL ======================= */
 if ('serviceWorker' in navigator && location.protocol === 'https:'){
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  // o service worker fica na mesma pasta do app.js (raiz no prod, hmgbase/ no HMG), não na pasta da aba
+  window.addEventListener('load', () => { const s = document.querySelector('script[src*="app.js"]'); navigator.serviceWorker.register(new URL('sw.js', s ? s.src : location.href)).catch(() => {}); });
 }
 
 /* ======================= INÍCIO ======================= */
@@ -5413,5 +5428,97 @@ $('dlg2Body').addEventListener('click', async ev => {
     const p = { nome: d.nome, credor: d.credor || '', tipo: d.tipo, situacao: 'acordo', parcelas: n, parcela_valor: v, proxima: px,
                 acordo_antes: Number(dlg2.antes) || null, acordo_entrada: ent || null, juros: d.juros, em_contas: d.em_contas };
     return feito(await sb.rpc('salvar_divida', { p_id: d.id, cid: null, p, p_refazer: true }), 'Acordo salvo. As parcelas já estão em Contas a pagar.');
+  }
+});
+
+
+/* ======================= "PARA ONDE FOI": GRÁFICO E DETALHES DO MÊS ======================= */
+const GD_CORES = ['#f5b301', '#5b8def', '#e86fa6', '#4fc3a1', '#a77bf3', '#f2894b', '#6cc4e8', '#9aa3b5'];
+const gdEhGasto = e => e.type === 'exp' && !(e.cat === 'Metas' && /^Guardado: /.test(e.desc));
+// o mês anterior não fica carregado na tela: busca só os gastos dele (uma vez por controle/mês)
+const gdCacheAntes = {};
+async function gdGastosAntes(y, m){
+  const d = new Date(y, m - 1, 1), ini = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`;
+  const f = new Date(y, m, 1), fim = `${f.getFullYear()}-${pad(f.getMonth() + 1)}-01`;
+  const chave = `${state.cid}|${ini}`;
+  if (gdCacheAntes[chave]) return gdCacheAntes[chave];
+  const todos = [];
+  for (let de = 0; ; de += 1000){
+    const { data, error } = await sb.from('lancamentos').select('tipo,descricao,categoria,valor,data')
+      .eq('controle_id', state.cid).eq('tipo', 'exp').gte('data', ini).lt('data', fim).range(de, de + 999);
+    if (error) return null;
+    todos.push(...data);
+    if (data.length < 1000) break;
+  }
+  return (gdCacheAntes[chave] = todos.map(fromRow).filter(gdEhGasto));
+}
+let gdModo = 'semana';
+async function openGraficoMes(){
+  const { y, m } = state;
+  const lista = state.entries.filter(gdEhGasto);
+  const antes = (await gdGastosAntes(y, m)) || [];
+  const total = r2(lista.reduce((s, e) => s + e.amount, 0)), totAntes = r2(antes.reduce((s, e) => s + e.amount, 0));
+  const porCat = {}, qtd = {}, porCatAntes = {};
+  lista.forEach(e => { porCat[e.cat] = r2((porCat[e.cat] || 0) + e.amount); qtd[e.cat] = (qtd[e.cat] || 0) + 1; });
+  antes.forEach(e => { porCatAntes[e.cat] = r2((porCatAntes[e.cat] || 0) + e.amount); });
+  let cats = Object.entries(porCat).sort((a, b) => b[1] - a[1]);
+  // muitas categorias: as menores viram "Outras" no gráfico (a tabela mostra todas)
+  const fatias = cats.slice(0, 7).map(([c, v]) => [c, v]);
+  if (cats.length > 7) fatias.push(['__outras', r2(cats.slice(7).reduce((s, [, v]) => s + v, 0))]);
+  const cor = c => GD_CORES[Math.min(fatias.findIndex(f => f[0] === c), 7)] || GD_CORES[7];
+  // dias do mês já passados (no mês atual, só até hoje)
+  const hoje = new Date(), atual = hoje.getFullYear() === y && hoje.getMonth() === m;
+  const diasMes = new Date(y, m + 1, 0).getDate(), diasCont = atual ? hoje.getDate() : diasMes;
+  const media = diasCont ? r2(total / diasCont) : 0;
+  const dif = r2(total - totAntes), pct = totAntes ? Math.round(Math.abs(dif) / totAntes * 100) : null;
+  const nomeAntes = MONTHS[new Date(y, m - 1, 1).getMonth()].toLowerCase();
+  // rosca
+  const R = 15.9155, C = 100; let acum = 0;
+  const arcos = total ? fatias.map(([c, v]) => { const p = v / total * C; const arco = `<circle cx="21" cy="21" r="${R}" fill="none" stroke="${cor(c)}" stroke-width="6" stroke-dasharray="${p.toFixed(2)} ${(C - p).toFixed(2)}" stroke-dashoffset="${(-acum).toFixed(2)}"/>`; acum += p; return arco; }).join('') : '';
+  // barras: por semana (1–7, 8–14, 15–21, 22–fim) ou por dia
+  const barras = () => {
+    const dias = Array.from({ length: diasMes }, () => 0);
+    lista.forEach(e => { const d = parseInt(e.date.slice(8, 10), 10); if (d >= 1 && d <= diasMes) dias[d - 1] = r2(dias[d - 1] + e.amount); });
+    let itens;
+    if (gdModo === 'dia') itens = dias.map((v, i) => [String(i + 1), v, i + 1 > diasCont]);
+    else itens = [[1, 7], [8, 14], [15, 21], [22, diasMes]].map(([a, b]) => [`${a}–${b}`, r2(dias.slice(a - 1, b).reduce((s, v) => s + v, 0)), a > diasCont]);
+    const max = Math.max(...itens.map(i => i[1]), 0) || 1;
+    return `<div class="gd-barras ${gdModo}">${itens.map(([, v, futuro]) => `<div title="${brl(v)}"><small class="v">${v ? brl(v).replace(/,\d\d$/, '') : ''}</small><i style="height:${Math.max(v / max * 100, v ? 3 : 0)}%;${futuro ? 'opacity:.3;' : ''}"></i></div>`).join('')}</div>
+      <div class="gd-eixo">${itens.map(([r], i) => `<span>${gdModo === 'dia' ? ((i + 1) % 5 === 1 || i + 1 === diasMes ? r : '') : `${r} ${MONTHS[m].slice(0, 3).toLowerCase()}`}</span>`).join('')}</div>`;
+  };
+  openDlg2('Para onde foi', `Gastos de ${MONTHS[m].toLowerCase()}${y !== hoje.getFullYear() ? ' de ' + y : ''}`, `
+    <div class="graf-det">
+      <div class="gd-kp">
+        <div><small>Total gasto</small><b>${brl(total)}</b></div>
+        <div><small>Média por dia${atual ? ' (até hoje)' : ''}</small><b>${brl(media)}</b></div>
+        <div><small>vs ${nomeAntes}</small><b class="${!totAntes ? '' : dif > 0 ? 'gd-mais' : dif < 0 ? 'gd-menos' : ''}">${!totAntes ? 'sem gastos antes' : dif === 0 ? 'igual' : `${dif > 0 ? '+' : '−'} ${pct}% (${brl(Math.abs(dif))})`}</b></div>
+      </div>
+      ${total ? `<div class="gd-top">
+        <div class="gd-rosca"><svg viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="${R}" fill="none" stroke="var(--track)" stroke-width="6"/>${arcos}</svg><div><small>Total</small><b>${brl(total).replace(/,\d\d$/, '')}</b></div></div>
+        <table class="gd-tab"><thead><tr><th>Categoria</th><th class="v">Valor</th><th class="v">%</th><th class="v gd-n">Lanç.</th><th class="v">vs ${nomeAntes.slice(0, 3)}</th></tr></thead><tbody>
+          ${cats.map(([c, v]) => { const d = r2(v - (porCatAntes[c] || 0)); return `<tr data-gd-cat="${esc(c)}" title="Ver só ${esc(c)}">
+            <td><span class="gd-dot" style="background:${cor(c)}"></span>${esc(rotuloCat(c)).replace(' ', '\u00a0')}</td><td class="v">${brl(v)}</td><td class="v">${Math.round(v / total * 100)}%</td><td class="v gd-n">${qtd[c]}</td>
+            <td class="v ${!porCatAntes[c] ? 'gd-novo' : d > 0 ? 'gd-mais' : d < 0 ? 'gd-menos' : ''}">${!porCatAntes[c] ? 'novo' : d === 0 ? '=' : `${d > 0 ? '+' : '−'} ${brl(Math.abs(d)).replace(/,\d\d$/, '')}`}</td></tr>`; }).join('')}
+        </tbody></table>
+      </div>
+      <div class="gd-box">
+        <div class="gd-box-hd"><b>Gasto por ${gdModo === 'dia' ? 'dia' : 'semana'}</b>
+          <div class="seg" role="group" aria-label="Agrupar por"><button type="button" data-gd-modo="semana" aria-pressed="${gdModo === 'semana'}">Semana</button><button type="button" data-gd-modo="dia" aria-pressed="${gdModo === 'dia'}">Dia</button></div></div>
+        ${barras()}
+      </div>
+      <p class="hint" style="margin:0;">Toque numa categoria da tabela para ver só os lançamentos dela.</p>` : '<p class="hint">Sem gastos neste mês.</p>'}
+    </div>`, { tipo: 'grafico', largo: true });
+  if (valoresOcultos) mascararValores();
+}
+$('catsGraf').addEventListener('click', async () => { $('catsGraf').disabled = true; try { await openGraficoMes(); } finally { $('catsGraf').disabled = false; } });
+$('dlg2Body').addEventListener('click', e => {
+  if (dlg2.tipo !== 'grafico') return;
+  const md = e.target.closest('[data-gd-modo]');
+  if (md){ gdModo = md.dataset.gdModo; return openGraficoMes(); }
+  const tr = e.target.closest('[data-gd-cat]');
+  if (tr){
+    state.filtroCat = tr.dataset.gdCat; state.filtro = null;
+    closeDlg2(); render();
+    $('tableWrap').closest('div.span2').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 });
