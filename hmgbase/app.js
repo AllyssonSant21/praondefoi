@@ -1932,6 +1932,15 @@ function partsLine(i){
   return i.parts.map(p => `${esc(quem(p.uid))} ${p.falta <= 0 ? '<span style="color:var(--green)">✓</span>' : 'falta ' + brl(p.falta)}`).join(' · ');
 }
 
+// contas que aparecem num mês (no mês atual, também as parcelas atrasadas de dívidas)
+function contasListaDoMes(mk){
+  const atrasosDiv = mk === mkey(new Date().getFullYear(), new Date().getMonth()) ? state.contas
+    .filter(c => (state.contaDivida[c.id] || {}).papel === 'atraso' && c.inicio < mk)
+    .map(c => instancia(c, c.inicio)).filter(i => !i.paid) : [];
+  return atrasosDiv.concat(state.contas.filter(c => ocorre(c, mk)).map(c => instancia(c, mk))
+    .filter(i => !(i.antes && i.c.tipo === 'parcelada' && i.pago === 0))
+    .sort((a, b) => (a.paid - b.paid) || (a.due - b.due) || a.c.nome.localeCompare(b.c.nome)));
+}
 function renderContas(){
   const { late, hoje } = alertas();
   const n = late + hoje;
@@ -1954,12 +1963,7 @@ function renderContas(){
   $('billNew').disabled = false;
   const mk = mkey(state.y, state.m);
   const me = myId();
-  const atrasosDiv = mk === mkey(new Date().getFullYear(), new Date().getMonth()) ? state.contas
-    .filter(c => (state.contaDivida[c.id] || {}).papel === 'atraso' && c.inicio < mk)
-    .map(c => instancia(c, c.inicio)).filter(i => !i.paid) : [];
-  const list = atrasosDiv.concat(state.contas.filter(c => ocorre(c, mk)).map(c => instancia(c, mk))
-    .filter(i => !(i.antes && i.c.tipo === 'parcelada' && i.pago === 0))
-    .sort((a, b) => (a.paid - b.paid) || (a.due - b.due) || a.c.nome.localeCompare(b.c.nome)));
+  const list = contasListaDoMes(mk);
   const fats = faturasDoMes(mk);
   const total = r2(list.reduce((s, i) => s + i.total, 0) + fats.reduce((s, i) => s + i.total, 0));
   const pago = r2(list.reduce((s, i) => s + i.pago, 0) + fats.reduce((s, i) => s + i.pago, 0));
@@ -5488,11 +5492,35 @@ async function gdGastosAntes(y, m){
   }
   return (gdCacheAntes[chave] = todos.map(fromRow).filter(gdEhGasto));
 }
-let gdModo = 'semana';
-async function openGraficoMes(){
-  const { y, m } = state;
-  const lista = state.entries.filter(gdEhGasto);
-  const antes = (await gdGastosAntes(y, m)) || [];
+let gdModo = 'semana', gdFonte = 'lanc';
+// itens de uma aba num mês: { cat, amount, dia }
+const GD_FATURA = '__fatura';
+function gdItensCartao(y, m){
+  return parcelasDoMes(state.kcSel, mkey(y, m)).filter(p => !p.c.ajuste)
+    .map(p => ({ cat: p.c.categoria, amount: p.valor, dia: parseInt(p.c.data.slice(8, 10), 10) }));
+}
+function gdItensContas(y, m){
+  const mk = mkey(y, m);
+  return contasListaDoMes(mk).map(i => ({ cat: i.c.categoria || 'Contas', amount: i.total, dia: i.due.getDate(), pago: i.pago }))
+    .concat(faturasDoMes(mk).map(i => ({ cat: GD_FATURA, amount: i.total, dia: Math.min(i.k.vence, ultimoDia(y, m)), pago: i.pago })));
+}
+const GD_TEXTOS = {
+  lanc:    { tit: 'Para onde foi', sub: 'Gastos de', total: 'Total gasto', barras: 'Gasto por', vazio: 'Sem gastos neste mês.' },
+  cartoes: { tit: 'No que gastou no cartão', sub: 'Compras e parcelas de', total: 'Gasto no cartão', barras: 'Compras por', vazio: 'Nenhuma compra no cartão neste mês.' },
+  contas:  { tit: 'Contas do mês', sub: 'Contas a pagar de', total: 'Total de contas', barras: 'Vencimentos por', vazio: 'Nenhuma conta neste mês.' },
+};
+async function openGraficoMes(fonte){
+  if (fonte) gdFonte = fonte;
+  const { y, m } = state, T = GD_TEXTOS[gdFonte];
+  let lista, antes;
+  if (gdFonte === 'cartoes'){ lista = gdItensCartao(y, m); antes = gdItensCartao(y, m - 1); }
+  else if (gdFonte === 'contas'){ lista = gdItensContas(y, m); antes = gdItensContas(y, m - 1); }
+  else {
+    lista = state.entries.filter(gdEhGasto).map(e => ({ cat: e.cat, amount: e.amount, dia: parseInt(e.date.slice(8, 10), 10) }));
+    antes = (await gdGastosAntes(y, m)) || [];
+  }
+  const nomeCat = c => c === GD_FATURA ? '💳 Faturas de cartão' : c === '__outras' ? 'Outras' : rotuloCat(c);
+  const filtra = gdFonte === 'lanc';
   const total = r2(lista.reduce((s, e) => s + e.amount, 0)), totAntes = r2(antes.reduce((s, e) => s + e.amount, 0));
   const porCat = {}, qtd = {}, porCatAntes = {};
   lista.forEach(e => { porCat[e.cat] = r2((porCat[e.cat] || 0) + e.amount); qtd[e.cat] = (qtd[e.cat] || 0) + 1; });
@@ -5514,39 +5542,46 @@ async function openGraficoMes(){
   // barras: por semana (1–7, 8–14, 15–21, 22–fim) ou por dia
   const barras = () => {
     const dias = Array.from({ length: diasMes }, () => 0);
-    lista.forEach(e => { const d = parseInt(e.date.slice(8, 10), 10); if (d >= 1 && d <= diasMes) dias[d - 1] = r2(dias[d - 1] + e.amount); });
+    lista.forEach(e => { const d = e.dia; if (d >= 1 && d <= diasMes) dias[d - 1] = r2(dias[d - 1] + e.amount); });
     let itens;
-    if (gdModo === 'dia') itens = dias.map((v, i) => [String(i + 1), v, i + 1 > diasCont]);
-    else itens = [[1, 7], [8, 14], [15, 21], [22, diasMes]].map(([a, b]) => [`${a}–${b}`, r2(dias.slice(a - 1, b).reduce((s, v) => s + v, 0)), a > diasCont]);
+    const apaga = gdFonte !== 'contas';
+    if (gdModo === 'dia') itens = dias.map((v, i) => [String(i + 1), v, apaga && i + 1 > diasCont]);
+    else itens = [[1, 7], [8, 14], [15, 21], [22, diasMes]].map(([a, b]) => [`${a}–${b}`, r2(dias.slice(a - 1, b).reduce((s, v) => s + v, 0)), apaga && a > diasCont]);
     const max = Math.max(...itens.map(i => i[1]), 0) || 1;
     return `<div class="gd-barras ${gdModo}">${itens.map(([, v, futuro]) => `<div title="${brl(v)}"><small class="v">${v ? brl(v).replace(/,\d\d$/, '') : ''}</small><i style="height:${Math.max(v / max * 100, v ? 3 : 0)}%;${futuro ? 'opacity:.3;' : ''}"></i></div>`).join('')}</div>
       <div class="gd-eixo">${itens.map(([r], i) => `<span>${gdModo === 'dia' ? ((i + 1) % 5 === 1 || i + 1 === diasMes ? r : '') : `${r} ${MONTHS[m].slice(0, 3).toLowerCase()}`}</span>`).join('')}</div>`;
   };
-  openDlg2('Para onde foi', `Gastos de ${MONTHS[m].toLowerCase()}${y !== hoje.getFullYear() ? ' de ' + y : ''}`, `
+  const pago = r2(lista.reduce((s, e) => s + (e.pago || 0), 0));
+  openDlg2(T.tit, `${T.sub} ${MONTHS[m].toLowerCase()}${y !== hoje.getFullYear() ? ' de ' + y : ''}`, `
     <div class="graf-det">
       <div class="gd-kp">
-        <div><small>Total gasto</small><b>${brl(total)}</b></div>
-        <div><small>Média por dia${atual ? ' (até hoje)' : ''}</small><b>${brl(media)}</b></div>
-        <div><small>vs ${nomeAntes}</small><b class="${!totAntes ? '' : dif > 0 ? 'gd-mais' : dif < 0 ? 'gd-menos' : ''}">${!totAntes ? 'sem gastos antes' : dif === 0 ? 'igual' : `${dif > 0 ? '+' : '−'} ${pct}% (${brl(Math.abs(dif))})`}</b></div>
+        <div><small>${T.total}</small><b>${brl(total)}</b></div>
+        ${gdFonte === 'contas' ? `<div><small>Já pago</small><b class="${pago ? 'gd-menos' : ''}">${brl(pago)}</b></div>`
+          : `<div><small>Média por dia${atual ? ' (até hoje)' : ''}</small><b>${brl(media)}</b></div>`}
+        <div><small>vs ${nomeAntes}</small><b class="${!totAntes ? '' : dif > 0 ? 'gd-mais' : dif < 0 ? 'gd-menos' : ''}">${!totAntes ? (gdFonte === 'contas' ? 'sem contas antes' : 'sem gastos antes') : dif === 0 ? 'igual' : `${dif > 0 ? '+' : '−'} ${pct}% (${brl(Math.abs(dif))})`}</b></div>
       </div>
       ${total ? `<div class="gd-top">
         <div class="gd-rosca"><svg viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="${R}" fill="none" stroke="var(--track)" stroke-width="6"/>${arcos}</svg><div><small>Total</small><b>${brl(total).replace(/,\d\d$/, '')}</b></div></div>
-        <table class="gd-tab"><thead><tr><th>Categoria</th><th class="v">Valor</th><th class="v">%</th><th class="v gd-n">Lanç.</th><th class="v">vs ${nomeAntes.slice(0, 3)}</th></tr></thead><tbody>
-          ${cats.map(([c, v]) => { const d = r2(v - (porCatAntes[c] || 0)); return `<tr data-gd-cat="${esc(c)}" title="Ver só ${esc(c)}">
-            <td><span class="gd-dot" style="background:${cor(c)}"></span>${esc(rotuloCat(c)).replace(' ', '\u00a0')}</td><td class="v">${brl(v)}</td><td class="v">${Math.round(v / total * 100)}%</td><td class="v gd-n">${qtd[c]}</td>
+        <table class="gd-tab"><thead><tr><th>Categoria</th><th class="v">Valor</th><th class="v">%</th><th class="v gd-n">${gdFonte === 'cartoes' ? 'Compras' : gdFonte === 'contas' ? 'Contas' : 'Lanç.'}</th><th class="v">vs ${nomeAntes.slice(0, 3)}</th></tr></thead><tbody>
+          ${cats.map(([c, v]) => { const d = r2(v - (porCatAntes[c] || 0)); return `<tr${filtra ? ` data-gd-cat="${esc(c)}" title="Ver só ${esc(c)}"` : ''}>
+            <td><span class="gd-dot" style="background:${cor(c)}"></span>${esc(nomeCat(c)).replace(' ', '\u00a0')}</td><td class="v">${brl(v)}</td><td class="v">${Math.round(v / total * 100)}%</td><td class="v gd-n">${qtd[c]}</td>
             <td class="v ${!porCatAntes[c] ? 'gd-novo' : d > 0 ? 'gd-mais' : d < 0 ? 'gd-menos' : ''}">${!porCatAntes[c] ? 'novo' : d === 0 ? '=' : `${d > 0 ? '+' : '−'} ${brl(Math.abs(d)).replace(/,\d\d$/, '')}`}</td></tr>`; }).join('')}
         </tbody></table>
       </div>
       <div class="gd-box">
-        <div class="gd-box-hd"><b>Gasto por ${gdModo === 'dia' ? 'dia' : 'semana'}</b>
+        <div class="gd-box-hd"><b>${T.barras} ${gdModo === 'dia' ? 'dia' : 'semana'}</b>
           <div class="seg" role="group" aria-label="Agrupar por"><button type="button" data-gd-modo="semana" aria-pressed="${gdModo === 'semana'}">Semana</button><button type="button" data-gd-modo="dia" aria-pressed="${gdModo === 'dia'}">Dia</button></div></div>
         ${barras()}
       </div>
-      <p class="hint" style="margin:0;">Toque numa categoria da tabela para ver só os lançamentos dela.</p>` : '<p class="hint">Sem gastos neste mês.</p>'}
+      ${filtra ? '<p class="hint" style="margin:0;">Toque numa categoria da tabela para ver só os lançamentos dela.</p>'
+        : gdFonte === 'cartoes' ? `<p class="hint" style="margin:0;">Conta as compras e as parcelas que caem em ${MONTHS[m].toLowerCase()}${state.kcSel && findCartao(state.kcSel) ? ` no ${esc(findCartao(state.kcSel).nome)}` : ''}. O dia é o da compra.</p>`
+        : '<p class="hint" style="margin:0;">O gráfico mostra quando cada conta vence. As faturas de cartão entram pelo total; o detalhe delas fica na aba Cartões.</p>'}` : `<p class="hint">${T.vazio}</p>`}
     </div>`, { tipo: 'grafico', largo: true });
   if (valoresOcultos) mascararValores();
 }
-$('catsGraf').addEventListener('click', async () => { $('catsGraf').disabled = true; try { await openGraficoMes(); } finally { $('catsGraf').disabled = false; } });
+[['catsGraf', 'lanc'], ['kcGraf', 'cartoes'], ['ctGraf', 'contas']].forEach(([id, fonte]) => $(id).addEventListener('click', async () => {
+  $(id).disabled = true; try { await openGraficoMes(fonte); } finally { $(id).disabled = false; }
+}));
 $('dlg2Body').addEventListener('click', e => {
   if (dlg2.tipo !== 'grafico') return;
   const md = e.target.closest('[data-gd-modo]');
