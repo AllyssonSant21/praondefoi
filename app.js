@@ -5149,7 +5149,7 @@ function renderDividas(){
   $('ctModo').hidden = !ok;
   if (!ok) state.ctModo = 'mes';
   const div = state.ctModo === 'div';
-  $('ctMes').hidden = div; $('ctMesResumo').hidden = div; $('ctDiv').hidden = !div;
+  $('ctMes').hidden = div; $('ctMesResumo').hidden = div; $('ctNovaRow').hidden = div; $('ctDiv').hidden = !div;
   document.querySelectorAll('#ctModo [data-ctmodo]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ctmodo === state.ctModo)));
   if (!ok) return;
   const lista = state.dividas.map(d => ({ d, e: dvEstado(d) }));
