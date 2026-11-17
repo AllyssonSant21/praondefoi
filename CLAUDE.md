@@ -59,6 +59,9 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Banco novo de testes: `supabase-hmg-tudo.sql`.
 
 ## Pendências
+- Cobrança (Stripe) ainda **não construída**: fazer no HMG com botão grande do admin para ligar/desligar cobranças; mandar prévia das telas (preços, pagamento, Adicional em Limites) antes.
+- Prévia esperando ok: ramo `previa-limites-explicados` (caixa explicando todos os limites na tela Limites, como era antes).
+- Importar fatura: o dono mandou um CSV com parceladas que entraram à vista; corrigido em v139 (procura a parcela em qualquer coluna). Esperando ele confirmar; se falhar, perguntar só o banco e como a parcela aparece (nunca pedir o arquivo com dados).
 - WhatsApp: esperar a Meta; depois pôr o número em `WA_BOT` (app.js) e criar a função whatsapp-bot.
 - Gemini pago antes de usuários de verdade (e revisar a política de privacidade se continuar no grátis).
 - Ideias guardadas: IA para textos que o bot não entende, revisão geral de UX (ícones em vez de emoji, toques de 44px).
