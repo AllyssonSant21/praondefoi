@@ -5,6 +5,7 @@ on:
   schedule:
     - cron: '23 10 * * *'   # todo dia, 07:23 no horário de Brasília
   workflow_dispatch:        # botão "Run workflow" para testar na hora
+permissions: {}             # não precisa de acesso ao repositório (só chama o Supabase)
 jobs:
   despertar:
     runs-on: ubuntu-latest
