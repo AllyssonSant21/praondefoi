@@ -1692,7 +1692,7 @@ function render(){
     return `
     <tr>
       <td style="color:var(--muted);">${e.date.slice(8,10)}/${e.date.slice(5,7)}</td>
-      <td><span class="ldesc">${esc(e.desc)}</span>${origemSelo(e, 'd')}${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<div class="lmeta">${e.date.slice(8,10)}/${e.date.slice(5,7)} · ${esc(rotuloCat(e.cat))}${shared ? ` · ${mine ? 'você' : esc(nameOf(e.uid))}` : ''}${origemSelo(e, 'm')}</div><span class="tag cat-inline ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
+      <td><span class="ldesc">${(pc => pc ? `${esc(pc.nome)} ${parcelaTag(pc.n, pc.tot)}` : esc(e.desc))(parcelaDoNome(e.desc))}</span>${origemSelo(e, 'd')}${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<div class="lmeta">${e.date.slice(8,10)}/${e.date.slice(5,7)} · ${esc(rotuloCat(e.cat))}${shared ? ` · ${mine ? 'você' : esc(nameOf(e.uid))}` : ''}${origemSelo(e, 'm')}</div><span class="tag cat-inline ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
       <td><span class="tag ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
       <td style="text-align:right;white-space:nowrap;font-weight:500;color:${e.type === 'inc' ? 'var(--green)' : 'var(--out)'};">${e.type === 'inc' ? '+ ' : '− '}${brl(e.amount)}</td>
       <td style="text-align:right;white-space:nowrap;">${e.pend ? `<span class="pend-tag" title="Será enviado quando a internet voltar">⏳ aguardando</span><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : mine ? `<button class="btn btn-ghost btn-icon" data-edit="${esc(e.id)}" style="color:var(--muted);" aria-label="Editar ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</td>
@@ -1805,6 +1805,19 @@ function instancia(c, mk){
   return { c, mk, due, days, total, pago: Math.min(pago, total), falta, pags, parts, paid, st, n, ov: ov != null, antes };
 }
 const tipoTxt = i => i.c.tipo === 'parcelada' ? `${i.n}/${i.c.parcelas}` : i.c.tipo === 'fixa' ? 'Fixa' : 'Única';
+// balão da parcela: "3/10" (cinza) ou "Última parcela" (verde) quando é a última
+function parcelaTag(n, tot){
+  return n === tot
+    ? `<span class="tag tag-green tag-parc" title="Parcela ${n} de ${tot}">Última parcela</span>`
+    : `<span class="tag tag-neutral tag-parc" title="Parcela ${n} de ${tot}">${n}/${tot}</span>`;
+}
+// lançamento de conta parcelada: o nome vem com " 3/10" no fim (pagar_conta e bot). Separa para mostrar no balão.
+function parcelaDoNome(desc){
+  const m = /^(.*\S)\s+(\d{1,3})\/(\d{1,3})$/.exec(desc || '');
+  if (!m) return null;
+  const n = +m[2], tot = +m[3];
+  return n >= 1 && tot >= 2 && tot <= 240 && n <= tot ? { nome: m[1], n, tot } : null;
+}
 
 let contasSeq = 0;
 async function loadContas(){
@@ -2002,7 +2015,7 @@ function renderContas(){
     <div class="bill ${i.mk !== mk ? 'late' : i.st}" data-bill="${esc(c.id)}">
       <div class="bill-day"><b>${i.due.getDate()}</b><small>${MES_CURTO[i.due.getMonth()]}</small></div>
       <div style="min-width:0;">
-        <div class="bill-name">${esc(c.nome)} <span class="tag tag-neutral">${tipoTxt(i)}</span>${dvd ? ' <span class="tag tag-divida">Dívida</span>' : ''}</div>
+        <div class="bill-name">${esc(c.nome)} ${c.tipo === 'parcelada' ? parcelaTag(i.n, c.parcelas) : `<span class="tag tag-neutral">${tipoTxt(i)}</span>`}${dvd ? ' <span class="tag tag-divida">Dívida</span>' : ''}</div>
         <div class="by">${linha2}</div>
         ${i.parts.length ? `<div class="by">${partsLine(i)}</div>` : ''}
         ${!i.paid && i.pago > 0 ? `<div class="prog"><div style="width:${Math.min(100, i.pago / i.total * 100)}%"></div></div>` : ''}
