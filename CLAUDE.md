@@ -16,7 +16,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Commits terminam com as linhas de coautoria que o ambiente indicar.
 
 ## Como publicar
-1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v142**) e `entender.js?v=N` (hoje **v4**) no `hmgbase/index.html`.
+1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v143**) e `entender.js?v=N` (hoje **v4**) no `hmgbase/index.html`.
 2. `python3 ferramentas/rotas.py hmgbase` (copia o index para as pastas das abas: lancamentos/, cartoes/, contas/, metas/, investimentos/).
 3. Commit + push em `main` → HMG no ar.
 4. Prod (só com ok): rodar da raiz `python3 ferramentas/promover.py` (gera index/app/privacidade/termos/tema.js/entender.js do prod, troca banco e chaves, tira os blocos `<!--BOT-->…<!--/BOT-->` da capa, põe o bot `@Praondefoi_bot`) → commit + push.
@@ -52,6 +52,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - **Estilo da capa dentro do app (HMG v137; prod desde 16/11):** Rubik, escuro em marinho #0E1525 (claro branco), brilho amarelo e "?" de marca d'água fixo, título da página com leve 3D.
 - **HMG e prod (16/11, v141):** mês (‹ Nov 2026 ›) e olho ficam na barra do topo, fixa ao rolar (celular e computador; `html,body{overflow-x:clip}` para o sticky funcionar). Botão **Detalhes** também em Cartões ("No que gastou") e Contas a pagar (`openGraficoMes(fonte)`: lanc/cartoes/contas). Selo HMG embaixo à direita.
 - **Balão de parcela (HMG e prod 17/11, v142):** em Lançamentos e Contas a pagar a parcela aparece num balão ao lado do nome (`8/12`, cinza); na última, balão verde "Última parcela". O banco continua gravando " 8/12" no fim do nome (pagar_conta e bot); o app separa na hora de mostrar (`parcelaDoNome`, `parcelaTag`).
+- **Botões de criar padronizados (HMG 17/11, v143; prod ainda não):** Nova conta, Nova dívida, Nova meta e Novo investimento no padrão de "Lançar compra no cartão" (`kc-nova-row` + `kc-nova`, abaixo dos números do topo; `ctNovaRow` some no modo Dívidas).
 - **Dívidas (HMG e prod desde 16/11):** tocar numa dívida abre o resumo com "O que aconteceu?" (Quitei, Fechei um acordo, Paguei uma parte, Estou negociando; em Pagando: Quitei antes, Atrasei, Renegociei) e o histórico.
 
 ## SQL (ordem no README.md, itens 19 a 37)
@@ -66,7 +67,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - WhatsApp: esperar a Meta; depois pôr o número em `WA_BOT` (app.js) e criar a função whatsapp-bot.
 - Gemini pago antes de usuários de verdade (e revisar a política de privacidade se continuar no grátis).
 - Ideias guardadas: IA para textos que o bot não entende, revisão geral de UX (ícones em vez de emoji, toques de 44px).
-- Ramos `previa-filtro-categoria`, `previa-admin-liberacoes`, `previa-ponte-admin`, `previa-parcela-balao` ficaram no GitHub (sem permissão para apagar daqui); podem ser apagados.
+- Ramos `previa-filtro-categoria`, `previa-admin-liberacoes`, `previa-ponte-admin`, `previa-parcela-balao`, `previa-botoes-padrao` ficaram no GitHub (sem permissão para apagar daqui); podem ser apagados.
 
 ## Testes locais (não ficam no repositório)
 A sessão anterior usava Postgres + PostgREST locais e scripts Playwright em `/var/tmp/pgt` (somem quando o ambiente é recriado). Se não existirem, testar com um servidor estático (`python3 -m http.server`) e conferir no HMG.
