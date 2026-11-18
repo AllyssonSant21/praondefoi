@@ -16,7 +16,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Commits terminam com as linhas de coautoria que o ambiente indicar.
 
 ## Como publicar
-1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v155**) e `entender.js?v=N` (hoje **v4**) no `hmgbase/index.html`.
+1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v156**) e `entender.js?v=N` (hoje **v4**) no `hmgbase/index.html`.
 2. `python3 ferramentas/rotas.py hmgbase` (copia o index para as pastas das abas: lancamentos/, cartoes/, contas/, metas/, investimentos/).
 3. Commit + push em `main` → HMG no ar.
 4. Prod (só com ok): rodar da raiz `python3 ferramentas/promover.py` (gera index/app/privacidade/termos/tema.js/entender.js do prod, troca banco e chaves, tira os blocos `<!--BOT-->…<!--/BOT-->` da capa, põe o bot `@Praondefoi_bot`) → commit + push.
@@ -59,6 +59,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - **Botões de criar padronizados (HMG e prod 17/11, v143):** Nova conta, Nova dívida, Nova meta e Novo investimento no padrão de "Lançar compra no cartão" (`kc-nova-row` + `kc-nova`, abaixo dos números do topo; `ctNovaRow` some no modo Dívidas).
 - **Sem zoom no celular (HMG e prod 18/11, v144):** campos (input/select/textarea) com 16px em tela de toque (`max-width:900px` ou `pointer:coarse`), regra no fim do CSS com !important; o iPhone dava zoom ao tocar em campo com 14px. Não usar `maximum-scale` (bloqueia o zoom de pinça no Android).
 - **Olho na janela Detalhes (HMG e prod 18/11, v155):** botão "Esconder/Mostrar valores" dentro da janela de Detalhes (`.gd-olho`, mesmo olho do app); o olho agora esconde também valores sem centavos ("R$ 4.741", barras, vs mês anterior) e o botão "Impostos R$ …".
+- **Boas-vindas no primeiro acesso (HMG e prod 18/11, v156):** balão com a cara da marca (marinho/branco, brilho amarelo, "?" de fundo, "Prazer!" em Rubik 3D + "quem é você?" em Yellowtail; campos só com linha embaixo; botão amarelo no escuro e azul escuro no claro). Pede foto, nome, e-mail e WhatsApp, tudo opcional ("Bora começar →" / "Agora não"). Abre uma vez para quem não tem nome no perfil (`talvezBoasVindas`, guarda `pof-boasvindas-<id>` no aparelho); salva com `salvar_perfil` e `salvar_foto`. Bolinhas de situação tiradas do Início e das abas.
 - **Dívidas (HMG e prod desde 16/11):** tocar numa dívida abre o resumo com "O que aconteceu?" (Quitei, Fechei um acordo, Paguei uma parte, Estou negociando; em Pagando: Quitei antes, Atrasei, Renegociei) e o histórico.
 
 ## SQL (ordem no README.md, itens 19 a 38)

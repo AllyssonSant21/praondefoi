@@ -1704,7 +1704,6 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   #viewApp .stats.resumo{border-radius:8px !important;border:1px solid var(--divider) !important;box-shadow:0 2px 10px rgba(16,24,40,.04) !important;padding:0 !important;overflow:hidden !important}
   #viewApp .stats.resumo>.stat{position:relative;padding:16px 20px !important}
   #viewApp .stats.resumo>.stat:first-child{background:linear-gradient(135deg,rgba(254,209,61,.22),rgba(254,209,61,.03) 70%) !important}
-  #viewApp .stats.resumo>.stat::after{content:"";position:absolute;top:18px;right:16px;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(31,157,85,.55)}
   #viewApp .stats.resumo .kicker{font:400 10.5px "JetBrains Mono",monospace !important;letter-spacing:.1em !important;text-transform:uppercase !important;color:var(--muted) !important}
   #viewApp .stats.resumo .kicker .seta{transform:scale(.85)}
   #viewApp .stats.resumo .big{font-family:"JetBrains Mono",monospace !important;font-weight:400 !important;letter-spacing:-.02em !important}
@@ -1716,6 +1715,47 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   html[data-tema="escuro"] #viewApp .stats.resumo>.stat:first-child{background:linear-gradient(135deg,rgba(254,209,61,.16),rgba(254,209,61,.02) 70%) !important}
   .gd-olho{display:flex;justify-content:flex-end;margin:-6px 0 -4px}
   .gd-olho .olho-linha{margin:0;display:flex !important}
+  .in-dot{display:none !important}   /* bolinhas de situação: tiradas a pedido do dono */
+  /* ===== boas-vindas (primeiro acesso) ===== */
+  .bv-fundo{position:fixed;inset:0;z-index:90;background:rgba(14,21,37,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+  .bv{position:relative;overflow:hidden;width:min(440px,100%);margin:auto;border-radius:8px;padding:30px 30px 24px;background:#0E1525;color:#fff;box-shadow:0 30px 80px rgba(0,0,0,.45);background-image:radial-gradient(420px 260px at 0% 0%,rgba(254,209,61,.22),transparent 65%)}
+  .bv::after{content:"?";position:absolute;right:-18px;bottom:-96px;font:900 330px/1 Rubik,sans-serif;color:rgba(254,209,61,.09);pointer-events:none}
+  .bv>*{position:relative;z-index:1}
+  .bv-x{position:absolute;top:14px;right:14px;z-index:2;width:36px;height:36px;border-radius:6px;border:1px solid rgba(255,255,255,.18);background:transparent;color:#c9cdd6;font-size:15px;cursor:pointer}
+  .bv-logo{width:40px;height:40px;display:block;margin-bottom:18px}
+  .bv h3{margin:0;font:900 40px/.95 Rubik,sans-serif;letter-spacing:-.02em;color:#fff;text-shadow:1px 1px 0 #b8901a,2px 2px 0 #9c7a12,3px 3px 0 #7f6200}
+  .bv h3 span{display:block;font:400 38px/1.1 Yellowtail,cursive;color:#FED13D;text-shadow:none;letter-spacing:0;margin-top:2px}
+  .bv-sub{margin:12px 0 22px;color:#c9cdd6;font-size:15px;line-height:1.45}
+  .bv-eu{display:flex;align-items:center;gap:16px}
+  .bv-foto{flex:none;position:relative;width:70px;height:70px;border-radius:50%;border:2px dashed #FED13D;display:flex;align-items:center;justify-content:center;color:#FED13D;background:rgba(254,209,61,.07);cursor:pointer;overflow:visible}
+  .bv-foto svg{width:26px;height:26px}
+  .bv-foto img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+  .bv-foto em{position:absolute;right:-3px;bottom:-3px;width:24px;height:24px;border-radius:50%;background:#FED13D;color:#0E1525;font:900 16px/24px Rubik,sans-serif;text-align:center;font-style:normal}
+  .bv-nome{flex:1;min-width:0}
+  .bv-nome small,.bv-av small{display:block;font:700 12px Rubik,sans-serif;color:#8b93a7;text-transform:uppercase;letter-spacing:.06em}
+  .bv-nome input{width:100%;border:0;border-bottom:2px solid rgba(255,255,255,.25);border-radius:0;background:transparent;color:#fff;font:700 24px/1.3 Rubik,sans-serif !important;padding:4px 0 6px;outline:0}
+  .bv-nome input:focus,.bv-av input:focus{border-bottom-color:#FED13D}
+  .bv-av{margin-top:24px;padding-top:18px;border-top:1px dashed rgba(255,255,255,.15)}
+  .bv-av p{margin:4px 0 10px;font-size:14px;color:#c9cdd6}
+  .bv-av div{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .bv-av input{width:100%;border:0;border-bottom:1.5px solid rgba(255,255,255,.22);border-radius:0;background:transparent;color:#fff;font:500 16px Inter,sans-serif;padding:6px 0;outline:0}
+  .bv input::placeholder{color:rgba(255,255,255,.35)}
+  .bv-ir{margin-top:26px;width:100%;min-height:50px;border:0;border-radius:6px;background:#FED13D;color:#0E1525;font:900 18px Rubik,sans-serif;box-shadow:0 4px 0 #b8901a;cursor:pointer}
+  .bv-ir:disabled{opacity:.6}
+  .bv-depois{display:block;margin:14px auto 0;border:0;background:none;color:#8b93a7;font:600 14px Inter,sans-serif;text-decoration:underline;text-underline-offset:3px;cursor:pointer;min-height:36px}
+  html:not([data-tema="escuro"]) .bv{background:#fff;color:#1f1d1e;background-image:radial-gradient(420px 260px at 0% 0%,rgba(254,209,61,.30),transparent 65%)}
+  html:not([data-tema="escuro"]) .bv::after{color:rgba(254,209,61,.22)}
+  html:not([data-tema="escuro"]) .bv h3{color:#1f1d1e;text-shadow:1px 1px 0 #d8d4c8,2px 2px 0 #e9e5d9,3px 3px 0 #f1eee6}
+  html:not([data-tema="escuro"]) .bv h3 span{color:#e0a922}
+  html:not([data-tema="escuro"]) .bv-sub,html:not([data-tema="escuro"]) .bv-av p{color:#4f566b}
+  html:not([data-tema="escuro"]) .bv-nome input,html:not([data-tema="escuro"]) .bv-av input{color:#1f1d1e;border-bottom-color:rgba(31,29,30,.2)}
+  html:not([data-tema="escuro"]) .bv input::placeholder{color:rgba(31,29,30,.35)}
+  html:not([data-tema="escuro"]) .bv-nome input:focus,html:not([data-tema="escuro"]) .bv-av input:focus{border-bottom-color:#e0a922}
+  html:not([data-tema="escuro"]) .bv-foto{color:#7f6200;border-color:#e0a922;background:#fff8dc}
+  html:not([data-tema="escuro"]) .bv-x{color:#67645d;border-color:#e3e8ee}
+  html:not([data-tema="escuro"]) .bv-av{border-top-color:#e3e8ee}
+  html:not([data-tema="escuro"]) .bv-ir{background:#0E1525;color:#fff;box-shadow:0 4px 0 #000}
+  @media (max-width:480px){ .bv{padding:26px 20px 20px} .bv h3{font-size:34px} .bv h3 span{font-size:32px} .bv-av div{grid-template-columns:1fr} }
   /* Celular: campo com letra menor que 16px faz o iPhone dar zoom ao tocar. Sempre 16px em tela de toque. */
   @media (max-width:900px), (pointer:coarse){
     input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px !important}
@@ -2404,6 +2444,25 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
 </div>
 
 <!-- ============ MENU ☰ ============ -->
+<div class="bv-fundo" id="boasVindas" hidden role="dialog" aria-modal="true" aria-labelledby="bvTit">
+  <form class="bv" id="bvForm" novalidate>
+    <button class="bv-x" type="button" id="bvFechar" aria-label="Fechar">✕</button>
+    <img class="bv-logo" src="../logo/logo-simbolo.svg" alt="">
+    <h3 id="bvTit">Prazer!<span>quem é você?</span></h3>
+    <p class="bv-sub">Antes de descobrir pra onde foi o seu dinheiro, diz como a gente te chama.</p>
+    <div class="bv-eu">
+      <label class="bv-foto" id="bvFoto" title="Colocar foto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><em>+</em><input type="file" id="bvArquivo" accept="image/*" hidden></label>
+      <label class="bv-nome"><small>Seu nome</small><input id="bvNome" maxlength="40" autocomplete="name" placeholder="ou um apelido"></label>
+    </div>
+    <div class="bv-av">
+      <small>Quer um toque antes das contas vencerem?</small>
+      <p>Deixa um contato. Se não quiser, tudo bem.</p>
+      <div><input id="bvEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="seu e-mail"><input id="bvWa" type="tel" inputmode="tel" autocomplete="tel" placeholder="WhatsApp"></div>
+    </div>
+    <button class="bv-ir" type="submit" id="bvIr">Bora começar →</button>
+    <button class="bv-depois" type="button" id="bvDepois">Agora não</button>
+  </form>
+</div>
 <template id="tplOlho"><div class="olho-linha"><button class="olho-btn" type="button" aria-pressed="false"><svg class="ic-olho" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="ic-olho-fechado" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.6 3.6"/><path d="M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="m3 3 18 18"/></svg><span class="olho-txt">Esconder valores</span></button></div></template>
 <div class="drawer-back" id="drawer" hidden>
   <aside class="drawer" role="dialog" aria-modal="true" aria-label="Menu">
@@ -2456,6 +2515,6 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=4"></script>
-<script src="app.js?v=155"></script>
+<script src="app.js?v=156"></script>
 </body>
 </html>

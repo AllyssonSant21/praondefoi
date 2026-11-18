@@ -490,6 +490,7 @@ async function handleSession0(session, force){
   let ligarAgora = null;
   { const t = Number(lsLer(CHAVE_PONTE_PROX) || 0); lsGravar(CHAVE_PONTE_PROX, null);
     if (t && Date.now() - t < 30 * 60000){ lsGravar(CHAVE_PONTE, currentUser.id); ligarAgora = currentUser.id; } }
+  setTimeout(talvezBoasVindas, 400);
   const mostrarPainel = dono => {
     $('sidePainel').hidden = $('painelFaixa').hidden = !dono;
     $('sideContaSec').hidden = $('sideBot').hidden && $('sideLimites').hidden && !dono;
@@ -4711,6 +4712,53 @@ $('dlg2Body').addEventListener('submit', async e => {
   Object.assign(profile, { nome: nome || null, email_aviso: email || null, whatsapp: wa || null, avisos });
   renderMe(); closeDlg2(); toast('Perfil salvo.', true);
   await loadMembers(); render();
+});
+
+
+/* ======================= BOAS-VINDAS (primeiro acesso) =======================
+   Abre uma vez só, para quem ainda não tem nome no perfil. Tudo é opcional. */
+const bvChave = () => `pof-boasvindas-${currentUser ? currentUser.id : ''}`;
+let bvFoto = null;
+function talvezBoasVindas(){
+  if (MODO_ADMIN || !profile || profile.is_admin || !perfilNovo || profile.nome || lsLer(bvChave())) return;
+  bvFoto = null;
+  $('bvNome').value = ''; $('bvEmail').value = profile.email_aviso || ''; $('bvWa').value = fmtWa(profile.whatsapp || '');
+  $('boasVindas').hidden = false;
+  setTimeout(() => { if (!matchMedia('(pointer:coarse)').matches) $('bvNome').focus(); }, 50);
+}
+function fecharBoasVindas(){ lsGravar(bvChave(), '1'); $('boasVindas').hidden = true; }
+$('bvFechar').addEventListener('click', fecharBoasVindas);
+$('bvDepois').addEventListener('click', fecharBoasVindas);
+$('bvArquivo').addEventListener('change', async e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  try {
+    bvFoto = await lerFoto(f);
+    $('bvFoto').querySelector('svg').outerHTML = `<img src="${bvFoto}" alt="">`;
+  } catch(err){ toast(err.message || 'Não foi possível usar essa imagem.'); }
+});
+$('bvForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const nome = $('bvNome').value.trim(), email = $('bvEmail').value.trim().toLowerCase(), wa = $('bvWa').value.replace(/\D/g, '');
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('Esse e-mail não parece válido.');
+  if (wa && (wa.length < 10 || wa.length > 13)) return toast('WhatsApp inválido. Use DDD + número, ex.: (65) 99999-9999.');
+  if (!nome && !email && !wa && !bvFoto) return fecharBoasVindas();
+  $('bvIr').disabled = true;
+  try {
+    if (nome || email || wa){
+      const avisos = profile.avisos !== false;
+      const { error } = await sb.rpc('salvar_perfil', { p_nome: nome || profile.nome || '', p_email: email || profile.email_aviso || '', p_whatsapp: wa || profile.whatsapp || '', p_avisos: avisos });
+      if (error) return toast(rpcMsg(error));
+      Object.assign(profile, { nome: nome || profile.nome || null, email_aviso: email || profile.email_aviso || null, whatsapp: wa || profile.whatsapp || null });
+    }
+    if (bvFoto){
+      const { error } = await sb.rpc('salvar_foto', { p_foto: bvFoto });
+      if (error) toast(rpcMsg(error)); else profile.foto = bvFoto;
+    }
+    fecharBoasVindas();
+    renderMe(); agendarInicio();
+    toast(nome ? `Prazer, ${nome.split(' ')[0]}! 👋` : 'Pronto, tudo salvo.', true);
+    loadMembers().then(render, () => {});
+  } finally { $('bvIr').disabled = false; }
 });
 
 /* ======================= PESSOAS E CONVITES ======================= */
