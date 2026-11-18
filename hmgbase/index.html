@@ -1700,6 +1700,20 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   @media (max-width:900px){ .in-car{grid-template-columns:1fr;padding:16px 16px 44px;min-height:0} .in-car-vis{display:none} .in-car h3{font-size:17px} }
   /* saídas sempre em vermelho */
   html #viewApp .stats #expVal,html.valores-ocultos #viewApp .stats #expVal{color:var(--out) !important}
+  /* ===== abas com a aparência do Início (mesma estrutura: faixa única com divisões) ===== */
+  #viewApp .stats.resumo{border-radius:8px !important;border:1px solid var(--divider) !important;box-shadow:0 2px 10px rgba(16,24,40,.04) !important;padding:0 !important;overflow:hidden !important}
+  #viewApp .stats.resumo>.stat{position:relative;padding:16px 20px !important}
+  #viewApp .stats.resumo>.stat:first-child{background:linear-gradient(135deg,rgba(254,209,61,.22),rgba(254,209,61,.03) 70%) !important}
+  #viewApp .stats.resumo>.stat::after{content:"";position:absolute;top:18px;right:16px;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(31,157,85,.55)}
+  #viewApp .stats.resumo .kicker{font:400 10.5px "JetBrains Mono",monospace !important;letter-spacing:.1em !important;text-transform:uppercase !important;color:var(--muted) !important}
+  #viewApp .stats.resumo .kicker .seta{transform:scale(.85)}
+  #viewApp .stats.resumo .big{font-family:"JetBrains Mono",monospace !important;font-weight:400 !important;letter-spacing:-.02em !important}
+  #viewApp .stats.resumo>.stat:first-child .big{font-size:36px !important} #viewApp #balCard .big{color:var(--green) !important} #viewApp #balCard.neg .big{color:var(--out) !important}
+  #viewApp .stats.resumo .note{font:400 11.5px/1.5 "JetBrains Mono",monospace !important;color:var(--muted) !important}
+  #viewApp .blueprint{border-radius:8px !important;border:1px solid var(--divider) !important;box-shadow:0 2px 10px rgba(16,24,40,.04) !important}
+  #viewApp #rows td:nth-child(4){font-family:"JetBrains Mono",monospace;font-weight:400}
+  html[data-tema="escuro"] #viewApp .stats.resumo,html[data-tema="escuro"] #viewApp .blueprint{background:rgba(255,255,255,.035) !important;border-color:rgba(255,255,255,.08) !important;box-shadow:none !important}
+  html[data-tema="escuro"] #viewApp .stats.resumo>.stat:first-child{background:linear-gradient(135deg,rgba(254,209,61,.16),rgba(254,209,61,.02) 70%) !important}
   /* Celular: campo com letra menor que 16px faz o iPhone dar zoom ao tocar. Sempre 16px em tela de toque. */
   @media (max-width:900px), (pointer:coarse){
     input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px !important}
@@ -2440,6 +2454,6 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=4"></script>
-<script src="app.js?v=148"></script>
+<script src="app.js?v=149"></script>
 </body>
 </html>
