@@ -115,6 +115,7 @@ const CHAVE_ADMIN = 'pof-admin-auth';
 const CHAVE_PADRAO = configured ? `sb-${new URL(SUPABASE_URL).hostname.split('.')[0]}-auth-token` : '';
 const MODO_ADMIN = lsLer('pof-modo') === 'admin';
 const sb = configured && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, MODO_ADMIN ? { auth: { storageKey: CHAVE_ADMIN } } : undefined) : null;
+const CHAVE_PONTE = 'pof-ponte';   // este aparelho já entrou na conta master: o atalho do painel fica fixo no menu
 function irPara(modo){ lsGravar('pof-modo', modo === 'admin' ? 'admin' : null); location.reload(); }
 
 const now = new Date();
@@ -412,6 +413,8 @@ async function handleSession0(session, force){
     $('dlg').hidden = true;
     $('authPass').value = '';
     show('viewAuth');
+    // abriu o painel mas a sessão da conta master expirou: deixa voltar para a sua conta sem ficar preso no login
+    $('authMinhaConta').hidden = !(MODO_ADMIN && CHAVE_PADRAO && lsLer(CHAVE_PADRAO));
     if (authMode === 'nova') setAuthMode('entrar');
     if (authErroVolta){ authMsg(authErroVolta, 'err'); authErroVolta = null; }
     return;
@@ -450,6 +453,7 @@ async function handleSession0(session, force){
     // conta master: só administração, sem controle financeiro.
     // Guarda a sessão dela à parte, para poder ir e voltar da sua conta sem digitar senha
     if (!MODO_ADMIN && CHAVE_PADRAO && lsLer(CHAVE_PADRAO)){ lsGravar(CHAVE_ADMIN, lsLer(CHAVE_PADRAO)); lsGravar(CHAVE_PADRAO, null); return irPara('admin'); }
+    lsGravar(CHAVE_PONTE, '1');
     show('viewAdmin');
     renderAdmin();
     loadUsers().then(loadUso);
@@ -462,7 +466,7 @@ async function handleSession0(session, force){
   render();
   startRealtime();
   checarBot(); checarIA();
-  $('drPainel').hidden = !lsLer(CHAVE_ADMIN);   // este aparelho já entrou na conta master: atalho para o painel
+  $('drPainel').hidden = !(lsLer(CHAVE_ADMIN) || lsLer(CHAVE_PONTE));   // fixo: se a sessão do painel expirou, abre o login da conta master
   modoSemInternet = false;
   gravarFoto();
   enviarFila();
@@ -5114,6 +5118,7 @@ document.addEventListener('click', e => {
 
 $('drPainel').addEventListener('click', () => irPara('admin'));
 $('adminMinhaConta').addEventListener('click', () => irPara(''));
+$('authMinhaConta').addEventListener('click', () => irPara(''));
 
 /* ======================= DÍVIDAS (dentro de Contas a pagar) =======================
    A situação decide o que o formulário pede e o que vai para Contas do mês.
