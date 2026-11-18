@@ -71,8 +71,10 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Importar fatura: o dono mandou um CSV com parceladas que entraram à vista; corrigido em v139 (procura a parcela em qualquer coluna). Esperando ele confirmar; se falhar, perguntar só o banco e como a parcela aparece (nunca pedir o arquivo com dados).
 - WhatsApp: esperar a Meta; depois pôr o número em `WA_BOT` (app.js) e criar a função whatsapp-bot.
 - Gemini pago antes de usuários de verdade (e revisar a política de privacidade se continuar no grátis).
+- **Aviso de conta vencida (ideia aprovada, não construir ainda):** avisar que conta não paga depois do vencimento pode virar dívida, **no app e também pelo Detetive no Telegram**. No app: linha na conta vencida + faixa "N contas vencidas · R$ X" no topo de Contas a pagar + botão "Registrar como dívida" (abre a dívida já preenchida, situação Atrasada). Falta o dono decidir: a partir de quantos dias de atraso e se quer o botão. Telegram: precisa de um envio agendado (ex.: o despertador do GitHub Actions ou cron do Supabase chamando uma função que manda a mensagem a quem tem o Telegram ligado); definir horário e não repetir todo dia a mesma conta.
+- Botão "Instalar o app" (Android/computador instala direto; iPhone mostra o passo a passo de Compartilhar → Adicionar à Tela de Início): falta o dono escolher onde (capa, menu e/ou aviso após o primeiro login). Publicar nas lojas ficou para depois (Play Store primeiro, quando tiver usuários).
 - Ideias guardadas: IA para textos que o bot não entende, revisão geral de UX (ícones em vez de emoji, toques de 44px).
-- Ramos `previa-filtro-categoria`, `previa-admin-liberacoes`, `previa-ponte-admin`, `previa-parcela-balao`, `previa-botoes-padrao`, `previa-painel-conta` ficaram no GitHub (sem permissão para apagar daqui); podem ser apagados.
+- Ramos `previa-filtro-categoria`, `previa-admin-liberacoes`, `previa-ponte-admin`, `previa-parcela-balao`, `previa-botoes-padrao`, `previa-painel-conta`, `previa-inicio` ficaram no GitHub (sem permissão para apagar daqui); podem ser apagados.
 
 ## Testes locais (não ficam no repositório)
 A sessão anterior usava Postgres + PostgREST locais e scripts Playwright em `/var/tmp/pgt` (somem quando o ambiente é recriado). Se não existirem, testar com um servidor estático (`python3 -m http.server`) e conferir no HMG.
