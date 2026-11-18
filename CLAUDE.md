@@ -16,7 +16,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Commits terminam com as linhas de coautoria que o ambiente indicar.
 
 ## Como publicar
-1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v143**) e `entender.js?v=N` (hoje **v4**) no `hmgbase/index.html`.
+1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v144**) e `entender.js?v=N` (hoje **v4**) no `hmgbase/index.html`.
 2. `python3 ferramentas/rotas.py hmgbase` (copia o index para as pastas das abas: lancamentos/, cartoes/, contas/, metas/, investimentos/).
 3. Commit + push em `main` → HMG no ar.
 4. Prod (só com ok): rodar da raiz `python3 ferramentas/promover.py` (gera index/app/privacidade/termos/tema.js/entender.js do prod, troca banco e chaves, tira os blocos `<!--BOT-->…<!--/BOT-->` da capa, põe o bot `@Praondefoi_bot`) → commit + push.
@@ -53,6 +53,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - **HMG e prod (16/11, v141):** mês (‹ Nov 2026 ›) e olho ficam na barra do topo, fixa ao rolar (celular e computador; `html,body{overflow-x:clip}` para o sticky funcionar). Botão **Detalhes** também em Cartões ("No que gastou") e Contas a pagar (`openGraficoMes(fonte)`: lanc/cartoes/contas). Selo HMG embaixo à direita.
 - **Balão de parcela (HMG e prod 17/11, v142):** em Lançamentos e Contas a pagar a parcela aparece num balão ao lado do nome (`8/12`, cinza); na última, balão verde "Última parcela". O banco continua gravando " 8/12" no fim do nome (pagar_conta e bot); o app separa na hora de mostrar (`parcelaDoNome`, `parcelaTag`).
 - **Botões de criar padronizados (HMG e prod 17/11, v143):** Nova conta, Nova dívida, Nova meta e Novo investimento no padrão de "Lançar compra no cartão" (`kc-nova-row` + `kc-nova`, abaixo dos números do topo; `ctNovaRow` some no modo Dívidas).
+- **Sem zoom no celular (HMG 18/11, v144; prod ainda não):** campos (input/select/textarea) com 16px em tela de toque (`max-width:900px` ou `pointer:coarse`), regra no fim do CSS com !important; o iPhone dava zoom ao tocar em campo com 14px. Não usar `maximum-scale` (bloqueia o zoom de pinça no Android).
 - **Dívidas (HMG e prod desde 16/11):** tocar numa dívida abre o resumo com "O que aconteceu?" (Quitei, Fechei um acordo, Paguei uma parte, Estou negociando; em Pagando: Quitei antes, Atrasei, Renegociei) e o histórico.
 
 ## SQL (ordem no README.md, itens 19 a 37)
