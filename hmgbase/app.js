@@ -25,7 +25,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 const plural = (n,w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const $ = id => document.getElementById(id);
 // links limpos das abas: praondefoiapp.com.br/cartoes, /contas… (cada uma tem a mesma página numa pasta)
-const ROTAS = { lanc: 'lancamentos', cartoes: 'cartoes', contas: 'contas', metas: 'metas', invest: 'investimentos' };
+const ROTAS = { inicio: '', lanc: 'lancamentos', cartoes: 'cartoes', contas: 'contas', metas: 'metas', invest: 'investimentos' };
 const ROTA_ABA = Object.fromEntries(Object.entries(ROTAS).map(([a, r]) => [r, a]));
 const APP_BASE = (() => {
   let p = location.pathname.replace(/index\.html$/, '');
@@ -33,7 +33,8 @@ const APP_BASE = (() => {
   if (m && ROTA_ABA[m[2]]) p = m[1];
   return p.endsWith('/') ? p : p + '/';
 })();
-const ABA_DO_LINK = ROTA_ABA[location.pathname.slice(APP_BASE.length).replace(/\/$/, '')] || null;
+// a raiz do app abre sempre no Início; as pastas (/lancamentos, /cartoes…) abrem a aba delas
+const ABA_DO_LINK = ROTA_ABA[location.pathname.slice(APP_BASE.length).replace(/\/$/, '').replace(/index\.html$/, '')] || 'inicio';
 const REDIRECT = location.origin + APP_BASE;   // e-mails e login sempre voltam para o início do app
 
 // Login por nome de usuário: o Supabase exige e-mail, então "maria"
@@ -1653,6 +1654,7 @@ function renderCtrlBar(){
 }
 
 function render(){
+  agendarInicio();
   cacheDaTela();
   const {entries, y, m} = state;
   const ym = `${y}-${pad(m+1)}`;
@@ -1776,8 +1778,7 @@ const ddmm = d => `${pad(d.getDate())}/${pad(d.getMonth()+1)}`;
 const myId = () => currentUser ? currentUser.id : null;
 const quem = uid => uid === myId() ? 'você' : nameOf(uid);
 
-Object.assign(state, { tab: 'lanc', contas: [], partes: {}, cmeses: {}, pags: [], pagsMeses: [], contasOk: true });
-try { const t = localStorage.getItem('pof-aba'); if (['lanc','cartoes','contas','metas','invest'].includes(t)) state.tab = t; } catch(e){}
+Object.assign(state, { tab: 'inicio', contas: [], partes: {}, cmeses: {}, pags: [], pagsMeses: [], contasOk: true });
 try { const t = new URLSearchParams(location.search).get('aba'); if (ROTAS[t]) state.tab = t; } catch(e){}   // links antigos (?aba=)
 if (ABA_DO_LINK) state.tab = ABA_DO_LINK;
 function linkDaAba(t){
@@ -1787,7 +1788,7 @@ function linkDaAba(t){
     if (novo !== location.pathname + location.search + location.hash) history.replaceState(history.state, '', novo);
   } catch(e){}
 }
-if (ABA_DO_LINK || new URLSearchParams(location.search).has('aba')) linkDaAba(state.tab);
+if (ABA_DO_LINK !== 'inicio' || new URLSearchParams(location.search).has('aba')) linkDaAba(state.tab);
 
 function ocorre(c, mk){
   if (c.tipo === 'unica') return mk === c.inicio;
@@ -1909,16 +1910,19 @@ function alertas(){
   return { late, hoje, primeiro };
 }
 
-const TITULOS = { lanc: 'Lançamentos', cartoes: 'Cartões', contas: 'Contas a pagar', metas: 'Metas', invest: 'Investimentos' };
+const TITULOS = { inicio: 'Início', lanc: 'Lançamentos', cartoes: 'Cartões', contas: 'Contas a pagar', metas: 'Metas', invest: 'Investimentos' };
 // o aviso de contas vencidas só aparece em Contas a pagar (nas outras abas fica só o número no menu)
 function syncAlerta(){
   $('billAlert').hidden = !state.alertaN || !modOn('contas') || state.tab !== 'contas';
 }
 function renderTabs(){
   document.body.classList.toggle('aba-lanc', state.tab === 'lanc');
-  const mods = modulosDe(current());
+  document.body.classList.toggle('aba-inicio', state.tab === 'inicio');
+  const mods = modulosDe(current()).concat('inicio');
   document.querySelectorAll('[data-tab]').forEach(b => { b.hidden = !mods.includes(b.dataset.tab); });
   const desligada = !mods.includes(state.tab);
+  $('tabInicio').hidden = state.tab !== 'inicio';
+  if (state.tab === 'inicio') renderInicio();
   $('tabOff').hidden = !desligada;
   if (desligada){
     const m = MODULOS.find(x => x.k === state.tab);
@@ -1941,9 +1945,113 @@ function renderTabs(){
   if (!porMes){ $('monthTitle').textContent = TITULOS[state.tab]; document.title = `${TITULOS[state.tab]} · Pra Onde Foi?`; }
   else { $('monthTitle').textContent = TITULOS[state.tab]; document.title = `${TITULOS[state.tab]} · ${MONTHS[state.m]} ${state.y} · Pra Onde Foi?`; }
 }
+
+/* ======================= INÍCIO ======================= */
+// tela de entrada: um resumo do mês e atalhos para cada área (números tirados das próprias abas)
+let inicioPendente = false;
+function agendarInicio(){
+  if (inicioPendente) return; inicioPendente = true;
+  requestAnimationFrame(() => { inicioPendente = false; if (state.tab === 'inicio') renderInicio(); });
+}
+const txt = id => ($(id) ? $(id).textContent : '');
+function sparkPath(vals, w, h){
+  if (vals.length < 2) return '';
+  const min = Math.min(0, ...vals), max = Math.max(...vals, min + 1);
+  const pts = vals.map((v, i) => [i / (vals.length - 1) * w, h - 4 - (v - min) / (max - min) * (h - 10)]);
+  return pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+}
+function renderInicio(){
+  if (!$('tabInicio') || !profile) return;
+  const { entries, y, m } = state;
+  const ym = `${y}-${pad(m + 1)}`;
+  const month = entries.filter(e => e.date.startsWith(ym));
+  const incs = month.filter(e => e.type === 'inc'), exps = month.filter(e => e.type === 'exp');
+  const inc = r2(incs.reduce((s, e) => s + e.amount, 0)), exp = r2(exps.reduce((s, e) => s + e.amount, 0)), bal = r2(inc - exp);
+  const agora = new Date(), mesAtual = y === agora.getFullYear() && m === agora.getMonth();
+  const ultimo = new Date(y, m + 1, 0).getDate();
+  // topo
+  const hora = agora.getHours();
+  $('inOla').textContent = `${hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite'}, ${(meuNome() || '').split(' ')[0]}`;
+  const dias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const faltam = ultimo - agora.getDate();
+  $('inData').textContent = [
+    mesAtual ? `${dias[agora.getDay()]}, ${agora.getDate()} ${MONTHS[m].slice(0, 3).toLowerCase()}` : `${MONTHS[m]} ${y}`,
+    (current() || {}).nome || '',
+    mesAtual ? (faltam ? `faltam ${plural(faltam, 'dia')} para o mês acabar` : 'último dia do mês') : ''
+  ].filter(Boolean).join(' · ');
+  // saldo
+  $('inSaldoK').textContent = mesAtual ? `${MONTHS[m]} · até hoje` : `${MONTHS[m]} ${y}`;
+  $('inSaldo').textContent = brl(bal); $('inSaldo').classList.toggle('neg', bal < 0);
+  $('inSaldoNote').textContent = !month.length ? 'Nenhum lançamento ainda' : bal >= 0 ? `sobrou ${inc ? Math.round(bal / inc * 100) : 0}% do que entrou` : 'gastou mais do que entrou';
+  $('inSaldoBarra').style.width = (inc > 0 ? Math.max(0, Math.min(100, bal / inc * 100)) : 0) + '%';
+  $('inSaldoDot').className = 'in-dot' + (bal < 0 ? ' vm' : '');
+  { const ate = mesAtual ? agora.getDate() : ultimo, porDia = Array(ate).fill(0);
+    month.forEach(e => { const d = Number(e.date.slice(8, 10)); if (d <= ate) porDia[d - 1] += e.type === 'inc' ? e.amount : -e.amount; });
+    let acc = 0; const serie = porDia.map(v => (acc += v));
+    const linha = sparkPath(serie, 200, 70);
+    const cor = bal < 0 ? 'var(--out)' : 'var(--green)';
+    $('inSaldoSpark').innerHTML = linha && month.length > 1 ? `<defs><linearGradient id="inGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${bal < 0 ? '#d93f3f' : '#1f9d55'}" stop-opacity=".28"/><stop offset="1" stop-color="${bal < 0 ? '#d93f3f' : '#1f9d55'}" stop-opacity="0"/></linearGradient></defs><path d="${linha} L200 70 L0 70Z" fill="url(#inGrad)"/><path d="${linha}" fill="none" stroke="${cor}" stroke-width="1.6" vector-effect="non-scaling-stroke"/>` : ''; }
+  // entradas e saídas
+  $('inEntrou').textContent = brl(inc); $('inEntrouNote').textContent = plural(incs.length, 'lançamento');
+  $('inSaiu').textContent = brl(exp); $('inSaiuNote').textContent = plural(exps.length, 'lançamento');
+  $('inSaldoCard').hidden = $('inEsCard').hidden = !modOn('lanc');
+  // precisa da sua atenção
+  const itens = [];
+  if (modOn('contas') || cartaoOn()){
+    const { late, hoje } = alertas();
+    if (late) itens.push({ k: 'Vencidas', b: plural(late, 'conta vencida').replace('contas vencida', 'contas vencidas'), s: 'conta atrasada pode virar dívida', ir: 'contas', vm: true });
+    if (hoje) itens.push({ k: 'Vence hoje', b: hoje === 1 ? '1 conta vence hoje' : `${hoje} contas vencem hoje`, s: 'pague para não atrasar', ir: 'contas' });
+  }
+  if (cartaoOn()){
+    const hj = new Date(); hj.setHours(0, 0, 0, 0);
+    cartoesAtivos().forEach(k => {
+      const f = infoFatura(k, faturaAbertaDoMes(k, mkey(hj.getFullYear(), hj.getMonth())));
+      const d = Math.round((f.fecha - hj) / 86400000);
+      if (f.st === 'aberta' && f.total > 0 && d >= 0 && d <= 5)
+        itens.push({ k: d === 0 ? 'Fecha hoje' : `Fecha em ${plural(d, 'dia')}`, b: `Fatura ${k.nome}`, s: `${brl(f.total)} até agora`, ir: 'cartoes' });
+    });
+  }
+  if (modOn('contas') && state.contasOk){
+    contasListaDoMes(mkey(agora.getFullYear(), agora.getMonth()))
+      .filter(i => i.c.tipo === 'parcelada' && i.n === i.c.parcelas && i.c.parcelas > 1)
+      .forEach(i => itens.push({ k: 'Última parcela', b: `${i.c.nome} ${i.n}/${i.c.parcelas}`, s: `−${brl(i.total)} no mês que vem`, ir: 'contas', vd: true }));
+  }
+  const at = itens.slice(0, 3);
+  $('inAtLista').innerHTML = at.length ? at.map(x =>
+    `<button type="button" class="in-it" data-ir="${x.ir}"><span class="in-k">${esc(x.k)}</span><b>${esc(x.b)}</b><small>${esc(x.s)}</small></button>`).join('')
+    : '<p class="in-ok">Tudo em dia por aqui ✓</p>';
+  const temVm = at.some(x => x.vm);
+  $('inAtencao').className = 'in-c' + (temVm ? ' in-vm' : '');
+  $('inAtDot').className = 'in-dot' + (temVm ? ' vm' : at.length ? ' am' : '');
+  // seu mês
+  $('inCartCard').hidden = !cartaoOn();
+  $('inCartK').textContent = txt('kcPagarK') || 'Fatura aberta';
+  $('inCart').textContent = txt('kcProx'); $('inCartNote').textContent = txt('kcProxNote') || plural(cartoesAtivos().length, 'cartão').replace('cartãos', 'cartões');
+  $('inCartDot').className = 'in-dot' + (itens.some(x => x.ir === 'cartoes') ? ' am' : '');
+  $('inContasCard').hidden = !modOn('contas');
+  const venc = state.alertaN || 0;
+  $('inContas').textContent = txt('billLeft');
+  $('inContasNote').innerHTML = venc ? `<span class="vm">${plural(venc, 'vencida')}</span> · ${esc(txt('billTotalNote'))}` : esc(txt('billLeftNote'));
+  $('inContasCard').className = 'in-c' + (venc ? ' in-vm' : '');
+  $('inContasDot').className = 'in-dot' + (venc ? ' vm' : '');
+  $('inMetasCard').hidden = !modOn('metas');
+  { const lista = (state.metas || []).map(mt => infoMeta(mt)), abertas = lista.filter(i => !i.done && !i.enc);
+    const guard = abertas.reduce((s, i) => s + (i.saldo || 0), 0), falta = abertas.reduce((s, i) => s + (i.falta || 0), 0);
+    const pct = guard + falta > 0 ? Math.round(guard / (guard + falta) * 100) : 0;
+    $('inMetas').textContent = String(abertas.length);
+    $('inMetasNote').textContent = abertas.length ? `${pct}% guardado` : lista.length ? 'nenhuma em andamento' : 'crie sua primeira meta';
+    $('inMetasBarra').style.width = pct + '%'; }
+  $('inInvCard').hidden = !modOn('invest');
+  $('inInv').textContent = txt('ivHoje');
+  { const mes = txt('ivMes'); $('inInvNote').innerHTML = /[1-9]/.test(mes) ? `<span class="vd">${esc(mes.replace(/^\+\s*/, '+'))}</span> previsto no mês` : esc(txt('ivAplicadoNote')); }
+  $('inInvCard').className = 'in-c' + (/[1-9]/.test(txt('ivHoje')) ? ' in-vd' : '');
+}
+$('tabInicio').addEventListener('click', e => {
+  const b = e.target.closest('[data-ir]'); if (b) setTab(b.dataset.ir);
+});
+
 function setTab(t){
   state.tab = t;
-  try { localStorage.setItem('pof-aba', t); } catch(e){}
   linkDaAba(t);
   renderTabs();
   window.scrollTo(0, 0);
@@ -1975,6 +2083,7 @@ function contasListaDoMes(mk){
     .sort((a, b) => (a.paid - b.paid) || (a.due - b.due) || a.c.nome.localeCompare(b.c.nome)));
 }
 function renderContas(){
+  agendarInicio();
   const { late, hoje } = alertas();
   const n = late + hoje;
   document.querySelectorAll('[data-badge="contas"]').forEach(b => { b.hidden = !n || !modOn('contas'); b.textContent = n; });
@@ -2520,6 +2629,7 @@ function conquistaMeta(m, i, curto){
 }
 
 function renderMetas(){
+  agendarInicio();
   $('metaModelos').innerHTML = MODELOS_META.map((x, k) => `<button class="chip" type="button" data-modelo="${k}">${x.icone} ${esc(x.nome)}</button>`).join('');
   if (!state.metasOk){
     $('metasGrid').innerHTML = '';
@@ -3012,6 +3122,7 @@ function rendeTxt(inv){
 
 /* ---------- tela ---------- */
 function renderInvest(){
+  agendarInicio();
   const cdi = ultimo('cdi'), sel = ultimo('selic'), ip = ipca12();
   $('idxInfo').innerHTML = !state.invOk ? ''
     : !cdi && !sel ? '⏳ As taxas do Banco Central ainda não chegaram. Elas são buscadas automaticamente algumas vezes por dia.'
@@ -3395,6 +3506,7 @@ async function loadCartoes(){
 
 /* ---------- aba Cartões ---------- */
 function renderCartoes(){
+  agendarInicio();
   renderTodasCompras();
   if (!$('tabCartoes')) return;
   const mk = mkey(state.y, state.m), mkProx = mkey(state.y, state.m + 1);
@@ -4713,7 +4825,7 @@ const valoresOriginais = new Map();
 let valoresOcultos = false;
 try { valoresOcultos = localStorage.getItem('pof-ocultar') === '1'; } catch(e){}
 // resumos e listas (lançamentos, categorias, contas, metas, investimentos); os campos de digitar ficam de fora
-const areasValores = () => document.querySelectorAll('#viewApp .stats, #viewApp #budget, #rows, #cats, #dlg2Body .graf-det, #billList, #metasGrid, #invList, #invDist, #kcFaturas, #kcCompras, #kcCats, #kcTodas, #kcTodasResumo');
+const areasValores = () => document.querySelectorAll('#inicio, #inicio2, #viewApp .stats, #viewApp #budget, #rows, #cats, #dlg2Body .graf-det, #billList, #metasGrid, #invList, #invDist, #kcFaturas, #kcCompras, #kcCats, #kcTodas, #kcTodasResumo');
 function mascararValores(){
   areasValores().forEach(raiz => {
     const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT); let n;

@@ -16,7 +16,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Commits terminam com as linhas de coautoria que o ambiente indicar.
 
 ## Como publicar
-1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v146**) e `entender.js?v=N` (hoje **v4**) no `hmgbase/index.html`.
+1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v147**) e `entender.js?v=N` (hoje **v4**) no `hmgbase/index.html`.
 2. `python3 ferramentas/rotas.py hmgbase` (copia o index para as pastas das abas: lancamentos/, cartoes/, contas/, metas/, investimentos/).
 3. Commit + push em `main` → HMG no ar.
 4. Prod (só com ok): rodar da raiz `python3 ferramentas/promover.py` (gera index/app/privacidade/termos/tema.js/entender.js do prod, troca banco e chaves, tira os blocos `<!--BOT-->…<!--/BOT-->` da capa, põe o bot `@Praondefoi_bot`) → commit + push.
@@ -42,6 +42,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 
 ## O que existe hoje (13/11/2026)
 - **Capa nova (HMG v136; prod desde 16/11, v141):** fundo contínuo (marinho #0E1525 no escuro, branco no claro, amarelo #FED13D), marca d'água de dados + "?" grande, título "Descubra / pra onde foi / seu dinheiro?" (Rubik 900 com volume 3D + Yellowtail), celular 3D com print real do app (`logo/capa-app-claro|escuro.webp`), login à direita; seção "Mandou? Está lançado." sem caixas (mensagens soltas → papel "Seus lançamentos" com carimbo). Classes `cv-*`. Os 3 blocos `<!--BOT-->` agora são: "ou por mensagem" no subtítulo, a bolha no celular e a seção Mandou.
+- **Tela Início (HMG 18/11, v147; prod ainda não):** o app abre sempre no Início (raiz do app; `ROTAS.inicio = ''`, as pastas abrem a aba delas; `pof-aba` não é mais usado). Sem barra do topo (`body.aba-inicio`). Saudação + linha fina (data · controle · dias que faltam), olho próprio; linha 1: Saldo (com mini gráfico), Entradas e saídas, Precisa da sua atenção (vencidas, fatura que fecha em até 5 dias, última parcela; até 3); "Seu mês": Cartões, Contas a pagar, Metas, Investimentos (números lidos das próprias abas; `renderInicio`, `agendarInicio`). Números em JetBrains Mono. Menu lateral com "Início"; barra de baixo do celular: Início, Lançamentos, Cartões, Contas, Menu (Metas e Investimentos foram para o menu ≡, `so-cel`).
 - Categoria padrão **Alimentação** (🍽️) com palavras de comida; "Para onde foi" filtra a lista ao clicar numa categoria.
 - "Lançar rápido" em destaque: **Foto, PDF ou áudio** (só com IA liberada) e **Extrato do banco**. A opção de escrever/falar foi tirada (no app se lança direto pelo formulário).
 - Menu: item **Limites**; **ponte** entre a conta do dono e a conta master (duas sessões guardadas no aparelho: "Ir para minha conta" ↔ "Painel do administrador").
