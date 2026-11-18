@@ -5249,8 +5249,14 @@ $('adminBusca').addEventListener('keydown', e => { if (e.key === 'Escape'){ e.ta
 $('usersEmpty').addEventListener('click', e => { if (e.target.id === 'adminVerTodos'){ adminFilter = 'todos'; renderAdmin(); } });
 
 // ⋮ de cada conta: recursos liberados, limites e ações da conta
-function openConta(id){
+let contaPessoal;   // conta pessoal ligada à master (supabase-ponte-admin.sql); undefined = banco sem o SQL
+async function lerContaPessoal(){
+  const { data, error } = await sb.from('perfis').select('conta_pessoal').eq('id', currentUser.id).maybeSingle();
+  contaPessoal = error ? undefined : (data ? data.conta_pessoal : null);
+}
+async function openConta(id){
   const u = users.find(x => x.id === id); if (!u) return closeDlg2();
+  if (contaPessoal === undefined) await lerContaPessoal();
   const nome = displayName(u.email), d = `data-uid="${esc(u.id)}" data-email="${esc(nome)}"`;
   const tem = u.ia_padrao != null;   // banco já tem IA e limites
   const chave = (act, on, titulo, sub, extra = '') => `<button type="button" class="adm-chave" role="switch" aria-checked="${on}" data-adm="${act}" data-sim="${on ? '0' : '1'}" ${d} ${extra}>
@@ -5262,6 +5268,7 @@ function openConta(id){
       ${u.ia_liberada !== undefined ? chave('lib-ia', !!u.ia_liberada, '📷 Leitura por IA', 'Foto, PDF e áudio no app e no Detetive') : ''}
       ${u.bot_liberado !== undefined ? chave('lib-bot', !!u.bot_liberado, '🕵️ Detetive Grana', u.canais ? `Ligado: ${esc(u.canais.replace('telegram', 'Telegram').replace('whatsapp', 'WhatsApp'))}. Desligar desconecta.` : 'Lançar pelo Telegram (e WhatsApp quando liberar)') : ''}
       ${u.status === 'aprovado' ? chave('fundador', !!u.fundador, '⭐ Fundador', 'Não paga mensalidade quando a cobrança começar') : ''}
+      ${u.status === 'aprovado' && !u.is_admin && contaPessoal !== undefined ? chave('pessoal', contaPessoal === u.id, '🏠 Minha conta pessoal', 'Mostra o botão "Painel do administrador" nesta conta, sem precisar sair dela') : ''}
       ${u.ia_liberada === undefined ? '<p class="hint" style="margin:0;">Para liberar IA e Detetive por conta, rode o supabase-liberacoes.sql neste banco.</p>' : ''}
     </div>
     ${tem && u.status === 'aprovado' ? `<div class="adm-sec"><h4>Limites do mês</h4>
@@ -5330,6 +5337,15 @@ async function acaoAdmin(e){
     if (error){ b.disabled = false; return toast(rpcMsg(error)); }
     toast(`${bot ? '🕵️ Detetive' : '📷 Leitura por IA'} ${sim ? 'liberado' : 'desligado'} para ${b.dataset.email}.`, true);
     return loadUsers();
+  }
+  if (act === 'pessoal'){
+    b.disabled = true;
+    const sim = b.dataset.sim === '1';
+    ({ error } = await sb.rpc('admin_ligar_conta_pessoal', { p_user: sim ? id : null }));
+    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+    contaPessoal = sim ? id : null;
+    toast(sim ? `🏠 ${b.dataset.email} é a sua conta pessoal. O botão do painel aparece nela.` : 'Conta pessoal desligada.', true);
+    return openConta(id);
   }
   if (act === 'fundador'){
     b.disabled = true;
