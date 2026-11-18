@@ -119,13 +119,19 @@ const sb = configured && window.supabase ? window.supabase.createClient(SUPABASE
 const CHAVE_PONTE = 'pof-ponte';   // id da conta do dono (a que usa o painel neste aparelho): só ela vê o atalho do painel
 const idDaSessao = k => { try { const j = JSON.parse(lsLer(k) || 'null'); return (j && (j.user?.id || j.currentSession?.user?.id)) || null; } catch { return null; } };
 // mantém a sessão da conta master viva enquanto o dono usa a conta dele (renova em segundo plano, sem trocar de tela)
-function manterPainelVivo(){
+// ligar = id da conta pessoal: a sessão da master (guardada no aparelho) grava a ligação no banco
+function manterPainelVivo(ligar){
   if (MODO_ADMIN || !configured || !window.supabase || !lsLer(CHAVE_ADMIN)) return;
   try {
     const bg = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { storageKey: CHAVE_ADMIN, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false } });
-    bg.auth.getSession().catch(() => {});
+    bg.auth.getSession().then(({ data }) => {
+      if (ligar && data && data.session) bg.rpc('admin_ligar_conta_pessoal', { p_user: ligar }).then(() => {}, () => {});
+    }).catch(() => {});
   } catch(e){}
 }
+// "Ir para minha conta" saindo do painel: a próxima conta que entrar neste aparelho é a conta pessoal do dono
+const CHAVE_PONTE_PROX = 'pof-ponte-prox';
+function voltarParaMinhaConta(){ lsGravar(CHAVE_PONTE_PROX, String(Date.now())); irPara(''); }
 function irPara(modo){ lsGravar('pof-modo', modo === 'admin' ? 'admin' : null); location.reload(); }
 
 const now = new Date();
@@ -480,6 +486,10 @@ async function handleSession0(session, force){
   // atalho do painel: só na conta do dono, na seção "Conta" (computador) ou numa faixa no topo (celular)
   // este aparelho já abriu o painel (mesmo que tenha saído da conta master depois): a primeira conta comum que entrar é a do dono
   if ((lsLer(CHAVE_ADMIN) || lsLer(CHAVE_PONTE)) && !/^[0-9a-f-]{36}$/.test(lsLer(CHAVE_PONTE) || '')) lsGravar(CHAVE_PONTE, currentUser.id);
+  // veio do painel por "Ir para minha conta" (até 30 min atrás): esta é a conta pessoal, aqui e no banco
+  let ligarAgora = null;
+  { const t = Number(lsLer(CHAVE_PONTE_PROX) || 0); lsGravar(CHAVE_PONTE_PROX, null);
+    if (t && Date.now() - t < 30 * 60000){ lsGravar(CHAVE_PONTE, currentUser.id); ligarAgora = currentUser.id; } }
   const mostrarPainel = dono => {
     $('sidePainel').hidden = $('painelFaixa').hidden = !dono;
     $('sideContaSec').hidden = $('sideBot').hidden && $('sideLimites').hidden && !dono;
@@ -491,12 +501,12 @@ async function handleSession0(session, force){
     sb.rpc('tenho_painel').then(({ data, error }) => {
       if (!currentUser || currentUser.id !== uid) return;
       if (error){ if (local) manterPainelVivo(); return; }   // banco sem o supabase-ponte-admin.sql: vale o que o aparelho sabe
-      // banco ligado: vale em qualquer aparelho. Ainda não ligado: vale o aparelho, e a ligação é feita
-      // quando o dono abre o painel por este botão (a conta master grava a conta pessoal no banco)
+      // banco ligado: vale em qualquer aparelho. Ainda não ligado: vale o aparelho; se veio do painel agora, grava a ligação
+      if (data !== true && ligarAgora) manterPainelVivo(ligarAgora);
       const dono = data === true || local;
       if (data === true) lsGravar(CHAVE_PONTE, uid);
       mostrarPainel(dono);
-      if (dono) manterPainelVivo();
+      if (dono && !(data !== true && ligarAgora)) manterPainelVivo();
     }, () => { if (local) manterPainelVivo(); }); }
   modoSemInternet = false;
   gravarFoto();
@@ -5400,8 +5410,8 @@ document.addEventListener('click', e => {
 
 $('sidePainel').addEventListener('click', () => irPara('admin'));
 $('painelFaixa').addEventListener('click', () => irPara('admin'));
-$('adminMinhaConta').addEventListener('click', () => irPara(''));
-$('authMinhaConta').addEventListener('click', () => irPara(''));
+$('adminMinhaConta').addEventListener('click', voltarParaMinhaConta);
+$('authMinhaConta').addEventListener('click', voltarParaMinhaConta);
 
 /* ======================= DÍVIDAS (dentro de Contas a pagar) =======================
    A situação decide o que o formulário pede e o que vai para Contas do mês.
