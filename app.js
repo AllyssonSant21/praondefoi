@@ -114,6 +114,16 @@ const CHAVE_ADMIN = 'pof-admin-auth';
 const CHAVE_PADRAO = configured ? `sb-${new URL(SUPABASE_URL).hostname.split('.')[0]}-auth-token` : '';
 const MODO_ADMIN = lsLer('pof-modo') === 'admin';
 const sb = configured && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, MODO_ADMIN ? { auth: { storageKey: CHAVE_ADMIN } } : undefined) : null;
+const CHAVE_PONTE = 'pof-ponte';   // id da conta do dono (a que usa o painel neste aparelho): só ela vê o atalho do painel
+const idDaSessao = k => { try { const j = JSON.parse(lsLer(k) || 'null'); return (j && (j.user?.id || j.currentSession?.user?.id)) || null; } catch { return null; } };
+// mantém a sessão da conta master viva enquanto o dono usa a conta dele (renova em segundo plano, sem trocar de tela)
+function manterPainelVivo(){
+  if (MODO_ADMIN || !configured || !window.supabase || !lsLer(CHAVE_ADMIN)) return;
+  try {
+    const bg = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { storageKey: CHAVE_ADMIN, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false } });
+    bg.auth.getSession().catch(() => {});
+  } catch(e){}
+}
 function irPara(modo){ lsGravar('pof-modo', modo === 'admin' ? 'admin' : null); location.reload(); }
 
 const now = new Date();
@@ -411,6 +421,8 @@ async function handleSession0(session, force){
     $('dlg').hidden = true;
     $('authPass').value = '';
     show('viewAuth');
+    // abriu o painel mas a sessão da conta master expirou: deixa voltar para a sua conta sem ficar preso no login
+    $('authMinhaConta').hidden = !(MODO_ADMIN && CHAVE_PADRAO && lsLer(CHAVE_PADRAO));
     if (authMode === 'nova') setAuthMode('entrar');
     if (authErroVolta){ authMsg(authErroVolta, 'err'); authErroVolta = null; }
     return;
@@ -449,6 +461,7 @@ async function handleSession0(session, force){
     // conta master: só administração, sem controle financeiro.
     // Guarda a sessão dela à parte, para poder ir e voltar da sua conta sem digitar senha
     if (!MODO_ADMIN && CHAVE_PADRAO && lsLer(CHAVE_PADRAO)){ lsGravar(CHAVE_ADMIN, lsLer(CHAVE_PADRAO)); lsGravar(CHAVE_PADRAO, null); return irPara('admin'); }
+    { const dono = idDaSessao(CHAVE_PADRAO); if (dono) lsGravar(CHAVE_PONTE, dono); }
     show('viewAdmin');
     renderAdmin();
     loadUsers().then(loadUso);
@@ -461,7 +474,12 @@ async function handleSession0(session, force){
   render();
   startRealtime();
   checarBot(); checarIA();
-  $('drPainel').hidden = !lsLer(CHAVE_ADMIN);   // este aparelho já entrou na conta master: atalho para o painel
+  // atalho do painel: só na conta do dono, na seção "Conta" (computador) ou numa faixa no topo (celular)
+  if (lsLer(CHAVE_ADMIN) && lsLer(CHAVE_PONTE) !== currentUser.id && !/^[0-9a-f-]{36}$/.test(lsLer(CHAVE_PONTE) || '')) lsGravar(CHAVE_PONTE, currentUser.id);
+  { const dono = lsLer(CHAVE_PONTE) === currentUser.id;
+    $('sidePainel').hidden = $('painelFaixa').hidden = !dono;
+    $('sideContaSec').hidden = $('sideBot').hidden && $('sideLimites').hidden && !dono;
+    if (dono) manterPainelVivo(); }
   modoSemInternet = false;
   gravarFoto();
   enviarFila();
@@ -4229,7 +4247,7 @@ async function checarIA(){
   document.querySelector('.rp-d-bt').classList.toggle('um', !iaDisponivel);
   $('rpDestTx').textContent = iaDisponivel ? 'Mande a foto da nota ou o extrato do banco. Vários lançamentos de uma vez.' : 'Importe o extrato do banco e lance o mês inteiro de uma vez.';
   if (iaDisponivel) $('drLimites').hidden = false;   // Limites aparece se a conta tem IA ou Detetive
-  $('sideLimites').hidden = $('drLimites').hidden; $('sideContaSec').hidden = $('sideBot').hidden && $('sideLimites').hidden;
+  $('sideLimites').hidden = $('drLimites').hidden; $('sideContaSec').hidden = $('sideBot').hidden && $('sideLimites').hidden && $('sidePainel').hidden;
 }
 async function checarBot(){
   if (!BOT_LIGADO) return;   // prod: o bot ainda não foi lançado
@@ -4243,7 +4261,7 @@ async function checarBot(){
   if (botDisponivel) $('drLimites').hidden = false;
   $('sideBot').hidden = !botDisponivel;
   $('sideLimites').hidden = $('drLimites').hidden;
-  $('sideContaSec').hidden = $('sideBot').hidden && $('sideLimites').hidden;
+  $('sideContaSec').hidden = $('sideBot').hidden && $('sideLimites').hidden && $('sidePainel').hidden;
   let visto = false; try { visto = localStorage.getItem(botFabKey()) === '1'; } catch {}
   const novo = botDisponivel && !visto && !(data || []).length;
   $('botFabNovo').hidden = !novo;
@@ -5111,8 +5129,10 @@ document.addEventListener('click', e => {
   if (b) b.classList.toggle('on');
 });
 
-$('drPainel').addEventListener('click', () => irPara('admin'));
+$('sidePainel').addEventListener('click', () => irPara('admin'));
+$('painelFaixa').addEventListener('click', () => irPara('admin'));
 $('adminMinhaConta').addEventListener('click', () => irPara(''));
+$('authMinhaConta').addEventListener('click', () => irPara(''));
 
 /* ======================= DÍVIDAS (dentro de Contas a pagar) =======================
    A situação decide o que o formulário pede e o que vai para Contas do mês.
