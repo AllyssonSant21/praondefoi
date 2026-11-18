@@ -463,7 +463,8 @@ async function handleSession0(session, force){
     // conta master: só administração, sem controle financeiro.
     // Guarda a sessão dela à parte, para poder ir e voltar da sua conta sem digitar senha
     if (!MODO_ADMIN && CHAVE_PADRAO && lsLer(CHAVE_PADRAO)){ lsGravar(CHAVE_ADMIN, lsLer(CHAVE_PADRAO)); lsGravar(CHAVE_PADRAO, null); return irPara('admin'); }
-    { const dono = idDaSessao(CHAVE_PADRAO); if (dono) lsGravar(CHAVE_PONTE, dono); }
+    // a conta do dono é a próxima conta comum que entrar neste aparelho (ou a que já está guardada aqui)
+    { const dono = idDaSessao(CHAVE_PADRAO); if (dono) lsGravar(CHAVE_PONTE, dono); else if (!/^[0-9a-f-]{36}$/.test(lsLer(CHAVE_PONTE) || '')) lsGravar(CHAVE_PONTE, 'pendente'); }
     show('viewAdmin');
     renderAdmin();
     loadUsers().then(loadUso);
@@ -477,7 +478,8 @@ async function handleSession0(session, force){
   startRealtime();
   checarBot(); checarIA();
   // atalho do painel: só na conta do dono, na seção "Conta" (computador) ou numa faixa no topo (celular)
-  if (lsLer(CHAVE_ADMIN) && lsLer(CHAVE_PONTE) !== currentUser.id && !/^[0-9a-f-]{36}$/.test(lsLer(CHAVE_PONTE) || '')) lsGravar(CHAVE_PONTE, currentUser.id);
+  // este aparelho já abriu o painel (mesmo que tenha saído da conta master depois): a primeira conta comum que entrar é a do dono
+  if ((lsLer(CHAVE_ADMIN) || lsLer(CHAVE_PONTE)) && !/^[0-9a-f-]{36}$/.test(lsLer(CHAVE_PONTE) || '')) lsGravar(CHAVE_PONTE, currentUser.id);
   { const dono = lsLer(CHAVE_PONTE) === currentUser.id;
     $('sidePainel').hidden = $('painelFaixa').hidden = !dono;
     $('sideContaSec').hidden = $('sideBot').hidden && $('sideLimites').hidden && !dono;
