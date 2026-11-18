@@ -1674,6 +1674,32 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
     .in-n{font-size:21px} .in-n.in-xl{font-size:32px} .in-es .in-n{font-size:21px}
   }
   @media (max-width:360px){ .in-n{font-size:18px} }
+  /* carrossel "Para você" (Início) */
+  .in-car{position:relative;overflow:hidden;border:1px solid var(--divider);border-radius:8px;background:var(--surface);box-shadow:0 2px 10px rgba(16,24,40,.04);min-height:156px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:20px;padding:20px 24px 38px}
+  html[data-tema="escuro"] .in-car{background:rgba(255,255,255,.035);border-color:rgba(255,255,255,.08);box-shadow:none}
+  .in-car-tx{min-width:0;animation:inCarEntra .35s ease}
+  @keyframes inCarEntra{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
+  .in-car .cv-k{font:400 10.5px "JetBrains Mono",ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .in-car h3{font:700 20px/1.3 Inter,sans-serif;margin:6px 0;letter-spacing:-.01em}
+  .in-car h3 .vd{color:var(--green)} .in-car h3 .vm{color:var(--out)}
+  .in-car p{font-size:13.5px;color:var(--muted);max-width:600px;margin:0}
+  .in-car .cv-lnk{margin-top:10px;border:0;background:none;padding:0;font:600 13.5px Inter,sans-serif;color:var(--accent-text);cursor:pointer}
+  .in-car-vis{display:flex;align-items:flex-end;gap:10px;height:86px}
+  .in-car-vis .cv-b{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;height:100%;font:400 10.5px "JetBrains Mono",ui-monospace,monospace;color:var(--muted)}
+  .in-car-vis .cv-b i{display:block;width:30px;border-radius:4px 4px 0 0;background:rgba(var(--fg-rgb),.14)}
+  .in-car-vis .cv-b i.on{background:var(--accent)}
+  .in-car-vis .cv-ic{width:68px;height:68px;border-radius:12px;background:rgba(var(--accent-rgb),.16);color:var(--accent-text);display:flex;align-items:center;justify-content:center}
+  .in-car-vis .cv-ic svg{width:34px;height:34px}
+  .in-car .cv-pts{position:absolute;left:24px;bottom:16px;display:flex;gap:6px}
+  .in-car .cv-pts button{width:22px;height:3px;padding:0;border:0;border-radius:2px;background:rgba(var(--fg-rgb),.15);overflow:hidden;cursor:pointer}
+  .in-car .cv-pts button.on::after{content:"";display:block;height:100%;width:100%;background:var(--accent);transform-origin:left;animation:inCarBarra var(--car-t,7s) linear forwards}
+  .in-car.parado .cv-pts button.on::after{animation-play-state:paused}
+  @keyframes inCarBarra{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  .in-car .cv-nav{position:absolute;right:14px;bottom:8px;display:flex;gap:6px}
+  .in-car .cv-nav button{width:30px;height:30px;border:1px solid var(--divider);border-radius:6px;background:transparent;color:var(--muted);font-size:15px;cursor:pointer}
+  @media (max-width:900px){ .in-car{grid-template-columns:1fr;padding:16px 16px 44px;min-height:0} .in-car-vis{display:none} .in-car h3{font-size:17px} }
+  /* saídas sempre em vermelho */
+  html #viewApp .stats #expVal,html.valores-ocultos #viewApp .stats #expVal{color:var(--out) !important}
   /* Celular: campo com letra menor que 16px faz o iPhone dar zoom ao tocar. Sempre 16px em tela de toque. */
   @media (max-width:900px), (pointer:coarse){
     input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px !important}
@@ -1913,6 +1939,13 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
       <div class="in-ch"><span class="in-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg></span>Investimentos<span class="in-dot" id="inInvDot"></span></div>
       <span class="in-k">Valor hoje</span><span class="in-n" id="inInv">R$ 0,00</span><span class="in-d" id="inInvNote"></span>
     </button>
+  </section>
+  <div class="in-sec" id="inCarSec" hidden>Para você</div>
+  <section class="in-car" id="inCar" hidden aria-roledescription="carrossel" aria-label="Para você">
+    <div class="in-car-tx" id="inCarTx"></div>
+    <div class="in-car-vis" id="inCarVis" aria-hidden="true"></div>
+    <div class="cv-pts" id="inCarPts"></div>
+    <div class="cv-nav"><button type="button" id="inCarAnt" aria-label="Anterior">‹</button><button type="button" id="inCarProx" aria-label="Próximo">›</button></div>
   </section>
 </div>
 
@@ -2407,6 +2440,6 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=4"></script>
-<script src="app.js?v=147"></script>
+<script src="app.js?v=148"></script>
 </body>
 </html>

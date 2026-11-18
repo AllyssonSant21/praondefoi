@@ -2045,7 +2045,131 @@ function renderInicio(){
   $('inInv').textContent = txt('ivHoje');
   { const mes = txt('ivMes'); $('inInvNote').innerHTML = /[1-9]/.test(mes) ? `<span class="vd">${esc(mes.replace(/^\+\s*/, '+'))}</span> previsto no mês` : esc(txt('ivAplicadoNote')); }
   $('inInvCard').className = 'in-c' + (/[1-9]/.test(txt('ivHoje')) ? ' in-vd' : '');
+  renderCarrossel();
 }
+
+/* ---------- "Para você": slides que passam sozinhos no Início ----------
+   Tudo sai dos dados da pessoa e é refeito a cada atualização da tela. */
+const IC_CAR = {
+  conta: '<path d="M4 5h16v15H4zM8 3v4M16 3v4M4 10h16"/>',
+  meta: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>',
+  maior: '<path d="M12 3v14M6 11l6 6 6-6M5 21h14"/>',
+  dica: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"/>'
+};
+const car = { slides: [], i: 0, timer: null, cache: {}, T: 7000 };
+async function mesAnteriorRows(){
+  const d = new Date(state.y, state.m - 1, 1), k = mkey(d.getFullYear(), d.getMonth()).slice(0, 7), chave = state.cid + '|' + k;
+  if (car.cache[chave]) return car.cache[chave];
+  const rows = [];
+  for (let from = 0; ; from += 1000){
+    const { data, error } = await sb.from('lancamentos').select('tipo,categoria,valor,data')
+      .eq('controle_id', state.cid).gte('data', `${k}-01`).lt('data', mkey(state.y, state.m)).range(from, from + 999);
+    if (error) return null;
+    rows.push(...data); if (data.length < 1000) break;
+  }
+  return (car.cache[chave] = rows);
+}
+async function montarSlides(){
+  const slides = [], agora = new Date();
+  const mesAtual = state.y === agora.getFullYear() && state.m === agora.getMonth();
+  const ym = `${state.y}-${pad(state.m + 1)}`, month = state.entries.filter(e => e.date.startsWith(ym));
+  const ate = mesAtual ? agora.getDate() : 31;
+  const antNome = MONTHS[(state.m + 11) % 12].toLowerCase();
+  const barras = (a, b) => { const mx = Math.max(a, b, 1); return `<span class="cv-b"><i style="height:${Math.max(4, a / mx * 70)}%"></i>${MES_CURTO[(state.m + 11) % 12]}</span><span class="cv-b"><i class="on" style="height:${Math.max(4, b / mx * 70)}%"></i>${MES_CURTO[state.m]}</span>`; };
+  // 1) gastos e categorias em relação ao mês anterior (até o mesmo dia)
+  if (modOn('lanc') && month.length){
+    const ant = await mesAnteriorRows();
+    if (ant && ant.length){
+      const t = { exp: 0, cats: {} }, a = { exp: 0, cats: {} };
+      month.forEach(e => { if (e.type !== 'exp' || Number(e.date.slice(8, 10)) > ate) return; t.exp += e.amount; t.cats[e.cat] = (t.cats[e.cat] || 0) + e.amount; });
+      ant.forEach(e => { if (e.tipo !== 'exp' || Number(e.data.slice(8, 10)) > ate) return; const v = Number(e.valor); a.exp += v; a.cats[e.categoria] = (a.cats[e.categoria] || 0) + v; });
+      if (a.exp > 0 && t.exp > 0){
+        const pc = Math.round((t.exp - a.exp) / a.exp * 100);
+        if (Math.abs(pc) >= 5) slides.push({ k: 'Comparando com ' + antNome, ir: 'lanc', lnk: 'Ver lançamentos',
+          h: pc < 0 ? `Você gastou <span class="vd">${-pc}% menos</span> que em ${antNome}` : `Você gastou <span class="vm">${pc}% mais</span> que em ${antNome}`,
+          p: `${brl(r2(t.exp))} ${mesAtual ? 'até hoje' : 'no mês'}, contra ${brl(r2(a.exp))} ${mesAtual ? 'no mesmo dia de ' + antNome : 'em ' + antNome}.`, vis: barras(a.exp, t.exp) });
+      }
+      let melhor = null;
+      Object.keys(t.cats).forEach(c => { const v = t.cats[c], o = a.cats[c] || 0; if (o < 30 || v <= o) return; const pc = Math.round((v - o) / o * 100); if (pc >= 10 && (!melhor || v - o > melhor.d)) melhor = { c, v, o, pc, d: v - o }; });
+      if (melhor) slides.push({ k: 'Insight do mês', ir: 'lanc', lnk: 'Ver no Para onde foi',
+        h: `${esc(rotuloCat(melhor.c))} subiu <span class="vm">${melhor.pc}%</span>`,
+        p: `Foram ${brl(r2(melhor.v))} ${mesAtual ? 'até hoje' : 'no mês'}, contra ${brl(r2(melhor.o))} ${mesAtual ? 'no mesmo dia de ' + antNome : 'em ' + antNome}.`, vis: barras(melhor.o, melhor.v) });
+    }
+  }
+  // 2) contas que vencem nos próximos 7 dias
+  if (modOn('contas') && state.contasOk && mesAtual){
+    const prox = [mkey(agora.getFullYear(), agora.getMonth()), mkey(agora.getFullYear(), agora.getMonth() + 1)]
+      .flatMap(mk => state.pagsMeses.includes(mk) ? contasListaDoMes(mk) : [])
+      .filter(i => !i.paid && i.days >= 0 && i.days <= 7).sort((x, y) => x.days - y.days);
+    if (prox.length){
+      const tot = r2(prox.reduce((s, i) => s + i.falta, 0)), sem = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+      slides.push({ k: 'Próximos 7 dias', ir: 'contas', lnk: 'Ver contas a pagar', ic: 'conta',
+        h: `${prox.length === 1 ? '1 conta vence' : prox.length + ' contas vencem'} esta semana: <span class="vm">${brl(tot)}</span>`,
+        p: prox.slice(0, 3).map(i => `${esc(i.c.nome)} (${i.days === 0 ? 'hoje' : sem[i.due.getDay()] + ', ' + i.due.getDate()})`).join(' · ') + (prox.length > 3 ? ` e mais ${prox.length - 3}` : '') + '.' });
+    }
+  }
+  // 3) maior gasto do mês
+  { const exps = month.filter(e => e.type === 'exp');
+    if (exps.length >= 3){
+      const g = exps.reduce((a, b) => b.amount > a.amount ? b : a);
+      slides.push({ k: 'Maior gasto do mês', ir: 'lanc', lnk: 'Ver lançamentos', ic: 'maior',
+        h: `${esc((parcelaDoNome(g.desc) || { nome: g.desc }).nome)}: <span class="vm">${brl(g.amount)}</span>`,
+        p: `Dia ${Number(g.date.slice(8, 10))} · ${esc(rotuloCat(g.cat))} · ${Math.round(g.amount / exps.reduce((s, e) => s + e.amount, 0) * 100)}% do que saiu no mês.` }); } }
+  // 4) meta em destaque
+  if (modOn('metas') && state.metasOk){
+    const abertas = (state.metas || []).map(m => ({ m, i: infoMeta(m) })).filter(x => !x.i.done && !x.i.enc && x.i.falta > 0)
+      .sort((a, b) => (a.m.prazo || '9999').localeCompare(b.m.prazo || '9999'));
+    const x = abertas[0];
+    if (x) slides.push({ k: 'Meta em destaque', ir: 'metas', lnk: 'Ver metas', ic: 'meta',
+      h: `${esc(x.m.nome)}: faltam <span class="vd">${brl(x.i.falta)}</span>`,
+      p: `Você já tem ${x.i.pct}% do objetivo.` + (x.i.chegaEm ? ` No ritmo atual, chega lá em ${MONTHS[Number(x.i.chegaEm.slice(5, 7)) - 1].toLowerCase()} de ${x.i.chegaEm.slice(0, 4)}.` : x.i.porMes ? ` Guardando ${brl(x.i.porMes)} por mês, chega no prazo.` : '') });
+  }
+  // 5) uma dica do app (muda a cada dia)
+  const dicas = [
+    !$('sideBot').hidden && { h: 'Mande um áudio pro Detetive Grana', p: 'Fale "gastei 45 reais no almoço" e ele lança sozinho, com a categoria certa.', ir: '', lnk: '' },
+    modOn('cartoes') && { h: 'Importe a fatura do cartão', p: 'Em Cartões, toque em "Importar fatura" e mande o CSV do banco: as compras e parcelas entram de uma vez.', ir: 'cartoes', lnk: 'Ir para Cartões' },
+    { h: 'Compartilhe um controle', p: 'Crie um controle da casa e convide quem divide as contas com você. Cada um vê só o que foi compartilhado.', ir: 'lanc', lnk: '' },
+    modOn('metas') && { h: 'Crie uma meta', p: 'Viagem, reserva de emergência ou um celular novo: o app mostra quanto guardar por mês para chegar lá.', ir: 'metas', lnk: 'Criar meta' },
+  ].filter(Boolean);
+  if (dicas.length){ const d = dicas[agora.getDate() % dicas.length]; slides.push({ k: 'Você sabia?', ir: d.ir, lnk: d.lnk, ic: 'dica', h: esc(d.h), p: esc(d.p) }); }
+  return slides;
+}
+function mostrarSlide(i){
+  const n = car.slides.length; if (!n) return;
+  car.i = (i + n) % n;
+  const s = car.slides[car.i];
+  $('inCarTx').innerHTML = `<div class="cv-k">${esc(s.k)}${n > 1 ? ` · ${car.i + 1}/${n}` : ''}</div><h3>${s.h}</h3><p>${s.p}</p>` + (s.lnk ? `<button type="button" class="cv-lnk" data-ir="${s.ir}">${esc(s.lnk)} →</button>` : '');
+  $('inCarVis').innerHTML = s.vis || `<span class="cv-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${IC_CAR[s.ic] || IC_CAR.dica}</svg></span>`;
+  $('inCarPts').innerHTML = n > 1 ? car.slides.map((_, j) => `<button type="button" data-car="${j}" class="${j === car.i ? 'on' : ''}" aria-label="Slide ${j + 1}"></button>`).join('') : '';
+  $('inCarAnt').parentNode.hidden = n < 2;
+  // anima o texto de novo a cada troca
+  const tx = $('inCarTx'); tx.style.animation = 'none'; void tx.offsetWidth; tx.style.animation = '';
+  clearTimeout(car.timer);
+  if (n > 1 && !$('inCar').classList.contains('parado')) car.timer = setTimeout(() => { if (state.tab === 'inicio' && !document.hidden) mostrarSlide(car.i + 1); }, car.T);
+}
+let carSeq = 0;
+async function renderCarrossel(){
+  const seq = ++carSeq;
+  let slides = [];
+  try { slides = await montarSlides(); } catch(e){ slides = []; }
+  if (seq !== carSeq) return;
+  const antes = car.slides[car.i] && car.slides[car.i].k;
+  car.slides = slides;
+  $('inCar').hidden = $('inCarSec').hidden = !slides.length;
+  if (!slides.length){ clearTimeout(car.timer); return; }
+  const mesmo = slides.findIndex(s => s.k === antes);
+  mostrarSlide(mesmo >= 0 ? mesmo : 0);
+}
+$('inCarAnt').addEventListener('click', () => mostrarSlide(car.i - 1));
+$('inCarProx').addEventListener('click', () => mostrarSlide(car.i + 1));
+$('inCarPts').addEventListener('click', e => { const b = e.target.closest('[data-car]'); if (b) mostrarSlide(Number(b.dataset.car)); });
+$('inCar').addEventListener('mouseenter', () => { $('inCar').classList.add('parado'); clearTimeout(car.timer); });
+$('inCar').addEventListener('mouseleave', () => { $('inCar').classList.remove('parado'); mostrarSlide(car.i); });
+{ let x0 = null;   // arrastar para o lado no celular
+  $('inCar').addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+  $('inCar').addEventListener('touchend', e => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 40) mostrarSlide(car.i + (dx < 0 ? 1 : -1)); }, { passive: true }); }
+document.addEventListener('visibilitychange', () => { if (!document.hidden && state.tab === 'inicio' && car.slides.length) mostrarSlide(car.i); });
+
 $('tabInicio').addEventListener('click', e => {
   const b = e.target.closest('[data-ir]'); if (b) setTab(b.dataset.ir);
 });
@@ -4825,7 +4949,7 @@ const valoresOriginais = new Map();
 let valoresOcultos = false;
 try { valoresOcultos = localStorage.getItem('pof-ocultar') === '1'; } catch(e){}
 // resumos e listas (lançamentos, categorias, contas, metas, investimentos); os campos de digitar ficam de fora
-const areasValores = () => document.querySelectorAll('#inicio, #inicio2, #viewApp .stats, #viewApp #budget, #rows, #cats, #dlg2Body .graf-det, #billList, #metasGrid, #invList, #invDist, #kcFaturas, #kcCompras, #kcCats, #kcTodas, #kcTodasResumo');
+const areasValores = () => document.querySelectorAll('#inicio, #inicio2, #inCar, #viewApp .stats, #viewApp #budget, #rows, #cats, #dlg2Body .graf-det, #billList, #metasGrid, #invList, #invDist, #kcFaturas, #kcCompras, #kcCats, #kcTodas, #kcTodasResumo');
 function mascararValores(){
   areasValores().forEach(raiz => {
     const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT); let n;
