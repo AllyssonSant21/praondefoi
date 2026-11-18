@@ -16,7 +16,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Commits terminam com as linhas de coautoria que o ambiente indicar.
 
 ## Como publicar
-1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v145**) e `entender.js?v=N` (hoje **v4**) no `hmgbase/index.html`.
+1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v146**) e `entender.js?v=N` (hoje **v4**) no `hmgbase/index.html`.
 2. `python3 ferramentas/rotas.py hmgbase` (copia o index para as pastas das abas: lancamentos/, cartoes/, contas/, metas/, investimentos/).
 3. Commit + push em `main` → HMG no ar.
 4. Prod (só com ok): rodar da raiz `python3 ferramentas/promover.py` (gera index/app/privacidade/termos/tema.js/entender.js do prod, troca banco e chaves, tira os blocos `<!--BOT-->…<!--/BOT-->` da capa, põe o bot `@Praondefoi_bot`) → commit + push.
@@ -45,7 +45,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Categoria padrão **Alimentação** (🍽️) com palavras de comida; "Para onde foi" filtra a lista ao clicar numa categoria.
 - "Lançar rápido" em destaque: **Foto, PDF ou áudio** (só com IA liberada) e **Extrato do banco**. A opção de escrever/falar foi tirada (no app se lança direto pelo formulário).
 - Menu: item **Limites**; **ponte** entre a conta do dono e a conta master (duas sessões guardadas no aparelho: "Ir para minha conta" ↔ "Painel do administrador").
-- **Atalho do painel fixo (HMG 18/11, v145; prod ainda não):** "Painel do administrador" no menu fica sempre que o aparelho já entrou na conta master (`pof-ponte`), mesmo se a sessão dela expirar; aí abre o login da master, que tem "Voltar para minha conta" (`authMinhaConta`).
+- **Atalho do painel só para o dono (HMG e prod 18/11, v146):** "Painel do administrador" fica na seção **Conta** do menu lateral (computador) e numa faixa no topo de todas as abas (celular, `painelFaixa`); saiu do menu ≡. Só aparece para a conta gravada em `pof-ponte` (id do dono neste aparelho). Enquanto o dono usa a conta dele, `manterPainelVivo()` renova a sessão da master em segundo plano; se ela cair mesmo assim, abre o login da master com "Voltar para minha conta" (`authMinhaConta`).
 - Janela do Detetive compacta (cabe na tela sem zoom).
 - **Visual estilo painel do Stripe (no HMG e no prod desde 16/11, v124):** letra Inter, bordas finas, cantos 6–8px; menu lateral com o seletor de controle no topo e seção "Conta" (Detetive Grana, Limites); barra do topo com busca de lançamentos; 4 números numa faixa (inclui Contas a pagar); no computador largo, lista à esquerda e formulário + "Para onde foi" à direita.
 - **HMG e prod (16/11, v132):** Lançar rápido numa caixa própria (fora do Novo lançamento); sem o botão "+ Novo lançamento" do topo; seletor de controle com logo maior (seta só com 2+ controles); botão **Detalhes** no "Para onde foi" abre janela com total, média/dia, comparação com o mês anterior, rosca por categoria, tabela e gasto por semana/dia; app mais leve (planilha só ao exportar, sem Rubik, service worker novo `hmgbase/sw.js` copiado para a raiz pelo promover).
@@ -69,7 +69,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - WhatsApp: esperar a Meta; depois pôr o número em `WA_BOT` (app.js) e criar a função whatsapp-bot.
 - Gemini pago antes de usuários de verdade (e revisar a política de privacidade se continuar no grátis).
 - Ideias guardadas: IA para textos que o bot não entende, revisão geral de UX (ícones em vez de emoji, toques de 44px).
-- Ramos `previa-filtro-categoria`, `previa-admin-liberacoes`, `previa-ponte-admin`, `previa-parcela-balao`, `previa-botoes-padrao` ficaram no GitHub (sem permissão para apagar daqui); podem ser apagados.
+- Ramos `previa-filtro-categoria`, `previa-admin-liberacoes`, `previa-ponte-admin`, `previa-parcela-balao`, `previa-botoes-padrao`, `previa-painel-conta` ficaram no GitHub (sem permissão para apagar daqui); podem ser apagados.
 
 ## Testes locais (não ficam no repositório)
 A sessão anterior usava Postgres + PostgREST locais e scripts Playwright em `/var/tmp/pgt` (somem quando o ambiente é recriado). Se não existirem, testar com um servidor estático (`python3 -m http.server`) e conferir no HMG.

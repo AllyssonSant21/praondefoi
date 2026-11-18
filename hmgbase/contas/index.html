@@ -1609,6 +1609,12 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
     .topbar-dir .olho-topo{display:inline-grid !important;width:44px;height:40px}
     .olho-mini{display:none !important}
   }
+  /* atalho do painel do administrador (só na conta do dono) */
+  .painel-faixa{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:1px solid var(--divider);border-radius:6px;background:var(--surface);color:var(--text);font:inherit;font-size:14px;font-weight:600;cursor:pointer;text-align:left}
+  .painel-faixa svg{width:18px;height:18px;flex:none;color:var(--accent-text)}
+  .painel-faixa span{flex:1}
+  .painel-faixa .pf-seta{color:var(--muted)}
+  @media (min-width:900px){ .painel-faixa{display:none !important} }
   /* Celular: campo com letra menor que 16px faz o iPhone dar zoom ao tocar. Sempre 16px em tela de toque. */
   @media (max-width:900px), (pointer:coarse){
     input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px !important}
@@ -1738,6 +1744,7 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   <button class="side-item" type="button" data-tab="invest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Investimentos</button>
   <span class="side-sec" id="sideContaSec" hidden>Conta</span>
   <button class="side-item" type="button" id="sideBot" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4M9.5 13h.01M14.5 13h.01"/></svg>Detetive Grana</button>
+  <button class="side-item" type="button" id="sidePainel" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>Painel do administrador</button>
   <button class="side-item" type="button" id="sideLimites" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16M7 15V9M12 15V5M17 15v-4"/></svg>Limites</button>
   <button class="menu-btn side-user" id="menuBtn" type="button" aria-label="Abrir menu" aria-haspopup="dialog">
     <span class="avatar" id="meAvatar"></span>
@@ -1765,6 +1772,7 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
 <div class="wrap">
 
 
+  <button class="painel-faixa" type="button" id="painelFaixa" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg><span>Painel do administrador</span><svg class="pf-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
   <section id="invites" hidden style="display:flex;flex-direction:column;gap:var(--space-3);"></section>
 
   <header class="app-head" style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--space-4);">
@@ -2265,7 +2273,6 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
       <button class="drawer-item" id="drCategorias" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Minhas categorias</button>
       <button class="drawer-item" id="drPerfil" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Meu perfil</button>
       <button class="drawer-item" id="drLimites" type="button" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-5"/></svg>Limites</button>
-      <button class="drawer-item" id="drPainel" type="button" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="M9 12h6M12 9v6"/></svg>Painel do administrador</button>
       <button class="drawer-item" id="drDados" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>Seus dados e privacidade</button>
       <button class="drawer-item" data-changepass type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/></svg>Trocar senha</button>
       <button class="drawer-item sair" data-logout type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>Sair</button>
@@ -2291,6 +2298,6 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=4"></script>
-<script src="app.js?v=145"></script>
+<script src="app.js?v=146"></script>
 </body>
 </html>
