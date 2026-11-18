@@ -1607,6 +1607,10 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
     .topbar-dir .olho-topo{display:inline-grid !important;width:44px;height:40px}
     .olho-mini{display:none !important}
   }
+  /* Celular: campo com letra menor que 16px faz o iPhone dar zoom ao tocar. Sempre 16px em tela de toque. */
+  @media (max-width:900px), (pointer:coarse){
+    input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px !important}
+  }
 </style>
 </head>
 <body>
@@ -2263,6 +2267,6 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="entender.js?v=4"></script>
-<script src="app.js?v=143"></script>
+<script src="app.js?v=144"></script>
 </body>
 </html>
