@@ -24,7 +24,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 const plural = (n,w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const $ = id => document.getElementById(id);
 // links limpos das abas: praondefoiapp.com.br/cartoes, /contas… (cada uma tem a mesma página numa pasta)
-const ROTAS = { lanc: 'lancamentos', cartoes: 'cartoes', contas: 'contas', metas: 'metas', invest: 'investimentos' };
+const ROTAS = { inicio: '', lanc: 'lancamentos', cartoes: 'cartoes', contas: 'contas', metas: 'metas', invest: 'investimentos' };
 const ROTA_ABA = Object.fromEntries(Object.entries(ROTAS).map(([a, r]) => [r, a]));
 const APP_BASE = (() => {
   let p = location.pathname.replace(/index\.html$/, '');
@@ -32,7 +32,8 @@ const APP_BASE = (() => {
   if (m && ROTA_ABA[m[2]]) p = m[1];
   return p.endsWith('/') ? p : p + '/';
 })();
-const ABA_DO_LINK = ROTA_ABA[location.pathname.slice(APP_BASE.length).replace(/\/$/, '')] || null;
+// a raiz do app abre sempre no Início; as pastas (/lancamentos, /cartoes…) abrem a aba delas
+const ABA_DO_LINK = ROTA_ABA[location.pathname.slice(APP_BASE.length).replace(/\/$/, '').replace(/index\.html$/, '')] || 'inicio';
 const REDIRECT = location.origin + APP_BASE;   // e-mails e login sempre voltam para o início do app
 
 // Login por nome de usuário: o Supabase exige e-mail, então "maria"
@@ -461,7 +462,8 @@ async function handleSession0(session, force){
     // conta master: só administração, sem controle financeiro.
     // Guarda a sessão dela à parte, para poder ir e voltar da sua conta sem digitar senha
     if (!MODO_ADMIN && CHAVE_PADRAO && lsLer(CHAVE_PADRAO)){ lsGravar(CHAVE_ADMIN, lsLer(CHAVE_PADRAO)); lsGravar(CHAVE_PADRAO, null); return irPara('admin'); }
-    { const dono = idDaSessao(CHAVE_PADRAO); if (dono) lsGravar(CHAVE_PONTE, dono); }
+    // a conta do dono é a próxima conta comum que entrar neste aparelho (ou a que já está guardada aqui)
+    { const dono = idDaSessao(CHAVE_PADRAO); if (dono){ lsGravar(CHAVE_PONTE, dono); sb.rpc('admin_ligar_conta_pessoal', { p_user: dono }).then(() => {}, () => {}); } else if (!/^[0-9a-f-]{36}$/.test(lsLer(CHAVE_PONTE) || '')) lsGravar(CHAVE_PONTE, 'pendente'); }
     show('viewAdmin');
     renderAdmin();
     loadUsers().then(loadUso);
@@ -475,11 +477,26 @@ async function handleSession0(session, force){
   startRealtime();
   checarBot(); checarIA();
   // atalho do painel: só na conta do dono, na seção "Conta" (computador) ou numa faixa no topo (celular)
-  if (lsLer(CHAVE_ADMIN) && lsLer(CHAVE_PONTE) !== currentUser.id && !/^[0-9a-f-]{36}$/.test(lsLer(CHAVE_PONTE) || '')) lsGravar(CHAVE_PONTE, currentUser.id);
-  { const dono = lsLer(CHAVE_PONTE) === currentUser.id;
+  // este aparelho já abriu o painel (mesmo que tenha saído da conta master depois): a primeira conta comum que entrar é a do dono
+  if ((lsLer(CHAVE_ADMIN) || lsLer(CHAVE_PONTE)) && !/^[0-9a-f-]{36}$/.test(lsLer(CHAVE_PONTE) || '')) lsGravar(CHAVE_PONTE, currentUser.id);
+  const mostrarPainel = dono => {
     $('sidePainel').hidden = $('painelFaixa').hidden = !dono;
     $('sideContaSec').hidden = $('sideBot').hidden && $('sideLimites').hidden && !dono;
-    if (dono) manterPainelVivo(); }
+  };
+  { const local = lsLer(CHAVE_PONTE) === currentUser.id;
+    mostrarPainel(local);
+    // o banco guarda a ligação entre as duas contas: vale em qualquer aparelho
+    const uid = currentUser.id;
+    sb.rpc('tenho_painel').then(({ data, error }) => {
+      if (!currentUser || currentUser.id !== uid) return;
+      if (error){ if (local) manterPainelVivo(); return; }   // banco sem o supabase-ponte-admin.sql: vale o que o aparelho sabe
+      // banco ligado: vale em qualquer aparelho. Ainda não ligado: vale o aparelho, e a ligação é feita
+      // quando o dono abre o painel por este botão (a conta master grava a conta pessoal no banco)
+      const dono = data === true || local;
+      if (data === true) lsGravar(CHAVE_PONTE, uid);
+      mostrarPainel(dono);
+      if (dono) manterPainelVivo();
+    }, () => { if (local) manterPainelVivo(); }); }
   modoSemInternet = false;
   gravarFoto();
   enviarFila();
@@ -1652,6 +1669,7 @@ function renderCtrlBar(){
 }
 
 function render(){
+  agendarInicio();
   cacheDaTela();
   const {entries, y, m} = state;
   const ym = `${y}-${pad(m+1)}`;
@@ -1775,8 +1793,7 @@ const ddmm = d => `${pad(d.getDate())}/${pad(d.getMonth()+1)}`;
 const myId = () => currentUser ? currentUser.id : null;
 const quem = uid => uid === myId() ? 'você' : nameOf(uid);
 
-Object.assign(state, { tab: 'lanc', contas: [], partes: {}, cmeses: {}, pags: [], pagsMeses: [], contasOk: true });
-try { const t = localStorage.getItem('pof-aba'); if (['lanc','cartoes','contas','metas','invest'].includes(t)) state.tab = t; } catch(e){}
+Object.assign(state, { tab: 'inicio', contas: [], partes: {}, cmeses: {}, pags: [], pagsMeses: [], contasOk: true });
 try { const t = new URLSearchParams(location.search).get('aba'); if (ROTAS[t]) state.tab = t; } catch(e){}   // links antigos (?aba=)
 if (ABA_DO_LINK) state.tab = ABA_DO_LINK;
 function linkDaAba(t){
@@ -1786,7 +1803,7 @@ function linkDaAba(t){
     if (novo !== location.pathname + location.search + location.hash) history.replaceState(history.state, '', novo);
   } catch(e){}
 }
-if (ABA_DO_LINK || new URLSearchParams(location.search).has('aba')) linkDaAba(state.tab);
+if (ABA_DO_LINK !== 'inicio' || new URLSearchParams(location.search).has('aba')) linkDaAba(state.tab);
 
 function ocorre(c, mk){
   if (c.tipo === 'unica') return mk === c.inicio;
@@ -1908,16 +1925,19 @@ function alertas(){
   return { late, hoje, primeiro };
 }
 
-const TITULOS = { lanc: 'Lançamentos', cartoes: 'Cartões', contas: 'Contas a pagar', metas: 'Metas', invest: 'Investimentos' };
+const TITULOS = { inicio: 'Início', lanc: 'Lançamentos', cartoes: 'Cartões', contas: 'Contas a pagar', metas: 'Metas', invest: 'Investimentos' };
 // o aviso de contas vencidas só aparece em Contas a pagar (nas outras abas fica só o número no menu)
 function syncAlerta(){
   $('billAlert').hidden = !state.alertaN || !modOn('contas') || state.tab !== 'contas';
 }
 function renderTabs(){
   document.body.classList.toggle('aba-lanc', state.tab === 'lanc');
-  const mods = modulosDe(current());
+  document.body.classList.toggle('aba-inicio', state.tab === 'inicio');
+  const mods = modulosDe(current()).concat('inicio');
   document.querySelectorAll('[data-tab]').forEach(b => { b.hidden = !mods.includes(b.dataset.tab); });
   const desligada = !mods.includes(state.tab);
+  $('tabInicio').hidden = state.tab !== 'inicio';
+  if (state.tab === 'inicio') renderInicio();
   $('tabOff').hidden = !desligada;
   if (desligada){
     const m = MODULOS.find(x => x.k === state.tab);
@@ -1940,9 +1960,237 @@ function renderTabs(){
   if (!porMes){ $('monthTitle').textContent = TITULOS[state.tab]; document.title = `${TITULOS[state.tab]} · Pra Onde Foi?`; }
   else { $('monthTitle').textContent = TITULOS[state.tab]; document.title = `${TITULOS[state.tab]} · ${MONTHS[state.m]} ${state.y} · Pra Onde Foi?`; }
 }
+
+/* ======================= INÍCIO ======================= */
+// tela de entrada: um resumo do mês e atalhos para cada área (números tirados das próprias abas)
+let inicioPendente = false;
+function agendarInicio(){
+  if (inicioPendente) return; inicioPendente = true;
+  requestAnimationFrame(() => { inicioPendente = false; if (state.tab === 'inicio') renderInicio(); });
+}
+const txt = id => ($(id) ? $(id).textContent : '');
+function sparkPath(vals, w, h){
+  if (vals.length < 2) return '';
+  const min = Math.min(0, ...vals), max = Math.max(...vals, min + 1);
+  const pts = vals.map((v, i) => [i / (vals.length - 1) * w, h - 4 - (v - min) / (max - min) * (h - 10)]);
+  return pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+}
+function renderInicio(){
+  if (!$('tabInicio') || !profile) return;
+  const { entries, y, m } = state;
+  const ym = `${y}-${pad(m + 1)}`;
+  const month = entries.filter(e => e.date.startsWith(ym));
+  const incs = month.filter(e => e.type === 'inc'), exps = month.filter(e => e.type === 'exp');
+  const inc = r2(incs.reduce((s, e) => s + e.amount, 0)), exp = r2(exps.reduce((s, e) => s + e.amount, 0)), bal = r2(inc - exp);
+  const agora = new Date(), mesAtual = y === agora.getFullYear() && m === agora.getMonth();
+  const ultimo = new Date(y, m + 1, 0).getDate();
+  // topo
+  const hora = agora.getHours();
+  $('inOla').textContent = `${hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite'}, ${(meuNome() || '').split(' ')[0]}`;
+  const dias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const faltam = ultimo - agora.getDate();
+  $('inData').textContent = [
+    mesAtual ? `${dias[agora.getDay()]}, ${agora.getDate()} ${MONTHS[m].slice(0, 3).toLowerCase()}` : `${MONTHS[m]} ${y}`,
+    (current() || {}).nome || '',
+    mesAtual ? (faltam ? `faltam ${plural(faltam, 'dia')} para o mês acabar` : 'último dia do mês') : ''
+  ].filter(Boolean).join(' · ');
+  // saldo
+  $('inSaldoK').textContent = mesAtual ? `${MONTHS[m]} · até hoje` : `${MONTHS[m]} ${y}`;
+  $('inSaldo').textContent = brl(bal); $('inSaldo').classList.toggle('neg', bal < 0);
+  $('inSaldoNote').textContent = !month.length ? 'Nenhum lançamento ainda' : bal >= 0 ? `sobrou ${inc ? Math.round(bal / inc * 100) : 0}% do que entrou` : 'gastou mais do que entrou';
+  $('inSaldoBarra').style.width = (inc > 0 ? Math.max(0, Math.min(100, bal / inc * 100)) : 0) + '%';
+  $('inSaldoDot').className = 'in-dot' + (bal < 0 ? ' vm' : '');
+  { const ate = mesAtual ? agora.getDate() : ultimo, porDia = Array(ate).fill(0);
+    month.forEach(e => { const d = Number(e.date.slice(8, 10)); if (d <= ate) porDia[d - 1] += e.type === 'inc' ? e.amount : -e.amount; });
+    let acc = 0; const serie = porDia.map(v => (acc += v));
+    const linha = sparkPath(serie, 200, 70);
+    const cor = bal < 0 ? 'var(--out)' : 'var(--green)';
+    $('inSaldoSpark').innerHTML = linha && month.length > 1 ? `<defs><linearGradient id="inGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${bal < 0 ? '#d93f3f' : '#1f9d55'}" stop-opacity=".28"/><stop offset="1" stop-color="${bal < 0 ? '#d93f3f' : '#1f9d55'}" stop-opacity="0"/></linearGradient></defs><path d="${linha} L200 70 L0 70Z" fill="url(#inGrad)"/><path d="${linha}" fill="none" stroke="${cor}" stroke-width="1.6" vector-effect="non-scaling-stroke"/>` : ''; }
+  // entradas e saídas
+  $('inEntrou').textContent = brl(inc); $('inEntrouNote').textContent = plural(incs.length, 'lançamento');
+  $('inSaiu').textContent = brl(exp); $('inSaiuNote').textContent = plural(exps.length, 'lançamento');
+  $('inSaldoCard').hidden = $('inEsCard').hidden = !modOn('lanc');
+  // precisa da sua atenção
+  const itens = [];
+  if (modOn('contas') || cartaoOn()){
+    const { late, hoje } = alertas();
+    if (late) itens.push({ k: 'Vencidas', b: plural(late, 'conta vencida').replace('contas vencida', 'contas vencidas'), s: 'conta atrasada pode virar dívida', ir: 'contas', vm: true });
+    if (hoje) itens.push({ k: 'Vence hoje', b: hoje === 1 ? '1 conta vence hoje' : `${hoje} contas vencem hoje`, s: 'pague para não atrasar', ir: 'contas' });
+  }
+  if (cartaoOn()){
+    const hj = new Date(); hj.setHours(0, 0, 0, 0);
+    cartoesAtivos().forEach(k => {
+      const f = infoFatura(k, faturaAbertaDoMes(k, mkey(hj.getFullYear(), hj.getMonth())));
+      const d = Math.round((f.fecha - hj) / 86400000);
+      if (f.st === 'aberta' && f.total > 0 && d >= 0 && d <= 5)
+        itens.push({ k: d === 0 ? 'Fecha hoje' : `Fecha em ${plural(d, 'dia')}`, b: `Fatura ${k.nome}`, s: `${brl(f.total)} até agora`, ir: 'cartoes' });
+    });
+  }
+  if (modOn('contas') && state.contasOk){
+    contasListaDoMes(mkey(agora.getFullYear(), agora.getMonth()))
+      .filter(i => i.c.tipo === 'parcelada' && i.n === i.c.parcelas && i.c.parcelas > 1)
+      .forEach(i => itens.push({ k: 'Última parcela', b: `${i.c.nome} ${i.n}/${i.c.parcelas}`, s: `−${brl(i.total)} no mês que vem`, ir: 'contas', vd: true }));
+  }
+  const at = itens.slice(0, 3);
+  $('inAtLista').innerHTML = at.length ? at.map(x =>
+    `<button type="button" class="in-it" data-ir="${x.ir}"><span class="in-k">${esc(x.k)}</span><b>${esc(x.b)}</b><small>${esc(x.s)}</small></button>`).join('')
+    : '<p class="in-ok">Tudo em dia por aqui ✓</p>';
+  const temVm = at.some(x => x.vm);
+  $('inAtencao').className = 'in-c' + (temVm ? ' in-vm' : '');
+  $('inAtDot').className = 'in-dot' + (temVm ? ' vm' : at.length ? ' am' : '');
+  // seu mês
+  $('inCartCard').hidden = !cartaoOn();
+  $('inCartK').textContent = txt('kcPagarK') || 'Fatura aberta';
+  $('inCart').textContent = txt('kcProx'); $('inCartNote').textContent = txt('kcProxNote') || plural(cartoesAtivos().length, 'cartão').replace('cartãos', 'cartões');
+  $('inCartDot').className = 'in-dot' + (itens.some(x => x.ir === 'cartoes') ? ' am' : '');
+  $('inContasCard').hidden = !modOn('contas');
+  const venc = state.alertaN || 0;
+  $('inContas').textContent = txt('billLeft');
+  $('inContasNote').innerHTML = venc ? `<span class="vm">${plural(venc, 'vencida')}</span> · ${esc(txt('billTotalNote'))}` : esc(txt('billLeftNote'));
+  $('inContasCard').className = 'in-c' + (venc ? ' in-vm' : '');
+  $('inContasDot').className = 'in-dot' + (venc ? ' vm' : '');
+  $('inMetasCard').hidden = !modOn('metas');
+  { const lista = (state.metas || []).map(mt => infoMeta(mt)), abertas = lista.filter(i => !i.done && !i.enc);
+    const guard = abertas.reduce((s, i) => s + (i.saldo || 0), 0), falta = abertas.reduce((s, i) => s + (i.falta || 0), 0);
+    const pct = guard + falta > 0 ? Math.round(guard / (guard + falta) * 100) : 0;
+    $('inMetas').textContent = String(abertas.length);
+    $('inMetasNote').textContent = abertas.length ? `${pct}% guardado` : lista.length ? 'nenhuma em andamento' : 'crie sua primeira meta';
+    $('inMetasBarra').style.width = pct + '%'; }
+  $('inInvCard').hidden = !modOn('invest');
+  $('inInv').textContent = txt('ivHoje');
+  { const mes = txt('ivMes'); $('inInvNote').innerHTML = /[1-9]/.test(mes) ? `<span class="vd">${esc(mes.replace(/^\+\s*/, '+'))}</span> previsto no mês` : esc(txt('ivAplicadoNote')); }
+  $('inInvCard').className = 'in-c' + (/[1-9]/.test(txt('ivHoje')) ? ' in-vd' : '');
+  renderCarrossel();
+}
+
+/* ---------- "Para você": slides que passam sozinhos no Início ----------
+   Tudo sai dos dados da pessoa e é refeito a cada atualização da tela. */
+const IC_CAR = {
+  conta: '<path d="M4 5h16v15H4zM8 3v4M16 3v4M4 10h16"/>',
+  meta: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>',
+  maior: '<path d="M12 3v14M6 11l6 6 6-6M5 21h14"/>',
+  dica: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"/>'
+};
+const car = { slides: [], i: 0, timer: null, cache: {}, T: 7000 };
+async function mesAnteriorRows(){
+  const d = new Date(state.y, state.m - 1, 1), k = mkey(d.getFullYear(), d.getMonth()).slice(0, 7), chave = state.cid + '|' + k;
+  if (car.cache[chave]) return car.cache[chave];
+  const rows = [];
+  for (let from = 0; ; from += 1000){
+    const { data, error } = await sb.from('lancamentos').select('tipo,categoria,valor,data')
+      .eq('controle_id', state.cid).gte('data', `${k}-01`).lt('data', mkey(state.y, state.m)).range(from, from + 999);
+    if (error) return null;
+    rows.push(...data); if (data.length < 1000) break;
+  }
+  return (car.cache[chave] = rows);
+}
+async function montarSlides(){
+  const slides = [], agora = new Date();
+  const mesAtual = state.y === agora.getFullYear() && state.m === agora.getMonth();
+  const ym = `${state.y}-${pad(state.m + 1)}`, month = state.entries.filter(e => e.date.startsWith(ym));
+  const ate = mesAtual ? agora.getDate() : 31;
+  const antNome = MONTHS[(state.m + 11) % 12].toLowerCase();
+  const barras = (a, b) => { const mx = Math.max(a, b, 1); return `<span class="cv-b"><i style="height:${Math.max(4, a / mx * 70)}%"></i>${MES_CURTO[(state.m + 11) % 12]}</span><span class="cv-b"><i class="on" style="height:${Math.max(4, b / mx * 70)}%"></i>${MES_CURTO[state.m]}</span>`; };
+  // 1) gastos e categorias em relação ao mês anterior (até o mesmo dia)
+  if (modOn('lanc') && month.length){
+    const ant = await mesAnteriorRows();
+    if (ant && ant.length){
+      const t = { exp: 0, cats: {} }, a = { exp: 0, cats: {} };
+      month.forEach(e => { if (e.type !== 'exp' || Number(e.date.slice(8, 10)) > ate) return; t.exp += e.amount; t.cats[e.cat] = (t.cats[e.cat] || 0) + e.amount; });
+      ant.forEach(e => { if (e.tipo !== 'exp' || Number(e.data.slice(8, 10)) > ate) return; const v = Number(e.valor); a.exp += v; a.cats[e.categoria] = (a.cats[e.categoria] || 0) + v; });
+      if (a.exp > 0 && t.exp > 0){
+        const pc = Math.round((t.exp - a.exp) / a.exp * 100);
+        if (Math.abs(pc) >= 5) slides.push({ k: 'Comparando com ' + antNome, ir: 'lanc', lnk: 'Ver lançamentos',
+          h: pc < 0 ? `Você gastou <span class="vd">${-pc}% menos</span> que em ${antNome}` : `Você gastou <span class="vm">${pc}% mais</span> que em ${antNome}`,
+          p: `${brl(r2(t.exp))} ${mesAtual ? 'até hoje' : 'no mês'}, contra ${brl(r2(a.exp))} ${mesAtual ? 'no mesmo dia de ' + antNome : 'em ' + antNome}.`, vis: barras(a.exp, t.exp) });
+      }
+      let melhor = null;
+      Object.keys(t.cats).forEach(c => { const v = t.cats[c], o = a.cats[c] || 0; if (o < 30 || v <= o) return; const pc = Math.round((v - o) / o * 100); if (pc >= 10 && (!melhor || v - o > melhor.d)) melhor = { c, v, o, pc, d: v - o }; });
+      if (melhor) slides.push({ k: 'Insight do mês', ir: 'lanc', lnk: 'Ver no Para onde foi',
+        h: `${esc(rotuloCat(melhor.c))} subiu <span class="vm">${melhor.pc}%</span>`,
+        p: `Foram ${brl(r2(melhor.v))} ${mesAtual ? 'até hoje' : 'no mês'}, contra ${brl(r2(melhor.o))} ${mesAtual ? 'no mesmo dia de ' + antNome : 'em ' + antNome}.`, vis: barras(melhor.o, melhor.v) });
+    }
+  }
+  // 2) contas que vencem nos próximos 7 dias
+  if (modOn('contas') && state.contasOk && mesAtual){
+    const prox = [mkey(agora.getFullYear(), agora.getMonth()), mkey(agora.getFullYear(), agora.getMonth() + 1)]
+      .flatMap(mk => state.pagsMeses.includes(mk) ? contasListaDoMes(mk) : [])
+      .filter(i => !i.paid && i.days >= 0 && i.days <= 7).sort((x, y) => x.days - y.days);
+    if (prox.length){
+      const tot = r2(prox.reduce((s, i) => s + i.falta, 0)), sem = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+      slides.push({ k: 'Próximos 7 dias', ir: 'contas', lnk: 'Ver contas a pagar', ic: 'conta',
+        h: `${prox.length === 1 ? '1 conta vence' : prox.length + ' contas vencem'} esta semana: <span class="vm">${brl(tot)}</span>`,
+        p: prox.slice(0, 3).map(i => `${esc(i.c.nome)} (${i.days === 0 ? 'hoje' : sem[i.due.getDay()] + ', ' + i.due.getDate()})`).join(' · ') + (prox.length > 3 ? ` e mais ${prox.length - 3}` : '') + '.' });
+    }
+  }
+  // 3) maior gasto do mês
+  { const exps = month.filter(e => e.type === 'exp');
+    if (exps.length >= 3){
+      const g = exps.reduce((a, b) => b.amount > a.amount ? b : a);
+      slides.push({ k: 'Maior gasto do mês', ir: 'lanc', lnk: 'Ver lançamentos', ic: 'maior',
+        h: `${esc((parcelaDoNome(g.desc) || { nome: g.desc }).nome)}: <span class="vm">${brl(g.amount)}</span>`,
+        p: `Dia ${Number(g.date.slice(8, 10))} · ${esc(rotuloCat(g.cat))} · ${Math.round(g.amount / exps.reduce((s, e) => s + e.amount, 0) * 100)}% do que saiu no mês.` }); } }
+  // 4) meta em destaque
+  if (modOn('metas') && state.metasOk){
+    const abertas = (state.metas || []).map(m => ({ m, i: infoMeta(m) })).filter(x => !x.i.done && !x.i.enc && x.i.falta > 0)
+      .sort((a, b) => (a.m.prazo || '9999').localeCompare(b.m.prazo || '9999'));
+    const x = abertas[0];
+    if (x) slides.push({ k: 'Meta em destaque', ir: 'metas', lnk: 'Ver metas', ic: 'meta',
+      h: `${esc(x.m.nome)}: faltam <span class="vd">${brl(x.i.falta)}</span>`,
+      p: `Você já tem ${x.i.pct}% do objetivo.` + (x.i.chegaEm ? ` No ritmo atual, chega lá em ${MONTHS[Number(x.i.chegaEm.slice(5, 7)) - 1].toLowerCase()} de ${x.i.chegaEm.slice(0, 4)}.` : x.i.porMes ? ` Guardando ${brl(x.i.porMes)} por mês, chega no prazo.` : '') });
+  }
+  // 5) uma dica do app (muda a cada dia)
+  const dicas = [
+    !$('sideBot').hidden && { h: 'Mande um áudio pro Detetive Grana', p: 'Fale "gastei 45 reais no almoço" e ele lança sozinho, com a categoria certa.', ir: '', lnk: '' },
+    modOn('cartoes') && { h: 'Importe a fatura do cartão', p: 'Em Cartões, toque em "Importar fatura" e mande o CSV do banco: as compras e parcelas entram de uma vez.', ir: 'cartoes', lnk: 'Ir para Cartões' },
+    { h: 'Compartilhe um controle', p: 'Crie um controle da casa e convide quem divide as contas com você. Cada um vê só o que foi compartilhado.', ir: 'lanc', lnk: '' },
+    modOn('metas') && { h: 'Crie uma meta', p: 'Viagem, reserva de emergência ou um celular novo: o app mostra quanto guardar por mês para chegar lá.', ir: 'metas', lnk: 'Criar meta' },
+  ].filter(Boolean);
+  if (dicas.length){ const d = dicas[agora.getDate() % dicas.length]; slides.push({ k: 'Você sabia?', ir: d.ir, lnk: d.lnk, ic: 'dica', h: esc(d.h), p: esc(d.p) }); }
+  return slides;
+}
+function mostrarSlide(i){
+  const n = car.slides.length; if (!n) return;
+  car.i = (i + n) % n;
+  const s = car.slides[car.i];
+  $('inCarTx').innerHTML = `<div class="cv-k">${esc(s.k)}${n > 1 ? ` · ${car.i + 1}/${n}` : ''}</div><h3>${s.h}</h3><p>${s.p}</p>` + (s.lnk ? `<button type="button" class="cv-lnk" data-ir="${s.ir}">${esc(s.lnk)} →</button>` : '');
+  $('inCarVis').innerHTML = s.vis || `<span class="cv-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${IC_CAR[s.ic] || IC_CAR.dica}</svg></span>`;
+  $('inCarPts').innerHTML = n > 1 ? car.slides.map((_, j) => `<button type="button" data-car="${j}" class="${j === car.i ? 'on' : ''}" aria-label="Slide ${j + 1}"></button>`).join('') : '';
+  $('inCarAnt').parentNode.hidden = n < 2;
+  // anima o texto de novo a cada troca
+  const tx = $('inCarTx'); tx.style.animation = 'none'; void tx.offsetWidth; tx.style.animation = '';
+  clearTimeout(car.timer);
+  if (n > 1 && !$('inCar').classList.contains('parado')) car.timer = setTimeout(() => { if (state.tab === 'inicio' && !document.hidden) mostrarSlide(car.i + 1); }, car.T);
+}
+let carSeq = 0;
+async function renderCarrossel(){
+  const seq = ++carSeq;
+  let slides = [];
+  try { slides = await montarSlides(); } catch(e){ slides = []; }
+  if (seq !== carSeq) return;
+  const antes = car.slides[car.i] && car.slides[car.i].k;
+  car.slides = slides;
+  $('inCar').hidden = $('inCarSec').hidden = !slides.length;
+  if (!slides.length){ clearTimeout(car.timer); return; }
+  const mesmo = slides.findIndex(s => s.k === antes);
+  mostrarSlide(mesmo >= 0 ? mesmo : 0);
+}
+$('inCarAnt').addEventListener('click', () => mostrarSlide(car.i - 1));
+$('inCarProx').addEventListener('click', () => mostrarSlide(car.i + 1));
+$('inCarPts').addEventListener('click', e => { const b = e.target.closest('[data-car]'); if (b) mostrarSlide(Number(b.dataset.car)); });
+$('inCar').addEventListener('mouseenter', () => { $('inCar').classList.add('parado'); clearTimeout(car.timer); });
+$('inCar').addEventListener('mouseleave', () => { $('inCar').classList.remove('parado'); mostrarSlide(car.i); });
+{ let x0 = null;   // arrastar para o lado no celular
+  $('inCar').addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+  $('inCar').addEventListener('touchend', e => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 40) mostrarSlide(car.i + (dx < 0 ? 1 : -1)); }, { passive: true }); }
+document.addEventListener('visibilitychange', () => { if (!document.hidden && state.tab === 'inicio' && car.slides.length) mostrarSlide(car.i); });
+
+$('tabInicio').addEventListener('click', e => {
+  const b = e.target.closest('[data-ir]'); if (b) setTab(b.dataset.ir);
+});
+
 function setTab(t){
   state.tab = t;
-  try { localStorage.setItem('pof-aba', t); } catch(e){}
   linkDaAba(t);
   renderTabs();
   window.scrollTo(0, 0);
@@ -1974,6 +2222,7 @@ function contasListaDoMes(mk){
     .sort((a, b) => (a.paid - b.paid) || (a.due - b.due) || a.c.nome.localeCompare(b.c.nome)));
 }
 function renderContas(){
+  agendarInicio();
   const { late, hoje } = alertas();
   const n = late + hoje;
   document.querySelectorAll('[data-badge="contas"]').forEach(b => { b.hidden = !n || !modOn('contas'); b.textContent = n; });
@@ -2519,6 +2768,7 @@ function conquistaMeta(m, i, curto){
 }
 
 function renderMetas(){
+  agendarInicio();
   $('metaModelos').innerHTML = MODELOS_META.map((x, k) => `<button class="chip" type="button" data-modelo="${k}">${x.icone} ${esc(x.nome)}</button>`).join('');
   if (!state.metasOk){
     $('metasGrid').innerHTML = '';
@@ -3011,6 +3261,7 @@ function rendeTxt(inv){
 
 /* ---------- tela ---------- */
 function renderInvest(){
+  agendarInicio();
   const cdi = ultimo('cdi'), sel = ultimo('selic'), ip = ipca12();
   $('idxInfo').innerHTML = !state.invOk ? ''
     : !cdi && !sel ? '⏳ As taxas do Banco Central ainda não chegaram. Elas são buscadas automaticamente algumas vezes por dia.'
@@ -3394,6 +3645,7 @@ async function loadCartoes(){
 
 /* ---------- aba Cartões ---------- */
 function renderCartoes(){
+  agendarInicio();
   renderTodasCompras();
   if (!$('tabCartoes')) return;
   const mk = mkey(state.y, state.m), mkProx = mkey(state.y, state.m + 1);
@@ -4712,7 +4964,7 @@ const valoresOriginais = new Map();
 let valoresOcultos = false;
 try { valoresOcultos = localStorage.getItem('pof-ocultar') === '1'; } catch(e){}
 // resumos e listas (lançamentos, categorias, contas, metas, investimentos); os campos de digitar ficam de fora
-const areasValores = () => document.querySelectorAll('#viewApp .stats, #viewApp #budget, #rows, #cats, #dlg2Body .graf-det, #billList, #metasGrid, #invList, #invDist, #kcFaturas, #kcCompras, #kcCats, #kcTodas, #kcTodasResumo');
+const areasValores = () => document.querySelectorAll('#inicio, #inicio2, #inCar, #viewApp .stats, #viewApp #budget, #rows, #cats, #dlg2Body .graf-det, #billList, #metasGrid, #invList, #invDist, #kcFaturas, #kcCompras, #kcCats, #kcTodas, #kcTodasResumo');
 function mascararValores(){
   areasValores().forEach(raiz => {
     const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT); let n;
@@ -4996,8 +5248,14 @@ $('adminBusca').addEventListener('keydown', e => { if (e.key === 'Escape'){ e.ta
 $('usersEmpty').addEventListener('click', e => { if (e.target.id === 'adminVerTodos'){ adminFilter = 'todos'; renderAdmin(); } });
 
 // ⋮ de cada conta: recursos liberados, limites e ações da conta
-function openConta(id){
+let contaPessoal;   // conta pessoal ligada à master (supabase-ponte-admin.sql); undefined = banco sem o SQL
+async function lerContaPessoal(){
+  const { data, error } = await sb.from('perfis').select('conta_pessoal').eq('id', currentUser.id).maybeSingle();
+  contaPessoal = error ? undefined : (data ? data.conta_pessoal : null);
+}
+async function openConta(id){
   const u = users.find(x => x.id === id); if (!u) return closeDlg2();
+  if (contaPessoal === undefined) await lerContaPessoal();
   const nome = displayName(u.email), d = `data-uid="${esc(u.id)}" data-email="${esc(nome)}"`;
   const tem = u.ia_padrao != null;   // banco já tem IA e limites
   const chave = (act, on, titulo, sub, extra = '') => `<button type="button" class="adm-chave" role="switch" aria-checked="${on}" data-adm="${act}" data-sim="${on ? '0' : '1'}" ${d} ${extra}>
@@ -5009,6 +5267,7 @@ function openConta(id){
       ${u.ia_liberada !== undefined ? chave('lib-ia', !!u.ia_liberada, '📷 Leitura por IA', 'Foto, PDF e áudio no app e no Detetive') : ''}
       ${u.bot_liberado !== undefined ? chave('lib-bot', !!u.bot_liberado, '🕵️ Detetive Grana', u.canais ? `Ligado: ${esc(u.canais.replace('telegram', 'Telegram').replace('whatsapp', 'WhatsApp'))}. Desligar desconecta.` : 'Lançar pelo Telegram (e WhatsApp quando liberar)') : ''}
       ${u.status === 'aprovado' ? chave('fundador', !!u.fundador, '⭐ Fundador', 'Não paga mensalidade quando a cobrança começar') : ''}
+      ${u.status === 'aprovado' && !u.is_admin && contaPessoal !== undefined ? chave('pessoal', contaPessoal === u.id, '🏠 Minha conta pessoal', 'Mostra o botão "Painel do administrador" nesta conta, sem precisar sair dela') : ''}
       ${u.ia_liberada === undefined ? '<p class="hint" style="margin:0;">Para liberar IA e Detetive por conta, rode o supabase-liberacoes.sql neste banco.</p>' : ''}
     </div>
     ${tem && u.status === 'aprovado' ? `<div class="adm-sec"><h4>Limites do mês</h4>
@@ -5077,6 +5336,15 @@ async function acaoAdmin(e){
     if (error){ b.disabled = false; return toast(rpcMsg(error)); }
     toast(`${bot ? '🕵️ Detetive' : '📷 Leitura por IA'} ${sim ? 'liberado' : 'desligado'} para ${b.dataset.email}.`, true);
     return loadUsers();
+  }
+  if (act === 'pessoal'){
+    b.disabled = true;
+    const sim = b.dataset.sim === '1';
+    ({ error } = await sb.rpc('admin_ligar_conta_pessoal', { p_user: sim ? id : null }));
+    if (error){ b.disabled = false; return toast(rpcMsg(error)); }
+    contaPessoal = sim ? id : null;
+    toast(sim ? `🏠 ${b.dataset.email} é a sua conta pessoal. O botão do painel aparece nela.` : 'Conta pessoal desligada.', true);
+    return openConta(id);
   }
   if (act === 'fundador'){
     b.disabled = true;
