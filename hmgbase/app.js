@@ -464,7 +464,7 @@ async function handleSession0(session, force){
     // Guarda a sessão dela à parte, para poder ir e voltar da sua conta sem digitar senha
     if (!MODO_ADMIN && CHAVE_PADRAO && lsLer(CHAVE_PADRAO)){ lsGravar(CHAVE_ADMIN, lsLer(CHAVE_PADRAO)); lsGravar(CHAVE_PADRAO, null); return irPara('admin'); }
     // a conta do dono é a próxima conta comum que entrar neste aparelho (ou a que já está guardada aqui)
-    { const dono = idDaSessao(CHAVE_PADRAO); if (dono) lsGravar(CHAVE_PONTE, dono); else if (!/^[0-9a-f-]{36}$/.test(lsLer(CHAVE_PONTE) || '')) lsGravar(CHAVE_PONTE, 'pendente'); }
+    { const dono = idDaSessao(CHAVE_PADRAO); if (dono){ lsGravar(CHAVE_PONTE, dono); sb.rpc('admin_ligar_conta_pessoal', { p_user: dono }).then(() => {}, () => {}); } else if (!/^[0-9a-f-]{36}$/.test(lsLer(CHAVE_PONTE) || '')) lsGravar(CHAVE_PONTE, 'pendente'); }
     show('viewAdmin');
     renderAdmin();
     loadUsers().then(loadUso);
@@ -480,10 +480,24 @@ async function handleSession0(session, force){
   // atalho do painel: só na conta do dono, na seção "Conta" (computador) ou numa faixa no topo (celular)
   // este aparelho já abriu o painel (mesmo que tenha saído da conta master depois): a primeira conta comum que entrar é a do dono
   if ((lsLer(CHAVE_ADMIN) || lsLer(CHAVE_PONTE)) && !/^[0-9a-f-]{36}$/.test(lsLer(CHAVE_PONTE) || '')) lsGravar(CHAVE_PONTE, currentUser.id);
-  { const dono = lsLer(CHAVE_PONTE) === currentUser.id;
+  const mostrarPainel = dono => {
     $('sidePainel').hidden = $('painelFaixa').hidden = !dono;
     $('sideContaSec').hidden = $('sideBot').hidden && $('sideLimites').hidden && !dono;
-    if (dono) manterPainelVivo(); }
+  };
+  { const local = lsLer(CHAVE_PONTE) === currentUser.id;
+    mostrarPainel(local);
+    // o banco guarda a ligação entre as duas contas: vale em qualquer aparelho
+    const uid = currentUser.id;
+    sb.rpc('tenho_painel').then(({ data, error }) => {
+      if (!currentUser || currentUser.id !== uid) return;
+      if (error){ if (local) manterPainelVivo(); return; }   // banco sem o supabase-ponte-admin.sql: vale o que o aparelho sabe
+      // banco ligado: vale em qualquer aparelho. Ainda não ligado: vale o aparelho, e a ligação é feita
+      // quando o dono abre o painel por este botão (a conta master grava a conta pessoal no banco)
+      const dono = data === true || local;
+      if (data === true) lsGravar(CHAVE_PONTE, uid);
+      mostrarPainel(dono);
+      if (dono) manterPainelVivo();
+    }, () => { if (local) manterPainelVivo(); }); }
   modoSemInternet = false;
   gravarFoto();
   enviarFila();
