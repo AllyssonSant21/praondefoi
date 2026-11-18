@@ -4970,12 +4970,12 @@ $('dlg2Body').addEventListener('click', e => {
 
 /* ======================= ESCONDER VALORES ======================= */
 // Botão "Esconder valores": troca os valores dos resumos e das listas por "R$ ••••". Fica guardado neste aparelho.
-const MASCARA = 'R$ ••••', RX_DINHEIRO = /-?R\$\s?-?[\d.]+,\d{2}/g, RX_PCT = /[+−-]?\d+(?:,\d+)?\s?%/g;
+const MASCARA = 'R$ ••••', RX_DINHEIRO = /-?R\$\s?-?\d[\d.]*(?:,\d{2})?/g, RX_PCT = /[+−-]?\d+(?:,\d+)?\s?%/g;
 const valoresOriginais = new Map();
 let valoresOcultos = false;
 try { valoresOcultos = localStorage.getItem('pof-ocultar') === '1'; } catch(e){}
 // resumos e listas (lançamentos, categorias, contas, metas, investimentos); os campos de digitar ficam de fora
-const areasValores = () => document.querySelectorAll('#inicio, #inicio2, #inCar, #viewApp .stats, #viewApp #budget, #rows, #cats, #dlg2Body .graf-det, #billList, #metasGrid, #invList, #invDist, #kcFaturas, #kcCompras, #kcCats, #kcTodas, #kcTodasResumo');
+const areasValores = () => document.querySelectorAll('#inicio, #inicio2, #inCar, #btnImpTxt, #viewApp .stats, #viewApp #budget, #rows, #cats, #dlg2Body .graf-det, #billList, #metasGrid, #invList, #invDist, #kcFaturas, #kcCompras, #kcCats, #kcTodas, #kcTodasResumo');
 function mascararValores(){
   areasValores().forEach(raiz => {
     const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT); let n;
@@ -5009,11 +5009,14 @@ function aplicarOlho(){
   if (valoresOcultos) mascararValores(); else mostrarValores();
   vigiar();
 }
-document.querySelectorAll('.olho-btn').forEach(b => b.addEventListener('click', () => {
+function trocarOlho(){
   valoresOcultos = !valoresOcultos;
   try { localStorage.setItem('pof-ocultar', valoresOcultos ? '1' : '0'); } catch(e){}
   aplicarOlho();
-}));
+}
+document.querySelectorAll('.olho-btn').forEach(b => b.addEventListener('click', trocarOlho));
+// olho da janela de Detalhes (criado junto com a janela)
+$('dlg2Body').addEventListener('click', e => { if (e.target.closest('.gd-olho .olho-btn')) trocarOlho(); });
 aplicarOlho();
 
 // a biblioteca da planilha (~300 KB) só é baixada quando alguém exporta
@@ -5867,6 +5870,7 @@ async function openGraficoMes(fonte){
   const pago = r2(lista.reduce((s, e) => s + (e.pago || 0), 0));
   openDlg2(T.tit, `${T.sub} ${MONTHS[m].toLowerCase()}${y !== hoje.getFullYear() ? ' de ' + y : ''}`, `
     <div class="graf-det">
+      <div class="gd-olho">${$('tplOlho').innerHTML}</div>
       <div class="gd-kp">
         <div><small>${T.total}</small><b>${brl(total)}</b></div>
         ${gdFonte === 'contas' ? `<div><small>Já pago</small><b class="${pago ? 'gd-menos' : ''}">${brl(pago)}</b></div>`
@@ -5890,7 +5894,7 @@ async function openGraficoMes(fonte){
         : gdFonte === 'cartoes' ? `<p class="hint" style="margin:0;">Conta as compras e as parcelas que caem em ${MONTHS[m].toLowerCase()}${state.kcSel && findCartao(state.kcSel) ? ` no ${esc(findCartao(state.kcSel).nome)}` : ''}. O dia é o da compra.</p>`
         : '<p class="hint" style="margin:0;">O gráfico mostra quando cada conta vence. As faturas de cartão entram pelo total; o detalhe delas fica na aba Cartões.</p>'}` : `<p class="hint">${T.vazio}</p>`}
     </div>`, { tipo: 'grafico', largo: true });
-  if (valoresOcultos) mascararValores();
+  aplicarOlho();   // acerta o olho da janela e esconde os valores se for o caso
 }
 [['catsGraf', 'lanc'], ['kcGraf', 'cartoes'], ['ctGraf', 'contas']].forEach(([id, fonte]) => $(id).addEventListener('click', async () => {
   $(id).disabled = true; try { await openGraficoMes(fonte); } finally { $(id).disabled = false; }
