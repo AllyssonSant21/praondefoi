@@ -344,6 +344,7 @@ document.querySelectorAll('[data-changepass]').forEach(b => b.addEventListener('
 }));
 
 document.querySelectorAll('[data-logout]').forEach(b => b.addEventListener('click', async () => {
+  try { sessionStorage.removeItem('pof-aba-sessao'); } catch(e){}   // saiu da conta: na próxima entrada abre no Início
   await sb.auth.signOut({ scope: 'local' });   // só este aparelho; a outra sessão guardada (sua conta / master) continua
   if (MODO_ADMIN) irPara('');
 }));
@@ -1808,6 +1809,9 @@ const quem = uid => uid === myId() ? 'você' : nameOf(uid);
 Object.assign(state, { tab: 'inicio', contas: [], partes: {}, cmeses: {}, pags: [], pagsMeses: [], contasOk: true });
 try { const t = new URLSearchParams(location.search).get('aba'); if (ROTAS[t]) state.tab = t; } catch(e){}   // links antigos (?aba=)
 if (ABA_DO_LINK) state.tab = ABA_DO_LINK;
+// voltou para o app sem fechar de vez (recarregou, trocou de app): continua na última aba usada.
+// Fechou o app de vez: a sessão some e ele abre no Início.
+if (ABA_DO_LINK === 'inicio'){ try { const t = sessionStorage.getItem('pof-aba-sessao'); if (t && ROTAS[t] !== undefined) state.tab = t; } catch(e){} }
 function linkDaAba(t){
   try {
     const u = new URL(location.href); u.searchParams.delete('aba');
@@ -1815,7 +1819,7 @@ function linkDaAba(t){
     if (novo !== location.pathname + location.search + location.hash) history.replaceState(history.state, '', novo);
   } catch(e){}
 }
-if (ABA_DO_LINK !== 'inicio' || new URLSearchParams(location.search).has('aba')) linkDaAba(state.tab);
+if (state.tab !== 'inicio' || new URLSearchParams(location.search).has('aba')) linkDaAba(state.tab);
 
 function ocorre(c, mk){
   if (c.tipo === 'unica') return mk === c.inicio;
@@ -2203,6 +2207,7 @@ $('tabInicio').addEventListener('click', e => {
 
 function setTab(t){
   state.tab = t;
+  try { sessionStorage.setItem('pof-aba-sessao', t); } catch(e){}
   linkDaAba(t);
   renderTabs();
   window.scrollTo(0, 0);
