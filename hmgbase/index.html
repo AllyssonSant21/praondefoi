@@ -1779,6 +1779,9 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   html:not([data-tema="escuro"]) #viewApp .btn-secondary svg{color:#FED13D}
   html[data-tema="escuro"] #viewApp .btn-secondary{background:#FED13D !important;border-color:#FED13D !important;color:#0E1525 !important}
   html[data-tema="escuro"] #viewApp .btn-secondary svg{color:#0E1525}
+  /* Saída/Entrada (e outros seletores de opção) selecionado: marinho no claro, amarelo no escuro */
+  html:not([data-tema="escuro"]) #viewApp .seg button[aria-pressed="true"],html:not([data-tema="escuro"]) .dlg-back .seg button[aria-pressed="true"]{background:#0E1525 !important;color:#fff !important;box-shadow:none !important}
+  html[data-tema="escuro"] #viewApp .seg button[aria-pressed="true"],html[data-tema="escuro"] .dlg-back .seg button[aria-pressed="true"]{background:#FED13D !important;color:#0E1525 !important;box-shadow:none !important}
   /* a barra do topo (mês) continua neutra */
   html #viewApp .topbar .btn-secondary,html:not([data-tema="escuro"]) #viewApp .topbar .btn-secondary,html[data-tema="escuro"] #viewApp .topbar .btn-secondary{background:var(--surface) !important;border-color:var(--divider) !important;color:var(--text) !important}
   html #viewApp .topbar .btn-secondary svg{color:currentColor}
