@@ -1761,23 +1761,16 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   /* ===== cores: marinho + dourado + branco, sem degradê amarelo ===== */
   #viewApp{background:var(--bg) !important}
   html:not([data-tema="escuro"]) #viewApp::after{opacity:.10}
-  /* destaque: no claro, bloco marinho com número dourado; no escuro, o contrário (bloco dourado com texto marinho) */
-  html:not([data-tema="escuro"]) .in-c.in-am,html:not([data-tema="escuro"]) #viewApp .stats.resumo>.stat:first-child{background:#0E1525 !important;border-color:#0E1525 !important;color:#fff}
-  html:not([data-tema="escuro"]) .in-c.in-am .in-ch,html:not([data-tema="escuro"]) .in-c.in-am .in-k,html:not([data-tema="escuro"]) .in-c.in-am .in-d,
-  html:not([data-tema="escuro"]) #viewApp .stats.resumo>.stat:first-child .kicker,html:not([data-tema="escuro"]) #viewApp .stats.resumo>.stat:first-child .note{color:#c9cdd6 !important}
-  html:not([data-tema="escuro"]) .in-c.in-am .in-n.in-xl:not(.neg),html:not([data-tema="escuro"]) #viewApp .stats.resumo>.stat:first-child .big{color:#FED13D !important}
-  html:not([data-tema="escuro"]) #viewApp #balCard.neg .big,html:not([data-tema="escuro"]) .in-c.in-am .in-n.neg{color:#ff8a8a !important}
-  html:not([data-tema="escuro"]) .in-c.in-am .in-ic{background:#FED13D;color:#0E1525}
-  html:not([data-tema="escuro"]) .in-c.in-am .in-barra{background:rgba(255,255,255,.15)} html:not([data-tema="escuro"]) .in-c.in-am .in-barra i{background:#FED13D}
-  html[data-tema="escuro"] .in-c.in-am,html[data-tema="escuro"] #viewApp .stats.resumo>.stat:first-child{background:#FED13D !important;border-color:#FED13D !important;color:#0E1525}
-  html[data-tema="escuro"] .in-c.in-am .in-ch,html[data-tema="escuro"] .in-c.in-am .in-k,html[data-tema="escuro"] .in-c.in-am .in-d,
-  html[data-tema="escuro"] #viewApp .stats.resumo>.stat:first-child .kicker,html[data-tema="escuro"] #viewApp .stats.resumo>.stat:first-child .note{color:#3a3320 !important}
-  html[data-tema="escuro"] .in-c.in-am .in-n.in-xl:not(.neg),html[data-tema="escuro"] #viewApp .stats.resumo>.stat:first-child .big{color:#0E1525 !important}
-  html[data-tema="escuro"] #viewApp #balCard.neg .big,html[data-tema="escuro"] .in-c.in-am .in-n.neg{color:#a11b1b !important}
-  html[data-tema="escuro"] .in-c.in-am .in-ic{background:#0E1525;color:#FED13D}
-  html[data-tema="escuro"] .in-c.in-am .in-barra{background:rgba(14,21,37,.15)} html[data-tema="escuro"] .in-c.in-am .in-barra i{background:#0E1525}
-  html:not([data-tema="escuro"]) #viewApp #balCard:not(.neg) .big{color:#FED13D !important}
-  html[data-tema="escuro"] #viewApp #balCard:not(.neg) .big{color:#0E1525 !important}
+  /* saldo sem bloco colorido: caixa normal com o número em dourado */
+  .in-c.in-am,#viewApp .stats.resumo>.stat:first-child{background:var(--surface) !important}
+  html[data-tema="escuro"] .in-c.in-am,html[data-tema="escuro"] #viewApp .stats.resumo>.stat:first-child{background:rgba(255,255,255,.035) !important}
+  html:not([data-tema="escuro"]) .in-c.in-am .in-n.in-xl:not(.neg),html:not([data-tema="escuro"]) #viewApp #balCard:not(.neg) .big{color:#b8860b !important}
+  html[data-tema="escuro"] .in-c.in-am .in-n.in-xl:not(.neg),html[data-tema="escuro"] #viewApp #balCard:not(.neg) .big{color:#FED13D !important}
+  .in-c.in-am .in-barra i{background:#e0a922}
+  /* botões principais: marinho no claro, dourado no escuro */
+  html:not([data-tema="escuro"]) .btn-primary{background:#0E1525 !important;border-color:#0E1525 !important;color:#fff !important}
+  html:not([data-tema="escuro"]) .btn-primary:hover{background:#1c2740 !important;border-color:#1c2740 !important}
+  html[data-tema="escuro"] .btn-primary{background:#FED13D !important;border-color:#FED13D !important;color:#0E1525 !important}
   .in-c.in-am .in-spark{display:none}
   /* ícones das caixas: quadradinho marinho com desenho dourado (claro) / dourado com marinho (escuro) */
   html:not([data-tema="escuro"]) .in-ic{background:#0E1525;color:#FED13D}
