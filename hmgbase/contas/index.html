@@ -1616,7 +1616,9 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   .painel-faixa .pf-seta{color:var(--muted)}
   @media (min-width:900px){ .painel-faixa{display:none !important} }
   /* ===== Início ===== */
-  body.aba-inicio .topbar,body.aba-inicio .app-head,body.aba-inicio .ctrlbar{display:none !important}
+  body.aba-inicio .ctrlbar{display:none !important}
+  .in-ola{display:none !important}   /* sem saudação: o título da aba é "Geral" */
+  .in-olho{display:none !important}   /* na aba Geral o olho é o da barra do topo */
   @media (min-width:900px){ .so-cel{display:none !important} }
   .in-topo{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
   .in-data{font:400 11.5px "JetBrains Mono",ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
@@ -1756,6 +1758,45 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   html:not([data-tema="escuro"]) .bv-av{border-top-color:#e3e8ee}
   html:not([data-tema="escuro"]) .bv-ir{background:#0E1525;color:#fff;box-shadow:0 4px 0 #000}
   @media (max-width:480px){ .bv{padding:26px 20px 20px} .bv h3{font-size:34px} .bv h3 span{font-size:32px} .bv-av div{grid-template-columns:1fr} }
+  /* ===== cores: marinho + dourado + branco, sem degradê amarelo ===== */
+  #viewApp{background:var(--bg) !important}
+  html:not([data-tema="escuro"]) #viewApp::after{opacity:.10}
+  /* saldo sem bloco colorido: caixa normal com o número em dourado */
+  .in-c.in-am,#viewApp .stats.resumo>.stat:first-child{background:var(--surface) !important}
+  html[data-tema="escuro"] .in-c.in-am,html[data-tema="escuro"] #viewApp .stats.resumo>.stat:first-child{background:rgba(255,255,255,.035) !important}
+  html:not([data-tema="escuro"]) .in-c.in-am .in-n.in-xl:not(.neg),html:not([data-tema="escuro"]) #viewApp #balCard:not(.neg) .big{color:#b8860b !important}
+  html[data-tema="escuro"] .in-c.in-am .in-n.in-xl:not(.neg),html[data-tema="escuro"] #viewApp #balCard:not(.neg) .big{color:#FED13D !important}
+  .in-c.in-am .in-barra i{background:#e0a922}
+  /* item selecionado no menu e botões secundários (Compartilhar controle, Novo controle, Detalhes…):
+     marinho no claro, amarelo no escuro */
+  html:not([data-tema="escuro"]) .side-item.on,html:not([data-tema="escuro"]) .side-item[aria-current="page"]{background:#0E1525 !important;color:#fff !important}
+  html:not([data-tema="escuro"]) .side-item.on svg{color:#FED13D !important}
+  html[data-tema="escuro"] .side-item.on,html[data-tema="escuro"] .side-item[aria-current="page"]{background:#FED13D !important;color:#0E1525 !important}
+  html[data-tema="escuro"] .side-item.on svg{color:#0E1525 !important}
+  .side-item.on .badge{background:#e5484d;color:#fff}
+  html:not([data-tema="escuro"]) #viewApp .btn-secondary{background:#0E1525 !important;border-color:#0E1525 !important;color:#fff !important}
+  html:not([data-tema="escuro"]) #viewApp .btn-secondary:hover{background:#1c2740 !important}
+  html:not([data-tema="escuro"]) #viewApp .btn-secondary svg{color:#FED13D}
+  html[data-tema="escuro"] #viewApp .btn-secondary{background:#FED13D !important;border-color:#FED13D !important;color:#0E1525 !important}
+  html[data-tema="escuro"] #viewApp .btn-secondary svg{color:#0E1525}
+  /* Saída/Entrada (e outros seletores de opção) selecionado: marinho no claro, amarelo no escuro */
+  html:not([data-tema="escuro"]) #viewApp .seg button[aria-pressed="true"],html:not([data-tema="escuro"]) .dlg-back .seg button[aria-pressed="true"]{background:#0E1525 !important;color:#fff !important;box-shadow:none !important}
+  html[data-tema="escuro"] #viewApp .seg button[aria-pressed="true"],html[data-tema="escuro"] .dlg-back .seg button[aria-pressed="true"]{background:#FED13D !important;color:#0E1525 !important;box-shadow:none !important}
+  /* a barra do topo (mês) continua neutra */
+  html #viewApp .topbar .btn-secondary,html:not([data-tema="escuro"]) #viewApp .topbar .btn-secondary,html[data-tema="escuro"] #viewApp .topbar .btn-secondary{background:var(--surface) !important;border-color:var(--divider) !important;color:var(--text) !important}
+  html #viewApp .topbar .btn-secondary svg{color:currentColor}
+  /* botões principais: marinho no claro, dourado no escuro */
+  html:not([data-tema="escuro"]) .btn-primary{background:#0E1525 !important;border-color:#0E1525 !important;color:#fff !important}
+  html:not([data-tema="escuro"]) .btn-primary:hover{background:#1c2740 !important;border-color:#1c2740 !important}
+  html[data-tema="escuro"] .btn-primary{background:#FED13D !important;border-color:#FED13D !important;color:#0E1525 !important}
+  .in-c.in-am .in-spark{display:none}
+  /* ícones das caixas: quadradinho marinho com desenho dourado (claro) / dourado com marinho (escuro) */
+  html:not([data-tema="escuro"]) .in-ic{background:#0E1525;color:#FED13D}
+  html[data-tema="escuro"] .in-ic{background:#FED13D;color:#0E1525}
+  /* alertas e investimentos sem degradê: só a borda colorida */
+  .in-c.in-vm,html[data-tema="escuro"] .in-c.in-vm{background:var(--surface) !important;border-color:rgba(217,63,63,.55) !important}
+  .in-c.in-vd,html[data-tema="escuro"] .in-c.in-vd{background:var(--surface) !important}
+  html[data-tema="escuro"] .in-c.in-vm,html[data-tema="escuro"] .in-c.in-vd{background:rgba(255,255,255,.035) !important}
   /* Celular: campo com letra menor que 16px faz o iPhone dar zoom ao tocar. Sempre 16px em tela de toque. */
   @media (max-width:900px), (pointer:coarse){
     input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px !important}
@@ -1878,12 +1919,12 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
 <div class="off-bar" id="offBar" role="status" aria-live="polite" hidden></div>
 <aside class="sidenav" aria-label="Navegação">
   <label class="side-ctrl"><img src="../logo/logo-simbolo.svg" alt="" width="42" height="42"><span class="side-ctrl-tx"><b id="sideCtrlNome"></b><small id="sideCtrlInfo"></small></span><select id="sideCtrl" aria-label="Escolher controle"></select><svg class="side-ctrl-seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></label>
-  <button class="side-item" type="button" data-tab="inicio"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg>Início</button>
   <button class="side-item" type="button" data-tab="lanc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Lançamentos</button>
   <button class="side-item" type="button" data-tab="cartoes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg>Cartões</button>
   <button class="side-item" type="button" data-tab="contas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="3"/><path d="M3 10h18M8 2.5v4M16 2.5v4"/></svg>Contas a pagar<span class="badge" data-badge="contas" hidden></span></button>
   <button class="side-item" type="button" data-tab="metas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>Metas</button>
   <button class="side-item" type="button" data-tab="invest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Investimentos</button>
+  <button class="side-item" type="button" data-tab="inicio"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>Geral<span class="badge" data-badge="geral" hidden></span></button>
   <span class="side-sec" id="sideContaSec" hidden>Conta</span>
   <button class="side-item" type="button" id="sideBot" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4M9.5 13h.01M14.5 13h.01"/></svg>Detetive Grana</button>
   <button class="side-item" type="button" id="sidePainel" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>Painel do administrador</button>
@@ -1900,10 +1941,10 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   <span class="bot-fab-bal" id="botFabBal" hidden>Lance por mensagem com o <b>Detetive Grana</b></span>
 </button>
 <nav class="bottomnav" aria-label="Navegação">
-  <button type="button" data-tab="inicio"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg><span class="lbl">Início</span></button>
   <button type="button" data-tab="lanc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="lbl">Lançamentos</span></button>
   <button type="button" data-tab="cartoes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg><span class="lbl">Cartões</span></button>
   <button type="button" data-tab="contas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="3"/><path d="M3 10h18M8 2.5v4M16 2.5v4"/></svg><span class="lbl">Contas</span><span class="badge" data-badge="contas" hidden></span></button>
+  <button type="button" data-tab="inicio"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg><span class="lbl">Geral</span><span class="badge" data-badge="geral" hidden></span></button>
   <button type="button" id="navMenu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span class="lbl">Menu</span></button>
 </nav>
 <div class="topbar">
@@ -2515,6 +2556,6 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=4"></script>
-<script src="app.js?v=157"></script>
+<script src="app.js?v=158"></script>
 </body>
 </html>
