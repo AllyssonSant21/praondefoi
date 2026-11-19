@@ -3,7 +3,7 @@
 # Rodar sempre depois de mudar o index.html:  python3 ferramentas/rotas.py
 import os, sys
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ROTAS = ['lancamentos', 'cartoes', 'contas', 'metas', 'investimentos']
+ROTAS = ['geral', 'lancamentos', 'cartoes', 'contas', 'metas', 'investimentos']
 AMBIENTES = sys.argv[1:] or ['hmgbase', '.']
 for amb in AMBIENTES:
     pagina = open(os.path.join(RAIZ, amb, 'index.html'), encoding='utf-8').read()

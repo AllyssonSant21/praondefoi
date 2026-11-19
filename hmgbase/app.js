@@ -25,16 +25,17 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 const plural = (n,w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const $ = id => document.getElementById(id);
 // links limpos das abas: praondefoiapp.com.br/cartoes, /contas… (cada uma tem a mesma página numa pasta)
-const ROTAS = { inicio: '', lanc: 'lancamentos', cartoes: 'cartoes', contas: 'contas', metas: 'metas', invest: 'investimentos' };
+const ROTAS = { inicio: 'geral', lanc: 'lancamentos', cartoes: 'cartoes', contas: 'contas', metas: 'metas', invest: 'investimentos' };
 const ROTA_ABA = Object.fromEntries(Object.entries(ROTAS).map(([a, r]) => [r, a]));
+ROTA_ABA[''] = 'lanc';   // a raiz do app abre em Lançamentos (o painel virou a aba Geral, em /geral)
 const APP_BASE = (() => {
   let p = location.pathname.replace(/index\.html$/, '');
   const m = p.match(/^(.*\/)([a-z]+)\/?$/);
   if (m && ROTA_ABA[m[2]]) p = m[1];
   return p.endsWith('/') ? p : p + '/';
 })();
-// a raiz do app abre sempre no Início; as pastas (/lancamentos, /cartoes…) abrem a aba delas
-const ABA_DO_LINK = ROTA_ABA[location.pathname.slice(APP_BASE.length).replace(/\/$/, '').replace(/index\.html$/, '')] || 'inicio';
+// a raiz do app abre em Lançamentos; as pastas (/geral, /cartoes…) abrem a aba delas
+const ABA_DO_LINK = ROTA_ABA[location.pathname.slice(APP_BASE.length).replace(/\/$/, '').replace(/index\.html$/, '')] || 'lanc';
 const REDIRECT = location.origin + APP_BASE;   // e-mails e login sempre voltam para o início do app
 
 // Login por nome de usuário: o Supabase exige e-mail, então "maria"
@@ -1806,12 +1807,13 @@ const ddmm = d => `${pad(d.getDate())}/${pad(d.getMonth()+1)}`;
 const myId = () => currentUser ? currentUser.id : null;
 const quem = uid => uid === myId() ? 'você' : nameOf(uid);
 
-Object.assign(state, { tab: 'inicio', contas: [], partes: {}, cmeses: {}, pags: [], pagsMeses: [], contasOk: true });
+Object.assign(state, { tab: 'lanc', contas: [], partes: {}, cmeses: {}, pags: [], pagsMeses: [], contasOk: true });
 try { const t = new URLSearchParams(location.search).get('aba'); if (ROTAS[t]) state.tab = t; } catch(e){}   // links antigos (?aba=)
 if (ABA_DO_LINK) state.tab = ABA_DO_LINK;
 // voltou para o app sem fechar de vez (recarregou, trocou de app): continua na última aba usada.
 // Fechou o app de vez: a sessão some e ele abre no Início.
-if (ABA_DO_LINK === 'inicio'){ try { const t = sessionStorage.getItem('pof-aba-sessao'); if (t && ROTAS[t] !== undefined) state.tab = t; } catch(e){} }
+const NA_RAIZ = !location.pathname.slice(APP_BASE.length).replace(/\/$/, '').replace(/index\.html$/, '');
+if (NA_RAIZ){ try { const t = sessionStorage.getItem('pof-aba-sessao'); if (t && ROTAS[t] !== undefined) state.tab = t; } catch(e){} }
 function linkDaAba(t){
   try {
     const u = new URL(location.href); u.searchParams.delete('aba');
@@ -1819,7 +1821,7 @@ function linkDaAba(t){
     if (novo !== location.pathname + location.search + location.hash) history.replaceState(history.state, '', novo);
   } catch(e){}
 }
-if (state.tab !== 'inicio' || new URLSearchParams(location.search).has('aba')) linkDaAba(state.tab);
+if (!NA_RAIZ || state.tab !== 'lanc' || new URLSearchParams(location.search).has('aba')) linkDaAba(state.tab);
 
 function ocorre(c, mk){
   if (c.tipo === 'unica') return mk === c.inicio;
@@ -1941,7 +1943,7 @@ function alertas(){
   return { late, hoje, primeiro };
 }
 
-const TITULOS = { inicio: 'Início', lanc: 'Lançamentos', cartoes: 'Cartões', contas: 'Contas a pagar', metas: 'Metas', invest: 'Investimentos' };
+const TITULOS = { inicio: 'Geral', lanc: 'Lançamentos', cartoes: 'Cartões', contas: 'Contas a pagar', metas: 'Metas', invest: 'Investimentos' };
 // o aviso de contas vencidas só aparece em Contas a pagar (nas outras abas fica só o número no menu)
 function syncAlerta(){
   $('billAlert').hidden = !state.alertaN || !modOn('contas') || state.tab !== 'contas';
@@ -1982,7 +1984,7 @@ function renderTabs(){
 let inicioPendente = false;
 function agendarInicio(){
   if (inicioPendente) return; inicioPendente = true;
-  requestAnimationFrame(() => { inicioPendente = false; if (state.tab === 'inicio') renderInicio(); });
+  requestAnimationFrame(() => { inicioPendente = false; if (state.tab === 'inicio') renderInicio(); else if (profile) { try { marcarGeral(itensAtencao().length); } catch(e){} } });
 }
 const txt = id => ($(id) ? $(id).textContent : '');
 function sparkPath(vals, w, h){
@@ -1991,6 +1993,31 @@ function sparkPath(vals, w, h){
   const pts = vals.map((v, i) => [i / (vals.length - 1) * w, h - 4 - (v - min) / (max - min) * (h - 10)]);
   return pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
 }
+// avisos de "Precisa da sua atenção" (também viram o número vermelho do item Geral)
+function itensAtencao(){
+  const itens = [], agora = new Date();
+  if (modOn('contas') || cartaoOn()){
+    const { late, hoje } = alertas();
+    if (late) itens.push({ k: 'Vencidas', b: plural(late, 'conta vencida').replace('contas vencida', 'contas vencidas'), s: 'conta atrasada pode virar dívida', ir: 'contas', vm: true });
+    if (hoje) itens.push({ k: 'Vence hoje', b: hoje === 1 ? '1 conta vence hoje' : `${hoje} contas vencem hoje`, s: 'pague para não atrasar', ir: 'contas' });
+  }
+  if (cartaoOn()){
+    const hj = new Date(); hj.setHours(0, 0, 0, 0);
+    cartoesAtivos().forEach(k => {
+      const f = infoFatura(k, faturaAbertaDoMes(k, mkey(hj.getFullYear(), hj.getMonth())));
+      const d = Math.round((f.fecha - hj) / 86400000);
+      if (f.st === 'aberta' && f.total > 0 && d >= 0 && d <= 5)
+        itens.push({ k: d === 0 ? 'Fecha hoje' : `Fecha em ${plural(d, 'dia')}`, b: `Fatura ${k.nome}`, s: `${brl(f.total)} até agora`, ir: 'cartoes' });
+    });
+  }
+  if (modOn('contas') && state.contasOk){
+    contasListaDoMes(mkey(agora.getFullYear(), agora.getMonth()))
+      .filter(i => i.c.tipo === 'parcelada' && i.n === i.c.parcelas && i.c.parcelas > 1)
+      .forEach(i => itens.push({ k: 'Última parcela', b: `${i.c.nome} ${i.n}/${i.c.parcelas}`, s: `−${brl(i.total)} no mês que vem`, ir: 'contas', vd: true }));
+  }
+  return itens;
+}
+function marcarGeral(n){ document.querySelectorAll('[data-badge="geral"]').forEach(b => { b.hidden = !n; b.textContent = n; }); }
 function renderInicio(){
   if (!$('tabInicio') || !profile) return;
   const { entries, y, m } = state;
@@ -2027,26 +2054,8 @@ function renderInicio(){
   $('inSaiu').textContent = brl(exp); $('inSaiuNote').textContent = plural(exps.length, 'lançamento');
   $('inSaldoCard').hidden = $('inEsCard').hidden = !modOn('lanc');
   // precisa da sua atenção
-  const itens = [];
-  if (modOn('contas') || cartaoOn()){
-    const { late, hoje } = alertas();
-    if (late) itens.push({ k: 'Vencidas', b: plural(late, 'conta vencida').replace('contas vencida', 'contas vencidas'), s: 'conta atrasada pode virar dívida', ir: 'contas', vm: true });
-    if (hoje) itens.push({ k: 'Vence hoje', b: hoje === 1 ? '1 conta vence hoje' : `${hoje} contas vencem hoje`, s: 'pague para não atrasar', ir: 'contas' });
-  }
-  if (cartaoOn()){
-    const hj = new Date(); hj.setHours(0, 0, 0, 0);
-    cartoesAtivos().forEach(k => {
-      const f = infoFatura(k, faturaAbertaDoMes(k, mkey(hj.getFullYear(), hj.getMonth())));
-      const d = Math.round((f.fecha - hj) / 86400000);
-      if (f.st === 'aberta' && f.total > 0 && d >= 0 && d <= 5)
-        itens.push({ k: d === 0 ? 'Fecha hoje' : `Fecha em ${plural(d, 'dia')}`, b: `Fatura ${k.nome}`, s: `${brl(f.total)} até agora`, ir: 'cartoes' });
-    });
-  }
-  if (modOn('contas') && state.contasOk){
-    contasListaDoMes(mkey(agora.getFullYear(), agora.getMonth()))
-      .filter(i => i.c.tipo === 'parcelada' && i.n === i.c.parcelas && i.c.parcelas > 1)
-      .forEach(i => itens.push({ k: 'Última parcela', b: `${i.c.nome} ${i.n}/${i.c.parcelas}`, s: `−${brl(i.total)} no mês que vem`, ir: 'contas', vd: true }));
-  }
+  const itens = itensAtencao();
+  marcarGeral(itens.length);
   const at = itens.slice(0, 3);
   $('inAtLista').innerHTML = at.length ? at.map(x =>
     `<button type="button" class="in-it" data-ir="${x.ir}"><span class="in-k">${esc(x.k)}</span><b>${esc(x.b)}</b><small>${esc(x.s)}</small></button>`).join('')
