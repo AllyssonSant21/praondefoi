@@ -1758,6 +1758,34 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   html:not([data-tema="escuro"]) .bv-av{border-top-color:#e3e8ee}
   html:not([data-tema="escuro"]) .bv-ir{background:#0E1525;color:#fff;box-shadow:0 4px 0 #000}
   @media (max-width:480px){ .bv{padding:26px 20px 20px} .bv h3{font-size:34px} .bv h3 span{font-size:32px} .bv-av div{grid-template-columns:1fr} }
+  /* ===== cores: marinho + dourado + branco, sem degradê amarelo ===== */
+  #viewApp{background:var(--bg) !important}
+  html:not([data-tema="escuro"]) #viewApp::after{opacity:.10}
+  /* destaque: no claro, bloco marinho com número dourado; no escuro, o contrário (bloco dourado com texto marinho) */
+  html:not([data-tema="escuro"]) .in-c.in-am,html:not([data-tema="escuro"]) #viewApp .stats.resumo>.stat:first-child{background:#0E1525 !important;border-color:#0E1525 !important;color:#fff}
+  html:not([data-tema="escuro"]) .in-c.in-am .in-ch,html:not([data-tema="escuro"]) .in-c.in-am .in-k,html:not([data-tema="escuro"]) .in-c.in-am .in-d,
+  html:not([data-tema="escuro"]) #viewApp .stats.resumo>.stat:first-child .kicker,html:not([data-tema="escuro"]) #viewApp .stats.resumo>.stat:first-child .note{color:#c9cdd6 !important}
+  html:not([data-tema="escuro"]) .in-c.in-am .in-n.in-xl:not(.neg),html:not([data-tema="escuro"]) #viewApp .stats.resumo>.stat:first-child .big{color:#FED13D !important}
+  html:not([data-tema="escuro"]) #viewApp #balCard.neg .big,html:not([data-tema="escuro"]) .in-c.in-am .in-n.neg{color:#ff8a8a !important}
+  html:not([data-tema="escuro"]) .in-c.in-am .in-ic{background:#FED13D;color:#0E1525}
+  html:not([data-tema="escuro"]) .in-c.in-am .in-barra{background:rgba(255,255,255,.15)} html:not([data-tema="escuro"]) .in-c.in-am .in-barra i{background:#FED13D}
+  html[data-tema="escuro"] .in-c.in-am,html[data-tema="escuro"] #viewApp .stats.resumo>.stat:first-child{background:#FED13D !important;border-color:#FED13D !important;color:#0E1525}
+  html[data-tema="escuro"] .in-c.in-am .in-ch,html[data-tema="escuro"] .in-c.in-am .in-k,html[data-tema="escuro"] .in-c.in-am .in-d,
+  html[data-tema="escuro"] #viewApp .stats.resumo>.stat:first-child .kicker,html[data-tema="escuro"] #viewApp .stats.resumo>.stat:first-child .note{color:#3a3320 !important}
+  html[data-tema="escuro"] .in-c.in-am .in-n.in-xl:not(.neg),html[data-tema="escuro"] #viewApp .stats.resumo>.stat:first-child .big{color:#0E1525 !important}
+  html[data-tema="escuro"] #viewApp #balCard.neg .big,html[data-tema="escuro"] .in-c.in-am .in-n.neg{color:#a11b1b !important}
+  html[data-tema="escuro"] .in-c.in-am .in-ic{background:#0E1525;color:#FED13D}
+  html[data-tema="escuro"] .in-c.in-am .in-barra{background:rgba(14,21,37,.15)} html[data-tema="escuro"] .in-c.in-am .in-barra i{background:#0E1525}
+  html:not([data-tema="escuro"]) #viewApp #balCard:not(.neg) .big{color:#FED13D !important}
+  html[data-tema="escuro"] #viewApp #balCard:not(.neg) .big{color:#0E1525 !important}
+  .in-c.in-am .in-spark{display:none}
+  /* ícones das caixas: quadradinho marinho com desenho dourado (claro) / dourado com marinho (escuro) */
+  html:not([data-tema="escuro"]) .in-ic{background:#0E1525;color:#FED13D}
+  html[data-tema="escuro"] .in-ic{background:#FED13D;color:#0E1525}
+  /* alertas e investimentos sem degradê: só a borda colorida */
+  .in-c.in-vm,html[data-tema="escuro"] .in-c.in-vm{background:var(--surface) !important;border-color:rgba(217,63,63,.55) !important}
+  .in-c.in-vd,html[data-tema="escuro"] .in-c.in-vd{background:var(--surface) !important}
+  html[data-tema="escuro"] .in-c.in-vm,html[data-tema="escuro"] .in-c.in-vd{background:rgba(255,255,255,.035) !important}
   /* Celular: campo com letra menor que 16px faz o iPhone dar zoom ao tocar. Sempre 16px em tela de toque. */
   @media (max-width:900px), (pointer:coarse){
     input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px !important}
