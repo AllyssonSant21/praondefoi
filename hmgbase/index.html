@@ -1767,6 +1767,21 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   html:not([data-tema="escuro"]) .in-c.in-am .in-n.in-xl:not(.neg),html:not([data-tema="escuro"]) #viewApp #balCard:not(.neg) .big{color:#b8860b !important}
   html[data-tema="escuro"] .in-c.in-am .in-n.in-xl:not(.neg),html[data-tema="escuro"] #viewApp #balCard:not(.neg) .big{color:#FED13D !important}
   .in-c.in-am .in-barra i{background:#e0a922}
+  /* item selecionado no menu e botões secundários (Compartilhar controle, Novo controle, Detalhes…):
+     marinho no claro, amarelo no escuro */
+  html:not([data-tema="escuro"]) .side-item.on,html:not([data-tema="escuro"]) .side-item[aria-current="page"]{background:#0E1525 !important;color:#fff !important}
+  html:not([data-tema="escuro"]) .side-item.on svg{color:#FED13D !important}
+  html[data-tema="escuro"] .side-item.on,html[data-tema="escuro"] .side-item[aria-current="page"]{background:#FED13D !important;color:#0E1525 !important}
+  html[data-tema="escuro"] .side-item.on svg{color:#0E1525 !important}
+  .side-item.on .badge{background:#e5484d;color:#fff}
+  html:not([data-tema="escuro"]) #viewApp .btn-secondary{background:#0E1525 !important;border-color:#0E1525 !important;color:#fff !important}
+  html:not([data-tema="escuro"]) #viewApp .btn-secondary:hover{background:#1c2740 !important}
+  html:not([data-tema="escuro"]) #viewApp .btn-secondary svg{color:#FED13D}
+  html[data-tema="escuro"] #viewApp .btn-secondary{background:#FED13D !important;border-color:#FED13D !important;color:#0E1525 !important}
+  html[data-tema="escuro"] #viewApp .btn-secondary svg{color:#0E1525}
+  /* a barra do topo (mês) continua neutra */
+  html #viewApp .topbar .btn-secondary,html:not([data-tema="escuro"]) #viewApp .topbar .btn-secondary,html[data-tema="escuro"] #viewApp .topbar .btn-secondary{background:var(--surface) !important;border-color:var(--divider) !important;color:var(--text) !important}
+  html #viewApp .topbar .btn-secondary svg{color:currentColor}
   /* botões principais: marinho no claro, dourado no escuro */
   html:not([data-tema="escuro"]) .btn-primary{background:#0E1525 !important;border-color:#0E1525 !important;color:#fff !important}
   html:not([data-tema="escuro"]) .btn-primary:hover{background:#1c2740 !important;border-color:#1c2740 !important}
