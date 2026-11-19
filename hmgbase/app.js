@@ -2017,7 +2017,8 @@ function itensAtencao(){
   }
   return itens;
 }
-function marcarGeral(n){ document.querySelectorAll('[data-badge="geral"]').forEach(b => { b.hidden = !n; b.textContent = n; }); }
+// o número vermelho fica só em Contas a pagar (o dono pediu para tirar do Geral)
+function marcarGeral(){ document.querySelectorAll('[data-badge="geral"]').forEach(b => { b.hidden = true; }); }
 function renderInicio(){
   if (!$('tabInicio') || !profile) return;
   const { entries, y, m } = state;
