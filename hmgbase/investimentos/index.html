@@ -1797,6 +1797,10 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   .in-c.in-vm,html[data-tema="escuro"] .in-c.in-vm{background:var(--surface) !important;border-color:rgba(217,63,63,.55) !important}
   .in-c.in-vd,html[data-tema="escuro"] .in-c.in-vd{background:var(--surface) !important}
   html[data-tema="escuro"] .in-c.in-vm,html[data-tema="escuro"] .in-c.in-vd{background:rgba(255,255,255,.035) !important}
+  /* sem degradê em lugar nenhum: capa, fundo e balão de boas-vindas com cor lisa */
+  #viewAuth.cv{background:var(--cv-bg) !important}
+  body{background:var(--bg) !important}
+  .bv,html:not([data-tema="escuro"]) .bv{background-image:none !important}
   /* Celular: campo com letra menor que 16px faz o iPhone dar zoom ao tocar. Sempre 16px em tela de toque. */
   @media (max-width:900px), (pointer:coarse){
     input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px !important}
@@ -2556,6 +2560,6 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=4"></script>
-<script src="app.js?v=158"></script>
+<script src="app.js?v=159"></script>
 </body>
 </html>
