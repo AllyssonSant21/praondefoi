@@ -1801,6 +1801,47 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   #viewAuth.cv{background:var(--cv-bg) !important}
   body{background:var(--bg) !important}
   .bv,html:not([data-tema="escuro"]) .bv{background-image:none !important}
+  /* ===== sem caixas (24/11): seções soltas no fundo, linha forte em cima, campos só com linha,
+     botões de contorno fino, perfil marinho/dourado e fundo com desenhos ===== */
+  :root{--secao-linha:#0e1525;--contorno:#0e1525;--contorno-ic:#b8860b}
+  html[data-tema="escuro"]{--secao-linha:rgba(255,255,255,.82);--contorno:#FED13D;--contorno-ic:#FED13D}
+  html body #viewApp :is(.blueprint,.stats.resumo,.lanc-lista,.lanc-cats,.rp-destaque,.in-c,.in-car),
+  html[data-tema="escuro"] body #viewApp :is(.blueprint,.stats.resumo,.lanc-lista,.lanc-cats,.rp-destaque,.in-c,.in-car){
+    background:transparent !important;border:0 !important;box-shadow:none !important;border-radius:0 !important}
+  html body #viewApp :is(.blueprint,.lanc-lista,.lanc-cats,.rp-destaque,.in-c,.in-car){
+    position:relative !important;padding-left:0 !important;padding-right:0 !important;padding-top:14px !important}
+  html body #viewApp :is(.blueprint,.lanc-lista,.lanc-cats,.rp-destaque,.in-c,.in-car)::before{
+    content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--secao-linha);pointer-events:none}
+  html body #viewApp .in-c.in-vm::before{background:#d93f3f}
+  html body #viewApp .lanc-lista .lanc-hd,html body #viewApp .lanc-cats>.cats-hd{padding-left:0 !important;padding-right:0 !important;border-bottom:0 !important;background:transparent !important}
+  html body #viewApp .lanc-lista table :is(th,td):first-child{padding-left:0 !important}
+  html body #viewApp .lanc-lista table thead th{background:transparent !important;border-bottom:1px solid rgba(var(--fg-rgb),.14) !important}
+  html body #viewApp .stats.resumo{padding-left:0 !important;padding-right:0 !important;border-top:1px solid rgba(var(--fg-rgb),.14) !important;border-bottom:1px solid rgba(var(--fg-rgb),.14) !important}
+  html body #viewApp .stats.resumo>*:first-child{padding-left:0 !important;background:transparent !important;box-shadow:none !important}
+  html[data-tema="escuro"] body #viewApp .stats.resumo>.stat:first-child,html[data-tema="escuro"] body .in-c.in-am{background:transparent !important}
+  /* campos só com uma linha embaixo (como no balão de boas-vindas); a setinha do select continua */
+  html body #viewApp :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not(#busca),select,textarea){
+    border:0 !important;border-bottom:1.5px solid rgba(var(--fg-rgb),.35) !important;border-radius:0 !important;background-color:transparent !important;box-shadow:none !important;padding-left:0 !important}
+  html body #viewApp :is(input,select,textarea):focus{border-bottom-color:var(--contorno) !important;outline:none !important}
+  html body #viewApp :is(input,select,textarea):focus-visible{box-shadow:0 2px 0 0 var(--contorno) !important}
+  /* Lançar rápido: as duas opções viram uma lista com ícone */
+  html body #viewApp #rpDestaque button{border:0 !important;border-bottom:1px solid rgba(var(--fg-rgb),.14) !important;border-radius:0 !important;justify-content:flex-start !important;padding-left:0 !important;background:transparent !important;box-shadow:none !important}
+  /* botões secundários do topo: contorno fino, ícone dourado */
+  html body #viewApp :is(#ctrlShare,#ctrlNew,#btnComparar,.cmp-linha .btn,#kcVerCartoes,.btn-graf){
+    background:transparent !important;color:var(--contorno) !important;border:1.5px solid var(--contorno) !important;box-shadow:none !important;border-radius:6px !important;font-weight:600 !important}
+  html body #viewApp :is(#ctrlShare,#ctrlNew,#btnComparar,.cmp-linha .btn) svg{color:var(--contorno-ic) !important}
+  /* perfil no pé do menu: marinho com dourado (no escuro: amarelo com marinho) */
+  html body #menuBtn.side-user{background:#0e1525 !important;color:#FED13D !important;border-radius:8px !important;padding:10px 12px !important;border:0 !important}
+  html body #menuBtn.side-user :is(.who,svg){color:#FED13D !important}
+  html body #menuBtn.side-user .avatar{color:#0e1525 !important}
+  html[data-tema="escuro"] body #menuBtn.side-user{background:#FED13D !important}
+  html[data-tema="escuro"] body #menuBtn.side-user :is(.who,svg){color:#0e1525 !important}
+  html[data-tema="escuro"] body #menuBtn.side-user .avatar{background:#0e1525 !important;color:#FED13D !important}
+  /* fundo: vários desenhos de finanças bem apagados (no lugar do "?" grande), parados ao rolar */
+  html body #viewApp::before,html body #viewApp::after{display:none !important}
+  html body #viewApp{background-image:url(../logo/fundo-desenhos.svg) !important;background-size:560px 560px !important;background-repeat:repeat !important;background-attachment:fixed !important}
+  html[data-tema="escuro"] body #viewApp{background-image:url(../logo/fundo-desenhos-escuro.svg) !important}
+  @media (max-width:899px){html body #viewApp{background-size:420px 420px !important}}
   /* Celular: campo com letra menor que 16px faz o iPhone dar zoom ao tocar. Sempre 16px em tela de toque. */
   @media (max-width:900px), (pointer:coarse){
     input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px !important}
@@ -2560,6 +2601,6 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=4"></script>
-<script src="app.js?v=160"></script>
+<script src="app.js?v=161"></script>
 </body>
 </html>
