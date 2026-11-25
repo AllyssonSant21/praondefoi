@@ -344,9 +344,26 @@ document.querySelectorAll('[data-changepass]').forEach(b => b.addEventListener('
   toast('Senha alterada. Os outros aparelhos conectados foram desconectados.', true);
 }));
 
+// saiu da conta: apaga a cópia dos dados guardada neste aparelho (os dados de verdade continuam no banco
+// e voltam no próximo login). A fila do que ainda não foi enviado fica, para ser enviada quando a pessoa entrar de novo;
+// "tudo" (conta excluída) apaga também a fila e as escolhas do aparelho
+function limparAparelho(uid, tudo){
+  if (!uid) return;
+  const chaves = [`pof-cache-${uid}`, `pof-foto-${uid}`];
+  if (tudo) chaves.push(`pof-fila-${uid}`, `pof-controle-${uid}`, `pof-boasvindas-${uid}`);
+  chaves.forEach(k => { try { localStorage.removeItem(k); } catch(e){} });
+}
+
 document.querySelectorAll('[data-logout]').forEach(b => b.addEventListener('click', async () => {
+  const uid = currentUser && currentUser.id;
+  if (uid && lerFila().length){
+    if (navigator.onLine && !modoSemInternet) await enviarFila();   // com internet, manda o que ficou pendente antes de sair
+    const n = lerFila().length;
+    if (n && !await confirmar(`Sair mesmo assim?\n\n${n === 1 ? 'Um lançamento ainda não foi enviado. Ele fica guardado' : `${n} lançamentos ainda não foram enviados. Eles ficam guardados`} neste aparelho e ${n === 1 ? 'é enviado' : 'são enviados'} quando você entrar de novo nele, com internet.`, 'Sair')) return;
+  }
   try { sessionStorage.removeItem('pof-aba-sessao'); } catch(e){}   // saiu da conta: na próxima entrada abre no Início
   await sb.auth.signOut({ scope: 'local' });   // só este aparelho; a outra sessão guardada (sua conta / master) continua
+  limparAparelho(uid, false);
   if (MODO_ADMIN) irPara('');
 }));
 
@@ -4704,7 +4721,9 @@ $('dlg2Body').addEventListener('click', async e => {
     if (error){ b.disabled = false; return toast(rpcMsg(error)); }
     closeDlg2();
     toast('Sua conta foi excluída. Até mais!', true);
+    const uid = currentUser && currentUser.id;
     await sb.auth.signOut({ scope: 'local' });
+    limparAparelho(uid, true);   // conta excluída: nada dela fica neste aparelho
     return;
   }
   if (b.dataset.act === 'pfGoogle'){

@@ -47,7 +47,8 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   36. `supabase-limite120.sql` — WhatsApp passa a 120 respostas por mês por pessoa (fundador também).
   37. `supabase-aparelhos.sql` — aviso por e-mail quando a conta é aberta num aparelho novo (com a função `aviso-login`).
   38. `supabase-ponte-admin.sql` — liga a conta pessoal do dono à conta master: o botão "Painel do administrador" aparece na conta pessoal em qualquer aparelho.
-- **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os 15 scripts na ordem; ative pg_net e pg_cron antes e rode uma vez só.
+  - `supabase-prod-detetive-ia.sql` — **só para o prod**: junta os scripts do Detetive e da IA (19 a 23, 27 a 30, 32 e 33) num só; pode rodar de novo.
+- **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os scripts 1 a 38 na ordem (menos o `supabase-hmg-convidados.sql`); ative pg_net e pg_cron antes e rode uma vez só.
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.
 - **Marca:** pasta `logo/` (SVG e PNG).
 

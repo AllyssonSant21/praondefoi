@@ -16,7 +16,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Commits terminam com as linhas de coautoria que o ambiente indicar.
 
 ## Como publicar
-1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v161**) e `entender.js?v=N` (hoje **v4**) no `hmgbase/index.html`.
+1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v162** no HMG, v161 no prod) e `entender.js?v=N` (hoje **v4**) no `hmgbase/index.html`.
 2. `python3 ferramentas/rotas.py hmgbase` (copia o index para as pastas das abas: geral/, lancamentos/, cartoes/, contas/, metas/, investimentos/).
 3. Commit + push em `main` → HMG no ar.
 4. Prod (só com ok): rodar da raiz `python3 ferramentas/promover.py` (gera index/app/privacidade/termos/tema.js/entender.js do prod, troca banco e chaves, tira os blocos `<!--BOT-->…<!--/BOT-->` da capa, põe o bot `@Praondefoi_bot`) → commit + push.
@@ -67,10 +67,13 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - **Boas-vindas no primeiro acesso (HMG e prod 18/11, v156):** balão com a cara da marca (marinho/branco, brilho amarelo, "?" de fundo, "Prazer!" em Rubik 3D + "quem é você?" em Yellowtail; campos só com linha embaixo; botão amarelo no escuro e azul escuro no claro). Pede foto, nome, e-mail e WhatsApp, tudo opcional ("Bora começar →" / "Agora não"). Abre uma vez para quem não tem nome no perfil (`talvezBoasVindas`, guarda `pof-boasvindas-<id>` no aparelho); salva com `salvar_perfil` e `salvar_foto`. Bolinhas de situação tiradas do Início e das abas.
 - **Dívidas (HMG e prod desde 16/11):** tocar numa dívida abre o resumo com "O que aconteceu?" (Quitei, Fechei um acordo, Paguei uma parte, Estou negociando; em Pagando: Quitei antes, Atrasei, Renegociei) e o histórico.
 
+- **Sair limpa o aparelho (HMG v162, ainda não no prod):** ao sair, o app apaga a cópia dos dados guardada no aparelho (`pof-cache-<id>`, `pof-foto-<id>`; os dados continuam no banco e voltam no login). A fila do que não foi enviado sem internet fica e é enviada quando a pessoa entrar de novo; se houver pendente, tenta enviar e, se não der, pergunta "Sair mesmo assim?". Excluir a conta apaga tudo dela no aparelho (`limparAparelho`).
+- **Auditoria (25/11):** prod idêntico ao que o promover gera; funções geradas iguais à fonte; segurança ok (RLS em todas as tabelas, CSP sem script inline, `esc()` nos textos, webhooks com segredo/assinatura). Dívida técnica: CSS de 150 KB com 363 `!important` em camadas e `app.js` num arquivo só, sem testes do app. Antes de mexer nisso, montar testes automáticos.
+
 ## SQL (ordem no README.md, itens 19 a 38)
 - Prod rodou (16/11) a versão nova do `supabase-dividas.sql`, o `supabase-dividas2.sql` e o `supabase-limite120.sql`. HMG tem tudo até o `supabase-dividas2.sql`; conferir se o `supabase-limite120.sql` rodou no HMG.
 - Prod rodou `supabase-alimentacao.sql` e o `supabase-prod-detetive-ia.sql` (junta whatsapp, bot-telegram, bot2…bot8, ia e liberacoes; pode rodar de novo).
-- Banco novo de testes: `supabase-hmg-tudo.sql`.
+- Banco novo de testes: `supabase-hmg-tudo.sql` (scripts 1 a 38, conferido em 25/11: todas as funções na versão mais nova).
 
 ## Pendências
 - Cobrança (Stripe) ainda **não construída**: fazer no HMG com botão grande do admin para ligar/desligar cobranças; mandar prévia das telas (preços, pagamento, Adicional em Limites) antes.

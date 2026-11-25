@@ -10,7 +10,8 @@
 //    GEMINI_RESERVA  opcional (padrão gemini-3.8-flash)
 //    APP_ORIGENS     opcional: endereços do app separados por vírgula
 //                    (padrão https://praondefoiapp.com.br)
-//  Deixe "Verify JWT" LIGADO nesta função (só quem está logado usa).
+//  "Verify JWT" pode ficar desligado (é como está no HMG e no prod): a função
+//  confere sozinha o login de quem chama e recusa quem não está logado.
 // =====================================================================
 
 %%NUCLEO%%
