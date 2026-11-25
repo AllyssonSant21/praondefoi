@@ -48,8 +48,9 @@ Funciona no navegador do computador e do celular, e pode ser instalado como app
   37. `supabase-aparelhos.sql` — aviso por e-mail quando a conta é aberta num aparelho novo (com a função `aviso-login`).
   38. `supabase-ponte-admin.sql` — liga a conta pessoal do dono à conta master: o botão "Painel do administrador" aparece na conta pessoal em qualquer aparelho.
   39. `supabase-fuso.sql` — banco no horário de Brasília (antes, das 21h à meia-noite o banco achava que já era o dia seguinte).
+  40. `supabase-limites-lanc.sql` — o banco recusa lançamento acima de R$ 9.999.999,99 ou com data antes de 1990 ou mais de 5 anos à frente.
   - `supabase-prod-detetive-ia.sql` — **só para o prod**: junta os scripts do Detetive e da IA (19 a 23, 27 a 30, 32 e 33) num só; pode rodar de novo.
-- **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os scripts 1 a 39 na ordem (menos o `supabase-hmg-convidados.sql`); ative pg_net e pg_cron antes e rode uma vez só.
+- **Projeto novo (ex.: banco de testes do HMG):** `supabase-hmg-tudo.sql` junta os scripts 1 a 40 na ordem (menos o `supabase-hmg-convidados.sql`); ative pg_net e pg_cron antes e rode uma vez só.
 - **App instalável:** `manifest.webmanifest`, `sw.js` e a pasta `icons/`.
 - **Marca:** pasta `logo/` (SVG e PNG).
 

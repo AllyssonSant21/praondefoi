@@ -21,6 +21,13 @@ const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','A
 const brl = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const pad = n => String(n).padStart(2,'0');
 const dataValida = iso => /^\d{4}-\d{2}-\d{2}$/.test(String(iso)) && (d => !isNaN(d) && d.toISOString().slice(0, 10) === iso)(new Date(iso + 'T12:00:00Z'));
+// mesmos limites do banco (supabase-limites-lanc.sql): valor até R$ 9.999.999,99 e data de 1990 até 5 anos à frente
+function foraDoLimite(valor, data){
+  if (valor > 9999999.99) return 'O valor máximo é R$ 9.999.999,99.';
+  const d = new Date(); const max = `${d.getFullYear() + 5}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  if (data && (data < '1990-01-01' || data > max)) return 'A data precisa ser de 1990 até 5 anos à frente.';
+  return '';
+}
 const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const plural = (n,w) => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -915,6 +922,7 @@ $('form').addEventListener('submit', async e => {
   const desc = $('desc').value.trim(), amount = parseAmount($('amount').value);
   if (!desc) return showError('Escreva uma descrição.');
   if (!(amount > 0)) return showError('Informe um valor maior que zero.');
+  { const lim = foraDoLimite(amount, $('date').value); if (lim) return showError(lim); }
   if (!state.cid) return showError('Escolha um controle primeiro.');
   if (!$('pagComWrap').hidden && findCartao($('pagCom').value)){ await salvarCompraForm(desc, amount); return; }
   const alvo = vincAlvo();
@@ -1384,6 +1392,8 @@ async function rpLancar(){
   const sel = rp.itens.filter(i => i.sel);
   const ruim = sel.find(i => !i.desc.trim() || !(i.amount > 0) || !dataValida(i.date));
   if (ruim) return toast(`Confira "${ruim.desc || 'sem descrição'}": falta descrição, valor ou data.`);
+  const fora = sel.find(i => foraDoLimite(i.amount, i.date));
+  if (fora) return toast(`Confira "${fora.desc}". ${foraDoLimite(fora.amount, fora.date)}`);
   // o id de cada item é criado uma vez só: se der erro no meio e a pessoa tentar de novo, o que já foi não vai de novo
   sel.forEach(i => { if (!i.id) i.id = novoId(); });
   const cid = state.cid;
@@ -1599,6 +1609,7 @@ $('dlg2Body').addEventListener('click', async e => {
   if (!desc) return toast('Escreva uma descrição.');
   if (!(valor > 0)) return toast('Informe um valor maior que zero.');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return toast('Escolha a data.');
+  { const lim = foraDoLimite(valor, data); if (lim) return toast(lim); }
   b.disabled = true;
   const novo = { type: dlg2.letipo, desc, cat: $('leCat').value, amount: valor, date: data };
   const { data: row, error } = await sb.from('lancamentos').update(toRow(novo)).eq('id', dlg2.id).select(colsLanc()).single();
