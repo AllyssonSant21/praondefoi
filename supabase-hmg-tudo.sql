@@ -1,6 +1,6 @@
 -- =====================================================================
 --  Pra Onde Foi? · BANCO COMPLETO PARA UM PROJETO NOVO (ex.: o de testes, HMG)
---  Junta os scripts 1 a 38 do README, na ordem certa (menos o supabase-hmg-convidados.sql,
+--  Junta os scripts 1 a 39 do README, na ordem certa (menos o supabase-hmg-convidados.sql,
 --  que é só do HMG e roda à parte se quiser). Cole tudo no SQL Editor e clique em Run.
 --  ANTES: em Database → Extensions, ative "pg_net" e "pg_cron".
 --  DEPOIS: crie a primeira conta pelo app — ela vira o administrador.
@@ -4678,3 +4678,22 @@ revoke all on function public.admin_ligar_conta_pessoal(uuid) from public, anon;
 revoke all on function public.tenho_painel() from public, anon;
 grant execute on function public.admin_ligar_conta_pessoal(uuid) to authenticated;
 grant execute on function public.tenho_painel() to authenticated;
+
+-- ===== 39 · supabase-fuso.sql =====
+-- 39. Banco no horário de Brasília
+-- O Supabase vem no horário de Londres (UTC). Das 21h à meia-noite de Brasília o banco já achava que era
+-- "amanhã": conta criada pelo bot no próprio dia do vencimento começava só no mês seguinte, dívida quitada
+-- às 22h do dia 30 ficava com data do dia 1º, compra antiga lançada à noite no dia do vencimento do cartão
+-- contava uma parcela paga a mais, e o histórico da dívida ficava com a data do dia seguinte.
+-- Com isto, "hoje" (current_date) no banco passa a ser o hoje de Brasília. Os horários gravados não mudam
+-- (continuam o mesmo instante); só a forma de mostrar e o "que dia é hoje".
+-- Os agendamentos (pg_cron) não mudam: eles têm o fuso próprio.
+-- Rodar no HMG e no prod. Pode rodar de novo sem problema.
+
+alter database postgres set timezone to 'America/Sao_Paulo';
+
+-- vale para as conexões novas: a API do app troca as conexões sozinha em até ~30 minutos
+notify pgrst, 'reload config';
+
+-- conferir (numa aba nova do SQL Editor): deve mostrar America/Sao_Paulo
+-- show timezone;

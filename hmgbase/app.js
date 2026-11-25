@@ -20,6 +20,7 @@ const CATS = {
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const brl = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const pad = n => String(n).padStart(2,'0');
+const dataValida = iso => /^\d{4}-\d{2}-\d{2}$/.test(String(iso)) && (d => !isNaN(d) && d.toISOString().slice(0, 10) === iso)(new Date(iso + 'T12:00:00Z'));
 const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const plural = (n,w) => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -1026,20 +1027,25 @@ function guardarSemInternet(id, entry){
   toast('Sem internet: guardado no celular. Envio quando a conexão voltar ⏳', true);
   $('desc').focus();
 }
+const filaAvisada = new Set();   // avisa uma vez só de cada lançamento recusado (a fila é tentada a cada 30 s)
 async function enviarFila(){
   if (enviandoFila || !navigator.onLine || !currentUser || !profile) return atualizarFaixa();
   if (modoSemInternet){ modoSemInternet = false; return handleSession((await sb.auth.getSession()).data.session, true); }   // abriu sem internet: carrega tudo de verdade
   const fila = lerFila();
   if (!fila.length) return atualizarFaixa();
   enviandoFila = true; atualizarFaixa();
-  let enviados = 0, caiu = false;
+  let enviados = 0, caiu = false, recusados = 0;
   for (const i of fila){
     const { error } = await sb.from('lancamentos').insert({ ...i.row, id: i.id, controle_id: i.controle_id });
     if (error && error.code !== '23505' && ehRede(error)){ caiu = true; break; }   // a internet caiu de novo: tenta depois
-    if (error && error.code !== '23505') toast(`Não deu para enviar "${i.row.descricao}": ${rpcMsg(error)}`);
-    else enviados++;
+    // outro erro (servidor fora do ar, sessão vencida, controle apagado…): NÃO apaga. Fica na fila com ⏳
+    // e é tentado de novo depois; se não tiver mais jeito, a pessoa exclui pelo X do lançamento
+    if (error && error.code !== '23505'){ if (!filaAvisada.has(i.id)){ filaAvisada.add(i.id); recusados++; } continue; }
+    enviados++;
     gravarFila(lerFila().filter(x => x.id !== i.id));
   }
+  if (recusados) toast(recusados === 1 ? 'Um lançamento feito sem internet ainda não foi enviado. Continua guardado neste aparelho (⏳) e vou tentar de novo.'
+    : `${recusados} lançamentos feitos sem internet ainda não foram enviados. Continuam guardados neste aparelho (⏳) e vou tentar de novo.`);
   enviandoFila = false;
   if (enviados){ toast(`${plural(enviados, 'lançamento')} guardado${enviados > 1 ? 's' : ''} sem internet ${enviados > 1 ? 'foram enviados' : 'foi enviado'} ✅`, true); await refresh(); }
   atualizarFaixa();
@@ -1147,7 +1153,7 @@ function rpRodape(){
   const tot = rp.itens.filter(i => i.sel);
   const soma = tot.reduce((a, i) => a + (i.type === 'exp' ? -i.amount : i.amount), 0);
   el.innerHTML = `<span class="hint">${plural(tot.length, 'lançamento')} · saldo ${soma < 0 ? '−' : '+'}${brl(Math.abs(soma))}</span>
-    <button class="btn btn-primary" type="button" data-rp="lancar"${tot.length ? '' : ' disabled'}>Lançar ${tot.length || ''}</button>`;
+    <button class="btn btn-primary" type="button" data-rp="lancar"${tot.length && !rp.salvando ? '' : ' disabled'}>${rp.salvando ? 'Lançando…' : `Lançar ${tot.length || ''}`}</button>`;
 }
 
 // texto → itens (frase inteira; se não der, linha por linha)
@@ -1201,7 +1207,13 @@ function dataBanco(v){
   const s = String(v || '').trim();
   let m = s.match(/^(\d{4})-?(\d{2})-?(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`;
   m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
-  if (m){ const a = m[3].length === 2 ? '20' + m[3] : m[3]; return `${a}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; }
+  if (m){
+    const a = m[3].length === 2 ? '20' + m[3] : m[3];
+    let [d, mes] = [m[1], m[2]];
+    if (Number(mes) > 12 && Number(d) <= 12) [d, mes] = [mes, d];   // formato americano (mês/dia): 11/25/2026
+    const iso = `${a}-${mes.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    return dataValida(iso) ? iso : '';
+  }
   return '';
 }
 function descBonita(d){
@@ -1216,7 +1228,8 @@ function descBonita(d){
 function lerOFX(txt){
   return txt.split(/<STMTTRN>/i).slice(1).map(b => {
     const tag = n => ((b.match(new RegExp(`<${n}>([^<\\r\\n]*)`, 'i')) || [])[1] || '').trim();
-    const v = numBanco(tag('TRNAMT').replace(',', '.'));
+    const bruto = tag('TRNAMT');   // padrão do OFX é ponto decimal (-1234.56); alguns bancos mandam no formato brasileiro (-1.234,56)
+    const v = bruto.includes(',') ? numBanco(bruto) : parseFloat(bruto.replace(/[^\d.+-]/g, ''));
     return { valor: v, data: dataBanco(tag('DTPOSTED')), desc: tag('MEMO') || tag('NAME') || tag('PAYEE') };
   });
 }
@@ -1260,7 +1273,7 @@ async function rpArquivo(file){
   if (txt.includes('�')) txt = new TextDecoder('windows-1252').decode(buf);   // extrato antigo em Latin-1
   const ofx = /<OFX>|<STMTTRN>/i.test(txt);
   let { itens, cartao } = ofx ? { itens: lerOFX(txt), cartao: false } : lerCSV(txt);
-  itens = itens.filter(i => i.data && isFinite(i.valor) && i.valor !== 0);
+  itens = itens.filter(i => dataValida(i.data) && isFinite(i.valor) && i.valor !== 0);
   if (!itens.length){ rp.itens = []; rp.aviso = 'Não consegui ler esse arquivo. Exporte o extrato em <b>OFX</b> ou <b>CSV</b> no app do banco e tente de novo.'; return renderRapido(); }
   let cortados = 0;
   if (itens.length > 300){ itens.sort((a, b) => b.data.localeCompare(a.data)); cortados = itens.length - 300; itens = itens.slice(0, 300); }
@@ -1367,17 +1380,31 @@ async function rpGravar(){
 }
 
 async function rpLancar(){
+  if (rp.salvando) return;   // segundo toque enquanto envia: ignora (senão lançaria em dobro)
   const sel = rp.itens.filter(i => i.sel);
-  const ruim = sel.find(i => !i.desc.trim() || !(i.amount > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(i.date));
+  const ruim = sel.find(i => !i.desc.trim() || !(i.amount > 0) || !dataValida(i.date));
   if (ruim) return toast(`Confira "${ruim.desc || 'sem descrição'}": falta descrição, valor ou data.`);
-  const rows = sel.map(i => ({ ...toRow({ type: i.type, desc: i.desc.trim(), cat: i.cat, amount: i.amount, date: i.date }), id: novoId(), controle_id: state.cid }));
-  const b = document.querySelector('[data-rp="lancar"]'); if (b) b.disabled = true;
-  for (let k = 0; k < rows.length; k += 200){
-    const { error } = await sb.from('lancamentos').insert(rows.slice(k, k + 200));
-    if (error){ if (b) b.disabled = false; return showError(`Não deu para lançar${k ? ` (${k} já foram)` : ''}. ${ehRede(error) ? 'Sem internet.' : 'Tente de novo.'}`); }
+  // o id de cada item é criado uma vez só: se der erro no meio e a pessoa tentar de novo, o que já foi não vai de novo
+  sel.forEach(i => { if (!i.id) i.id = novoId(); });
+  const cid = state.cid;
+  rp.salvando = true; rp.aviso = ''; renderRapido();
+  let feitos = 0;
+  for (let k = 0; k < sel.length; k += 200){
+    const lote = sel.slice(k, k + 200);
+    const { error } = await sb.from('lancamentos').insert(lote.map(i => ({ ...toRow({ type: i.type, desc: i.desc.trim(), cat: i.cat, amount: i.amount, date: i.date }), id: i.id, controle_id: cid })));
+    if (error){
+      rp.salvando = false;
+      rp.itens = rp.itens.filter(i => !i.feito);
+      rp.aviso = `⚠️ Não deu para lançar${feitos ? ` todos: ${feitos} já foram e saíram da lista` : ''}. ${ehRede(error) ? 'Sem internet: confira a conexão e' : 'Confira os itens e'} toque em Lançar de novo.`;
+      renderRapido();
+      if (feitos) refresh();
+      return;
+    }
+    lote.forEach(i => { i.feito = true; }); feitos += lote.length;
   }
+  rp.salvando = false;
   closeDlg2();
-  toast(`${plural(rows.length, 'lançamento')} ${rows.length > 1 ? 'feitos' : 'feito'} ✅`, true);
+  toast(`${plural(feitos, 'lançamento')} ${feitos > 1 ? 'feitos' : 'feito'} ✅`, true);
   await refresh();
 }
 
@@ -1500,9 +1527,14 @@ $('rows').addEventListener('click', async e => {
   const id = b.dataset.del;
   const ent = state.entries.find(x => x.id === id);
   if (ent && ent.pend){   // ainda não foi enviado: só tira da fila deste celular
+    if (enviandoFila) return toast('Enviando os lançamentos guardados… Tente de novo em alguns segundos.');   // ele pode estar subindo agora
     if (!await confirmar(`Excluir "${ent.desc}"? Ele ainda não foi enviado.`)) return;
+    if (enviandoFila) return toast('Enviando os lançamentos guardados… Tente de novo em alguns segundos.');
     gravarFila(lerFila().filter(i => i.id !== id)); state.entries = state.entries.filter(x => x.id !== id); render(); atualizarFaixa(); return;
   }
+  // meta e investimento: excluir só a saída deixaria o dinheiro contado lá (conta e fatura voltam a ficar em aberto sozinhas)
+  const vinc = ent ? await vinculoDoLanc(id) : null;
+  if (vinc && /meta|investimento/.test(vinc)) return toast(`${vinc} Para excluir, desfaça o movimento na aba ${vinc.includes('meta') ? 'Metas' : 'Investimentos'}: o lançamento sai junto.`);
   if (ent && !await confirmar(`Excluir este lançamento?
 
 ${ent.desc} · ${ent.type === 'inc' ? '+' : '−'} ${brl(ent.amount)}`)) return;
@@ -1514,16 +1546,33 @@ ${ent.desc} · ${ent.type === 'inc' ? '+' : '−'} ${brl(ent.amount)}`)) return;
   if (state.contas.length && await loadContas()) renderContas();   // se era o pagamento de uma conta, ela volta a ficar em aberto
 });
 
+/* ---------- lançamento que veio de outra aba ----------
+   Pagamento de conta ou de fatura, meta e investimento guardam o lançamento que criaram. Editar o valor aqui deixaria
+   os dois diferentes; excluir o de meta ou investimento deixaria o dinheiro contado lá e sumido daqui.
+   Devolve a frase que explica de onde veio (ou null). */
+async function vinculoDoLanc(id){
+  const nomeDe = (lista, x) => { const o = (lista || []).find(y => y.id === x); return o ? ` "${o.nome}"` : ''; };
+  const [pg, mm, pf, im] = await Promise.all([
+    sb.from('pagamentos').select('conta_id').eq('lancamento_id', id).limit(1),
+    sb.from('meta_movs').select('meta_id').eq('lancamento_id', id).limit(1),
+    sb.from('pag_faturas').select('cartao_id').eq('lancamento_id', id).limit(1),
+    sb.from('inv_movs').select('investimento_id').eq('lancamento_id', id).limit(1)
+  ]);
+  const tem = r => r && r.data && r.data.length ? r.data[0] : null;
+  let x;
+  if ((x = tem(pg))) return `Esse lançamento é o pagamento da conta${nomeDe(state.contas, x.conta_id)}.`;
+  if ((x = tem(pf))) return `Esse lançamento é o pagamento da fatura do cartão${nomeDe(state.cartoes, x.cartao_id)}.`;
+  if ((x = tem(mm))) return `Esse lançamento veio da meta${nomeDe(state.metas, x.meta_id)}.`;
+  if ((x = tem(im))) return `Esse lançamento veio do investimento${nomeDe(state.invs, x.investimento_id)}.`;
+  return null;
+}
+
 /* ---------- editar um lançamento (lápis) ---------- */
 async function openLancEdit(id){
   const ent = state.entries.find(x => x.id === id); if (!ent) return;
-  // lançamentos criados por pagamento de conta ou por meta mudam por lá, para os valores não ficarem diferentes
-  const [pg, mm] = await Promise.all([
-    sb.from('pagamentos').select('conta_id').eq('lancamento_id', id).limit(1),
-    sb.from('meta_movs').select('meta_id').eq('lancamento_id', id).limit(1)
-  ]);
-  if (pg.data && pg.data.length){ const c = findConta(pg.data[0].conta_id); return toast(`Esse lançamento é o pagamento da conta ${c ? '"' + c.nome + '"' : ''}. Para mudar, desfaça o pagamento na aba Contas a pagar.`); }
-  if (mm.data && mm.data.length){ const m = state.metas.find(x => x.id === mm.data[0].meta_id); return toast(`Esse lançamento veio da meta ${m ? '"' + m.nome + '"' : ''}. Para mudar, desfaça o movimento na aba Metas.`); }
+  // lançamentos criados por conta, fatura, meta ou investimento mudam por lá, para os valores não ficarem diferentes
+  const v = await vinculoDoLanc(id);
+  if (v) return toast(`${v} Para mudar, ${v.includes('meta') ? 'desfaça o movimento na aba Metas' : v.includes('investimento') ? 'desfaça o movimento na aba Investimentos' : v.includes('fatura') ? 'desfaça o pagamento na aba Cartões' : 'desfaça o pagamento na aba Contas a pagar'}.`);
   const tipoBtn = (t, lab) => `<button type="button" data-letipo="${t}" aria-pressed="${ent.type === t}">${lab}</button>`;
   openDlg2('Editar lançamento', ent.desc, `
     <div class="seg" id="leTipo" role="group" aria-label="Tipo" style="align-self:flex-start;">${tipoBtn('exp','Saída')}${tipoBtn('inc','Entrada')}</div>
@@ -2804,7 +2853,7 @@ function infoMeta(m){
 // "Concluída em nov/2026 · levou 3 meses" / "Usada em nov/2026"
 function conquistaMeta(m, i, curto){
   const mk = d => d ? d.slice(0, 7) + '-01' : null;
-  const fim = mk(m.concluida_em) || mk(new Date().toISOString());
+  const fim = mk(m.concluida_em) || mk(todayISO());   // hoje no horário do aparelho (toISOString é de Londres: virava o mês às 21h)
   const n = Math.max(0, mdiff(mk(m.criado_em), fim));
   const levou = n === 0 ? 'em menos de 1 mês' : `levou ${plural(n, 'mês').replace('mêss', 'meses')}`;
   if (i.enc) return curto ? `Em ${mesCurto(mk(m.encerrada_em))}` : `Usada em ${mesCurto(mk(m.encerrada_em))} · ${brl(i.juntado)}`;
@@ -5576,8 +5625,9 @@ let dvForm = null;
 function proximaSugerida(d){
   // próxima parcela ainda não paga = 1ª data + parcelas já pagas
   if (!d || !d.proxima) return '';
-  const p = new Date(d.proxima + 'T12:00:00'); p.setMonth(p.getMonth() + Number(d.pagas || 0));
-  return p.toISOString().slice(0, 10);
+  // dia 29 a 31 em mês mais curto fica no último dia (31/jan + 1 mês = 28/fev, igual ao banco), sem pular o mês
+  const [y, m, dia] = d.proxima.split('-').map(Number), t = new Date(y, m - 1 + Number(d.pagas || 0), 1);
+  return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(Math.min(dia, ultimoDia(t.getFullYear(), t.getMonth())))}`;
 }
 function openDivida(id, sitForcada){
   const d = id ? state.dividas.find(x => x.id === id) : null;

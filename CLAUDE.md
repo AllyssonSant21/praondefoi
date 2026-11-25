@@ -16,14 +16,14 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - Commits terminam com as linhas de coautoria que o ambiente indicar.
 
 ## Como publicar
-1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v162** no HMG, v161 no prod) e `entender.js?v=N` (hoje **v4**) no `hmgbase/index.html`.
+1. Editar em `hmgbase/` (app.js, index.html). Subir o cache: `app.js?v=N` (hoje **v163** no HMG, v161 no prod) e `entender.js?v=N` (hoje **v5** no HMG, v4 no prod) no `hmgbase/index.html`.
 2. `python3 ferramentas/rotas.py hmgbase` (copia o index para as pastas das abas: geral/, lancamentos/, cartoes/, contas/, metas/, investimentos/).
 3. Commit + push em `main` → HMG no ar.
 4. Prod (só com ok): rodar da raiz `python3 ferramentas/promover.py` (gera index/app/privacidade/termos/tema.js/entender.js do prod, troca banco e chaves, tira os blocos `<!--BOT-->…<!--/BOT-->` da capa, põe o bot `@Praondefoi_bot`) → commit + push.
 
 ## Bot "Detetive Grana" e IA
 - Fonte comum: `supabase/functions/_fonte/` (`nucleo.ts` + `telegram.ts` / `whatsapp.ts` / `leitor.ts`). **Não editar** `supabase/functions/*/index.ts` à mão: rodar `python3 supabase/functions/_fonte/montar.py` (gera as 3 funções e o `hmgbase/entender.js`).
-- Testes: `node --experimental-strip-types supabase/functions/_fonte/testes.ts` (97 testes, 0 falhas).
+- Testes: `node --experimental-strip-types supabase/functions/_fonte/testes.ts` (103 testes, 0 falhas).
 - O dono cola o `index.ts` gerado no editor do Supabase (aba Code → Deploy). **Verify JWT desligado** em telegram-bot e leitor. No HMG a função do Telegram chama "Telegram-bot" mas o endereço é `/bright-handler`.
 - IA: Gemini `gemini-3.5-flash-lite` (principal) e `gemini-3.8-flash` (reserva); os 2.5 não aceitam projetos novos. Hoje usa a chave **grátis** (só o dono e um sócio testam no prod). Antes de abrir para usuários: plano pago + limite de gasto.
 - Foto/PDF/áudio lido com clareza é **lançado direto** (pede confirmação só se a IA ficar em dúvida). Nome da loja; nunca cidade/endereço (vira "Compras de mercado", "Compras diversas"...).
@@ -68,6 +68,7 @@ App **Pra Onde Foi?**: controle financeiro em PWA (HTML/CSS/JS puro, sem build),
 - **Dívidas (HMG e prod desde 16/11):** tocar numa dívida abre o resumo com "O que aconteceu?" (Quitei, Fechei um acordo, Paguei uma parte, Estou negociando; em Pagando: Quitei antes, Atrasei, Renegociei) e o histórico.
 
 - **Sair limpa o aparelho (HMG v162, ainda não no prod):** ao sair, o app apaga a cópia dos dados guardada no aparelho (`pof-cache-<id>`, `pof-foto-<id>`; os dados continuam no banco e voltam no login). A fila do que não foi enviado sem internet fica e é enviada quando a pessoa entrar de novo; se houver pendente, tenta enviar e, se não der, pergunta "Sair mesmo assim?". Excluir a conta apaga tudo dela no aparelho (`limparAparelho`).
+- **Caça a bugs (HMG v163, 25/11, ainda não no prod):** fila sem internet não apaga mais lançamento quando o servidor recusa (fica ⏳ e tenta de novo; avisa uma vez); extrato: id fixo por item, trava durante o envio, erro aparece dentro da janela e o que já foi sai da lista (não duplica ao tentar de novo); OFX com "1.234,56"; CSV com data americana (mês/dia) e datas inválidas (`dataValida`); dívida dia 29–31 não pula mês (`proximaSugerida`); lançamento de pagamento de fatura e de investimento não pode ser editado, e o de meta/investimento não pode ser excluído (`vinculoDoLanc`: desfazer pela aba). Bot: data futura (até 31 dias), "amanhã" e "dia N" que virou o mês passado → pergunta "Tá certo?" (dúvida `data`); data de outro ano mostra o ano; "10 reais e 5" e "50,999" perguntam o valor; "0,001" não vira R$ 1. Banco: `supabase-fuso.sql` (item 39) põe o banco no horário de Brasília (antes, das 21h à meia-noite o banco achava que era o dia seguinte). **Falta o dono:** rodar `supabase-fuso.sql` no HMG; colar telegram-bot e leitor no HMG.
 - **Auditoria (25/11):** prod idêntico ao que o promover gera; funções geradas iguais à fonte; segurança ok (RLS em todas as tabelas, CSP sem script inline, `esc()` nos textos, webhooks com segredo/assinatura). Dívida técnica: CSS de 150 KB com 363 `!important` em camadas e `app.js` num arquivo só, sem testes do app. Antes de mexer nisso, montar testes automáticos.
 
 ## SQL (ordem no README.md, itens 19 a 38)

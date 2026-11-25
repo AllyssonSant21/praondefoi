@@ -143,7 +143,8 @@ export function hojeEm(fuso: string, agora = new Date()): string {
 const somaDias = (iso: string, d: number) => { const x = new Date(iso + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + d); return x.toISOString().slice(0, 10); };
 const isoValida = (iso: string) => !isNaN(new Date(iso + 'T12:00:00Z').getTime()) && new Date(iso + 'T12:00:00Z').toISOString().slice(0, 10) === iso;
 export const dataBonita = (iso: string, hoje: string) =>
-  iso === hoje ? 'hoje' : iso === somaDias(hoje, -1) ? 'ontem' : `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+  iso === hoje ? 'hoje' : iso === somaDias(hoje, -1) ? 'ontem' : iso === somaDias(hoje, 1) ? 'amanhã'
+    : `${iso.slice(8, 10)}/${iso.slice(5, 7)}${iso.slice(0, 4) === hoje.slice(0, 4) ? '' : '/' + iso.slice(0, 4)}`;   // outro ano: mostra o ano
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 export const nomeMes = (iso: string) => MESES[Number(iso.slice(5, 7)) - 1];
 const DIAS_SEMANA: [RegExp, number][] = [[/domingo/, 0], [/segunda/, 1], [/terca/, 2], [/quarta/, 3], [/quinta/, 4], [/sexta/, 5], [/sabado/, 6]];
@@ -166,38 +167,41 @@ export type Comando =
   | { tipo: 'editar_ajuda' }
   | { tipo: 'nao_entendi' };
 
-// tira data do texto e devolve [texto sem a data, data iso]
-function tirarData(resto: string, hoje: string): [string, string, number | null] {
+// tira data do texto e devolve [texto sem a data, data iso, dia solto, data incerta]
+// "incerta" = data que pode não ser a que a pessoa quis (no futuro, ou "dia 28" que virou o mês passado): o bot pergunta antes
+function tirarData(resto: string, hoje: string): [string, string, number | null, boolean] {
   let data = hoje; let diaSolto: number | null = null;
   const dm = resto.match(/ (?:dia )?(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))? /);
   if (dm) {
     const ano = dm[3] ? (dm[3].length === 2 ? '20' + dm[3] : dm[3]) : hoje.slice(0, 4);
     let iso = `${ano}-${dm[2].padStart(2, '0')}-${dm[1].padStart(2, '0')}`;
     if (isoValida(iso)) {
-      if (!dm[3] && iso > hoje) iso = `${Number(ano) - 1}${iso.slice(4)}`;
-      return [resto.replace(dm[0], ' '), iso, Number(dm[1])];
+      // sem ano e no futuro: até 31 dias à frente fica no futuro (e o bot pergunta); mais longe é do ano passado ("28/12" em janeiro)
+      if (!dm[3] && iso > hoje && iso > somaDias(hoje, 31)) iso = `${Number(ano) - 1}${iso.slice(4)}`;
+      return [resto.replace(dm[0], ' '), iso, Number(dm[1]), iso > hoje];
     }
   }
-  if (/ anteontem /.test(resto)) return [resto.replace(/ anteontem /, ' '), somaDias(hoje, -2), null];
-  if (/ ontem /.test(resto)) return [resto.replace(/ ontem /, ' '), somaDias(hoje, -1), null];
+  if (/ anteontem /.test(resto)) return [resto.replace(/ anteontem /, ' '), somaDias(hoje, -2), null, false];
+  if (/ ontem /.test(resto)) return [resto.replace(/ ontem /, ' '), somaDias(hoje, -1), null, false];
+  if (/ (amanha|amanhan) /.test(resto)) return [resto.replace(/ (amanha|amanhan) /, ' '), somaDias(hoje, 1), null, true];
   if (/ (hoje|hj|agora) /.test(resto)) resto = resto.replace(/ (hoje|hj|agora) /, ' ');
   const dd = resto.match(/ dia (\d{1,2}) /);
   if (dd && Number(dd[1]) >= 1 && Number(dd[1]) <= 31) {
     diaSolto = Number(dd[1]);
-    let iso = hoje.slice(0, 8) + dd[1].padStart(2, '0');
-    if (iso > hoje || !isoValida(iso)) { const m = new Date(hoje.slice(0, 8) + '01T12:00:00Z'); m.setUTCMonth(m.getUTCMonth() - 1); iso = m.toISOString().slice(0, 8) + dd[1].padStart(2, '0'); }
+    let iso = hoje.slice(0, 8) + dd[1].padStart(2, '0'), voltou = false;
+    if (iso > hoje || !isoValida(iso)) { const m = new Date(hoje.slice(0, 8) + '01T12:00:00Z'); m.setUTCMonth(m.getUTCMonth() - 1); iso = m.toISOString().slice(0, 8) + dd[1].padStart(2, '0'); voltou = true; }
     if (isoValida(iso)) data = iso;
-    return [resto.replace(dd[0], ' '), data, diaSolto];
+    return [resto.replace(dd[0], ' '), data, diaSolto, voltou];
   }
   for (const [rx, dow] of DIAS_SEMANA) {
     const m = resto.match(new RegExp(` (?:na |no |de |nessa |nesta |essa |esta |ultima |ultimo |passada )?${rx.source}(?:[ -]feira)?(?: passad[ao])? `));
     if (m) {
       const hojeDow = new Date(hoje + 'T12:00:00Z').getUTCDay();
       const volta = (hojeDow - dow + 7) % 7;
-      return [resto.replace(m[0], ' '), somaDias(hoje, -volta), null];
+      return [resto.replace(m[0], ' '), somaDias(hoje, -volta), null, false];
     }
   }
-  return [resto, data, diaSolto];
+  return [resto, data, diaSolto, false];
 }
 
 // o que sobra vira a descrição
@@ -259,7 +263,7 @@ function entenderUma(texto: string, hoje: string, cats: { nome: string; tipo: st
   let diaVenc: number | null = null;
   const tv = resto.match(/ (?:todo dia|(?:que )?(?:vence|vencimento|venc|vencer)(?: (?:no |todo )?dia| em| no| dia)?) (\d{1,2})(?:\/\d{1,2}(?:\/\d{2,4})?)? /);
   if (tv && Number(tv[1]) >= 1 && Number(tv[1]) <= 31) { diaVenc = Number(tv[1]); resto = resto.replace(tv[0], ' '); }
-  const [semData, data, diaSolto] = tirarData(resto, hoje);
+  const [semData, data, diaSolto, dataIncerta] = tirarData(resto, hoje);
   resto = semData;
   if (diaVenc == null) diaVenc = diaSolto;
   // parcelas: "em 10x", "10 parcelas"
@@ -268,7 +272,7 @@ function entenderUma(texto: string, hoje: string, cats: { nome: string; tipo: st
   if (px) { parcelas = Number(px[1]); resto = resto.replace(px[0], ' '); }
 
   // valor: prefere o que tem R$/reais/vírgula; senão o último número
-  const rxNum = /(r\$\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)(\s*(?:mil|k)(?![a-z]))?(\s*(?:reais|real|conto|contos|pila|pilas|mangos|pratas|\$)(?![a-z]))?/g;
+  const rxNum = /(r\$\s*)?(?<![\d.,])(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)(?![\d])(\s*(?:mil|k)(?![a-z]))?(\s*(?:reais|real|conto|contos|pila|pilas|mangos|pratas|\$)(?![a-z]))?/g;
   const achados: { txt: string; valor: number; forte: boolean }[] = [];
   for (const m of resto.matchAll(rxNum)) {
     const v = lerValor((m[2] || '') + (m[3] || ''));
@@ -302,9 +306,10 @@ function entenderUma(texto: string, hoje: string, cats: { nome: string; tipo: st
   // dúvida: categoria desconhecida, valor alto, vários números sem saber qual é o valor, descrição longa
   const duvida = !escolhido ? null
     : categoria === 'Outros' && !ensinou && descNorm ? 'categoria'
-    : achados.length > 1 && !achados.some(a => a.forte) ? 'valor'
+    : (achados.length > 1 && !achados.some(a => a.forte)) || / (reais|real|conto|contos) e \d/.test(t) || /\d,\d{3}/.test(t) ? 'valor'   // "uber 10 reais e 5", "50,999"
     : tipo === 'exp' && escolhido.valor >= 5000 ? 'valor'
-    : descNorm.split(' ').length > 5 ? 'descricao' : null;
+    : descNorm.split(' ').length > 5 ? 'descricao'
+    : dataIncerta ? 'data' : null;
   const lanc: Lanc | null = escolhido ? { tipo, valor: escolhido.valor, data, categoria, descricao: descricao || categoria, duvida } : null;
   if (ehPagamento && descNorm) return { tipo: 'pagar', busca: descNorm, rotulo: descricao || descNorm, valor: escolhido?.valor ?? null, data, lanc };
   if (lanc) return { tipo: 'lancar', lancs: [lanc] };

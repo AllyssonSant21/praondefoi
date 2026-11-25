@@ -9,6 +9,14 @@ const dic = [{ termo: 'drogaria ze', tipo: 'exp', categoria: 'Saúde' }];
 // [frase, resumo esperado]
 const casos: [string, string][] = [
   ['mercado 50', 'lancar exp|Mercado|Mercado|50|2026-11-10'],
+  // datas duvidosas: o bot pergunta antes (25/11/2026)
+  ['mercado 50 11/11', 'lancar exp|Mercado|Mercado|50|2026-11-11 ?data'],
+  ['mercado 50 dia 11', 'lancar exp|Mercado|Mercado|50|2026-10-11 ?data'],
+  ['mercado 50 amanhã', 'lancar exp|Mercado|Mercado|50|2026-11-11 ?data'],
+  ['mercado 50 31/12', 'lancar exp|Mercado|Mercado|50|2025-12-31'],
+  ['mercado 50 09/11', 'lancar exp|Mercado|Mercado|50|2026-11-09'],
+  // valores estranhos: não lança errado
+  ['uber 10 reais e 5', 'lancar exp|Uber e 5|Transporte|10|2026-11-10 ?valor'],
   ['gastei 50 no mercado', 'lancar exp|Mercado|Mercado|50|2026-11-10'],
   ['saida mercado 50', 'lancar exp|Mercado|Mercado|50|2026-11-10'],
   ['Uber 23,90 ontem', 'lancar exp|Uber|Transporte|23.9|2026-11-09'],
