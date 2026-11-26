@@ -19,6 +19,14 @@ const CATS = {
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const brl = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const pad = n => String(n).padStart(2,'0');
+const dataValida = iso => /^\d{4}-\d{2}-\d{2}$/.test(String(iso)) && (d => !isNaN(d) && d.toISOString().slice(0, 10) === iso)(new Date(iso + 'T12:00:00Z'));
+// mesmos limites do banco (supabase-limites-lanc.sql): valor até R$ 9.999.999,99 e data de 1990 até 5 anos à frente
+function foraDoLimite(valor, data){
+  if (valor > 9999999.99) return 'O valor máximo é R$ 9.999.999,99.';
+  const d = new Date(); const max = `${d.getFullYear() + 5}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  if (data && (data < '1990-01-01' || data > max)) return 'A data precisa ser de 1990 até 5 anos à frente.';
+  return '';
+}
 const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const plural = (n,w) => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -343,9 +351,26 @@ document.querySelectorAll('[data-changepass]').forEach(b => b.addEventListener('
   toast('Senha alterada. Os outros aparelhos conectados foram desconectados.', true);
 }));
 
+// saiu da conta: apaga a cópia dos dados guardada neste aparelho (os dados de verdade continuam no banco
+// e voltam no próximo login). A fila do que ainda não foi enviado fica, para ser enviada quando a pessoa entrar de novo;
+// "tudo" (conta excluída) apaga também a fila e as escolhas do aparelho
+function limparAparelho(uid, tudo){
+  if (!uid) return;
+  const chaves = [`pof-cache-${uid}`, `pof-foto-${uid}`];
+  if (tudo) chaves.push(`pof-fila-${uid}`, `pof-controle-${uid}`, `pof-boasvindas-${uid}`);
+  chaves.forEach(k => { try { localStorage.removeItem(k); } catch(e){} });
+}
+
 document.querySelectorAll('[data-logout]').forEach(b => b.addEventListener('click', async () => {
+  const uid = currentUser && currentUser.id;
+  if (uid && lerFila().length){
+    if (navigator.onLine && !modoSemInternet) await enviarFila();   // com internet, manda o que ficou pendente antes de sair
+    const n = lerFila().length;
+    if (n && !await confirmar(`Sair mesmo assim?\n\n${n === 1 ? 'Um lançamento ainda não foi enviado. Ele fica guardado' : `${n} lançamentos ainda não foram enviados. Eles ficam guardados`} neste aparelho e ${n === 1 ? 'é enviado' : 'são enviados'} quando você entrar de novo nele, com internet.`, 'Sair')) return;
+  }
   try { sessionStorage.removeItem('pof-aba-sessao'); } catch(e){}   // saiu da conta: na próxima entrada abre no Início
   await sb.auth.signOut({ scope: 'local' });   // só este aparelho; a outra sessão guardada (sua conta / master) continua
+  limparAparelho(uid, false);
   if (MODO_ADMIN) irPara('');
 }));
 
@@ -794,6 +819,36 @@ async function loadCategorias(){
 const ICONE_APP = { 'Mercado':'🛒', 'Alimentação':'🍽️', 'Dívidas':'📉', 'Moradia':'🏠', 'Contas':'🧾', 'Transporte':'🚗', 'Saúde':'💊', 'Lazer':'🎉', 'Educação':'📚',
   'Outros':'📦', 'Salário':'💰', 'Renda extra':'💸', 'Metas':'🎯', 'Cartão de crédito':'💳' };
 const iconeCat = nome => { const c = categorias.find(x => x.nome === nome); return (c && c.icone) || ICONE_APP[nome] || ''; };
+// visual novo: ícones de linha (um só estilo) para as categorias do app; as personalizadas mantêm o emoji escolhido
+const ICO_LINHA = {
+  'Moradia':'<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  'Mercado':'<path d="M3 4h2l2.4 11h10.2L20 7H6.2"/><circle cx="9" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/>',
+  'Saúde':'<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
+  'Outros':'<path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/>',
+  'Contas':'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+  'Transporte':'<path d="M4 16v-4l2.2-5.2A2 2 0 0 1 8 5.5h8a2 2 0 0 1 1.8 1.3L20 12v4"/><path d="M4 16h16v2.5H4zM7.5 12.5h1M15.5 12.5h1"/>',
+  'Educação':'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/>',
+  'Alimentação':'<path d="M6 3v8a2 2 0 0 0 2 2v8M10 3v8M6 7h4M17 3c-2 2-2 6 0 8v10"/>',
+  'Lazer':'<path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4z"/><path d="M14 7v10"/>',
+  'Salário':'<path d="M3 7h18v10H3z"/><circle cx="12" cy="12" r="2.5"/>',
+  'Renda extra':'<path d="M3 7h18v10H3z"/><circle cx="12" cy="12" r="2.5"/>',
+  'Dívidas':'<path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/>',
+  'Metas':'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  'Cartão de crédito':'<path d="M3 6h18v12H3z"/><path d="M3 10h18"/>',
+};
+const icoCat = nome => {
+  const c = categorias.find(x => x.nome === nome);
+  if (c && c.icone) return `<span class="vn-emo" aria-hidden="true">${esc(c.icone)}</span>`;
+  return ICO_LINHA[nome] ? `<svg class="vn-ic" viewBox="0 0 24 24" aria-hidden="true">${ICO_LINHA[nome]}</svg>` : '';
+};
+const catHtml = nome => `<span class="vn-cat">${icoCat(nome)}<span>${esc(nome)}</span></span>`;
+const SEMANA = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+const MES_ABR = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function diaRotulo(iso){
+  const hoje = todayISO(), d = new Date(iso + 'T12:00:00'), dia = Number(iso.slice(8, 10));
+  const ontem = (() => { const x = new Date(); x.setDate(x.getDate() - 1); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; })();
+  return iso === hoje ? `Hoje, ${dia}` : iso === ontem ? `Ontem, ${dia}` : `${SEMANA[d.getDay()]}, ${dia}`;
+}
 // rótulo com o emoji, valor só com o nome (é o que fica gravado no lançamento)
 const rotuloCat = nome => { const i = iconeCat(nome); return i ? `${i} ${nome}` : nome; };
 function listaCats(tipo, atual){
@@ -896,6 +951,7 @@ $('form').addEventListener('submit', async e => {
   const desc = $('desc').value.trim(), amount = parseAmount($('amount').value);
   if (!desc) return showError('Escreva uma descrição.');
   if (!(amount > 0)) return showError('Informe um valor maior que zero.');
+  { const lim = foraDoLimite(amount, $('date').value); if (lim) return showError(lim); }
   if (!state.cid) return showError('Escolha um controle primeiro.');
   if (!$('pagComWrap').hidden && findCartao($('pagCom').value)){ await salvarCompraForm(desc, amount); return; }
   const alvo = vincAlvo();
@@ -1008,20 +1064,25 @@ function guardarSemInternet(id, entry){
   toast('Sem internet: guardado no celular. Envio quando a conexão voltar ⏳', true);
   $('desc').focus();
 }
+const filaAvisada = new Set();   // avisa uma vez só de cada lançamento recusado (a fila é tentada a cada 30 s)
 async function enviarFila(){
   if (enviandoFila || !navigator.onLine || !currentUser || !profile) return atualizarFaixa();
   if (modoSemInternet){ modoSemInternet = false; return handleSession((await sb.auth.getSession()).data.session, true); }   // abriu sem internet: carrega tudo de verdade
   const fila = lerFila();
   if (!fila.length) return atualizarFaixa();
   enviandoFila = true; atualizarFaixa();
-  let enviados = 0, caiu = false;
+  let enviados = 0, caiu = false, recusados = 0;
   for (const i of fila){
     const { error } = await sb.from('lancamentos').insert({ ...i.row, id: i.id, controle_id: i.controle_id });
     if (error && error.code !== '23505' && ehRede(error)){ caiu = true; break; }   // a internet caiu de novo: tenta depois
-    if (error && error.code !== '23505') toast(`Não deu para enviar "${i.row.descricao}": ${rpcMsg(error)}`);
-    else enviados++;
+    // outro erro (servidor fora do ar, sessão vencida, controle apagado…): NÃO apaga. Fica na fila com ⏳
+    // e é tentado de novo depois; se não tiver mais jeito, a pessoa exclui pelo X do lançamento
+    if (error && error.code !== '23505'){ if (!filaAvisada.has(i.id)){ filaAvisada.add(i.id); recusados++; } continue; }
+    enviados++;
     gravarFila(lerFila().filter(x => x.id !== i.id));
   }
+  if (recusados) toast(recusados === 1 ? 'Um lançamento feito sem internet ainda não foi enviado. Continua guardado neste aparelho (⏳) e vou tentar de novo.'
+    : `${recusados} lançamentos feitos sem internet ainda não foram enviados. Continuam guardados neste aparelho (⏳) e vou tentar de novo.`);
   enviandoFila = false;
   if (enviados){ toast(`${plural(enviados, 'lançamento')} guardado${enviados > 1 ? 's' : ''} sem internet ${enviados > 1 ? 'foram enviados' : 'foi enviado'} ✅`, true); await refresh(); }
   atualizarFaixa();
@@ -1129,7 +1190,7 @@ function rpRodape(){
   const tot = rp.itens.filter(i => i.sel);
   const soma = tot.reduce((a, i) => a + (i.type === 'exp' ? -i.amount : i.amount), 0);
   el.innerHTML = `<span class="hint">${plural(tot.length, 'lançamento')} · saldo ${soma < 0 ? '−' : '+'}${brl(Math.abs(soma))}</span>
-    <button class="btn btn-primary" type="button" data-rp="lancar"${tot.length ? '' : ' disabled'}>Lançar ${tot.length || ''}</button>`;
+    <button class="btn btn-primary" type="button" data-rp="lancar"${tot.length && !rp.salvando ? '' : ' disabled'}>${rp.salvando ? 'Lançando…' : `Lançar ${tot.length || ''}`}</button>`;
 }
 
 // texto → itens (frase inteira; se não der, linha por linha)
@@ -1183,7 +1244,13 @@ function dataBanco(v){
   const s = String(v || '').trim();
   let m = s.match(/^(\d{4})-?(\d{2})-?(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`;
   m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
-  if (m){ const a = m[3].length === 2 ? '20' + m[3] : m[3]; return `${a}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; }
+  if (m){
+    const a = m[3].length === 2 ? '20' + m[3] : m[3];
+    let [d, mes] = [m[1], m[2]];
+    if (Number(mes) > 12 && Number(d) <= 12) [d, mes] = [mes, d];   // formato americano (mês/dia): 11/25/2026
+    const iso = `${a}-${mes.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    return dataValida(iso) ? iso : '';
+  }
   return '';
 }
 function descBonita(d){
@@ -1198,7 +1265,8 @@ function descBonita(d){
 function lerOFX(txt){
   return txt.split(/<STMTTRN>/i).slice(1).map(b => {
     const tag = n => ((b.match(new RegExp(`<${n}>([^<\\r\\n]*)`, 'i')) || [])[1] || '').trim();
-    const v = numBanco(tag('TRNAMT').replace(',', '.'));
+    const bruto = tag('TRNAMT');   // padrão do OFX é ponto decimal (-1234.56); alguns bancos mandam no formato brasileiro (-1.234,56)
+    const v = bruto.includes(',') ? numBanco(bruto) : parseFloat(bruto.replace(/[^\d.+-]/g, ''));
     return { valor: v, data: dataBanco(tag('DTPOSTED')), desc: tag('MEMO') || tag('NAME') || tag('PAYEE') };
   });
 }
@@ -1242,7 +1310,7 @@ async function rpArquivo(file){
   if (txt.includes('�')) txt = new TextDecoder('windows-1252').decode(buf);   // extrato antigo em Latin-1
   const ofx = /<OFX>|<STMTTRN>/i.test(txt);
   let { itens, cartao } = ofx ? { itens: lerOFX(txt), cartao: false } : lerCSV(txt);
-  itens = itens.filter(i => i.data && isFinite(i.valor) && i.valor !== 0);
+  itens = itens.filter(i => dataValida(i.data) && isFinite(i.valor) && i.valor !== 0);
   if (!itens.length){ rp.itens = []; rp.aviso = 'Não consegui ler esse arquivo. Exporte o extrato em <b>OFX</b> ou <b>CSV</b> no app do banco e tente de novo.'; return renderRapido(); }
   let cortados = 0;
   if (itens.length > 300){ itens.sort((a, b) => b.data.localeCompare(a.data)); cortados = itens.length - 300; itens = itens.slice(0, 300); }
@@ -1349,17 +1417,33 @@ async function rpGravar(){
 }
 
 async function rpLancar(){
+  if (rp.salvando) return;   // segundo toque enquanto envia: ignora (senão lançaria em dobro)
   const sel = rp.itens.filter(i => i.sel);
-  const ruim = sel.find(i => !i.desc.trim() || !(i.amount > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(i.date));
+  const ruim = sel.find(i => !i.desc.trim() || !(i.amount > 0) || !dataValida(i.date));
   if (ruim) return toast(`Confira "${ruim.desc || 'sem descrição'}": falta descrição, valor ou data.`);
-  const rows = sel.map(i => ({ ...toRow({ type: i.type, desc: i.desc.trim(), cat: i.cat, amount: i.amount, date: i.date }), id: novoId(), controle_id: state.cid }));
-  const b = document.querySelector('[data-rp="lancar"]'); if (b) b.disabled = true;
-  for (let k = 0; k < rows.length; k += 200){
-    const { error } = await sb.from('lancamentos').insert(rows.slice(k, k + 200));
-    if (error){ if (b) b.disabled = false; return showError(`Não deu para lançar${k ? ` (${k} já foram)` : ''}. ${ehRede(error) ? 'Sem internet.' : 'Tente de novo.'}`); }
+  const fora = sel.find(i => foraDoLimite(i.amount, i.date));
+  if (fora) return toast(`Confira "${fora.desc}". ${foraDoLimite(fora.amount, fora.date)}`);
+  // o id de cada item é criado uma vez só: se der erro no meio e a pessoa tentar de novo, o que já foi não vai de novo
+  sel.forEach(i => { if (!i.id) i.id = novoId(); });
+  const cid = state.cid;
+  rp.salvando = true; rp.aviso = ''; renderRapido();
+  let feitos = 0;
+  for (let k = 0; k < sel.length; k += 200){
+    const lote = sel.slice(k, k + 200);
+    const { error } = await sb.from('lancamentos').insert(lote.map(i => ({ ...toRow({ type: i.type, desc: i.desc.trim(), cat: i.cat, amount: i.amount, date: i.date }), id: i.id, controle_id: cid })));
+    if (error){
+      rp.salvando = false;
+      rp.itens = rp.itens.filter(i => !i.feito);
+      rp.aviso = `⚠️ Não deu para lançar${feitos ? ` todos: ${feitos} já foram e saíram da lista` : ''}. ${ehRede(error) ? 'Sem internet: confira a conexão e' : 'Confira os itens e'} toque em Lançar de novo.`;
+      renderRapido();
+      if (feitos) refresh();
+      return;
+    }
+    lote.forEach(i => { i.feito = true; }); feitos += lote.length;
   }
+  rp.salvando = false;
   closeDlg2();
-  toast(`${plural(rows.length, 'lançamento')} ${rows.length > 1 ? 'feitos' : 'feito'} ✅`, true);
+  toast(`${plural(feitos, 'lançamento')} ${feitos > 1 ? 'feitos' : 'feito'} ✅`, true);
   await refresh();
 }
 
@@ -1478,13 +1562,26 @@ $('rows').addEventListener('click', async e => {
   const ed = e.target.closest('[data-edit]');
   if (ed) return openLancEdit(ed.dataset.edit);
   const b = e.target.closest('[data-del]');
-  if (!b) return;
-  const id = b.dataset.del;
+  if (b) return excluirLanc(b.dataset.del);
+  // visual novo: tocar na linha abre editar (lá dentro também dá para excluir)
+  const tr = e.target.closest('tr[data-abrir]');
+  if (tr && !e.target.closest('a,button')) return openLancEdit(tr.dataset.abrir);
+});
+$('rows').addEventListener('keydown', e => {
+  const tr = e.target.closest && e.target.closest('tr[data-abrir]');
+  if (tr && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); openLancEdit(tr.dataset.abrir); }
+});
+async function excluirLanc(id){
   const ent = state.entries.find(x => x.id === id);
   if (ent && ent.pend){   // ainda não foi enviado: só tira da fila deste celular
+    if (enviandoFila) return toast('Enviando os lançamentos guardados… Tente de novo em alguns segundos.');   // ele pode estar subindo agora
     if (!await confirmar(`Excluir "${ent.desc}"? Ele ainda não foi enviado.`)) return;
+    if (enviandoFila) return toast('Enviando os lançamentos guardados… Tente de novo em alguns segundos.');
     gravarFila(lerFila().filter(i => i.id !== id)); state.entries = state.entries.filter(x => x.id !== id); render(); atualizarFaixa(); return;
   }
+  // meta e investimento: excluir só a saída deixaria o dinheiro contado lá (conta e fatura voltam a ficar em aberto sozinhas)
+  const vinc = ent ? await vinculoDoLanc(id) : null;
+  if (vinc && /meta|investimento/.test(vinc)) return toast(`${vinc} Para excluir, desfaça o movimento na aba ${vinc.includes('meta') ? 'Metas' : 'Investimentos'}: o lançamento sai junto.`);
   if (ent && !await confirmar(`Excluir este lançamento?
 
 ${ent.desc} · ${ent.type === 'inc' ? '+' : '−'} ${brl(ent.amount)}`)) return;
@@ -1494,18 +1591,35 @@ ${ent.desc} · ${ent.type === 'inc' ? '+' : '−'} ${brl(ent.amount)}`)) return;
   const { error, count } = await sb.from('lancamentos').delete({ count: 'exact' }).eq('id', id);
   if (error || count === 0){ state.entries = before; render(); toast('Não foi possível excluir. Tente de novo.'); return; }
   if (state.contas.length && await loadContas()) renderContas();   // se era o pagamento de uma conta, ela volta a ficar em aberto
-});
+}
+
+/* ---------- lançamento que veio de outra aba ----------
+   Pagamento de conta ou de fatura, meta e investimento guardam o lançamento que criaram. Editar o valor aqui deixaria
+   os dois diferentes; excluir o de meta ou investimento deixaria o dinheiro contado lá e sumido daqui.
+   Devolve a frase que explica de onde veio (ou null). */
+async function vinculoDoLanc(id){
+  const nomeDe = (lista, x) => { const o = (lista || []).find(y => y.id === x); return o ? ` "${o.nome}"` : ''; };
+  const [pg, mm, pf, im] = await Promise.all([
+    sb.from('pagamentos').select('conta_id').eq('lancamento_id', id).limit(1),
+    sb.from('meta_movs').select('meta_id').eq('lancamento_id', id).limit(1),
+    sb.from('pag_faturas').select('cartao_id').eq('lancamento_id', id).limit(1),
+    sb.from('inv_movs').select('investimento_id').eq('lancamento_id', id).limit(1)
+  ]);
+  const tem = r => r && r.data && r.data.length ? r.data[0] : null;
+  let x;
+  if ((x = tem(pg))) return `Esse lançamento é o pagamento da conta${nomeDe(state.contas, x.conta_id)}.`;
+  if ((x = tem(pf))) return `Esse lançamento é o pagamento da fatura do cartão${nomeDe(state.cartoes, x.cartao_id)}.`;
+  if ((x = tem(mm))) return `Esse lançamento veio da meta${nomeDe(state.metas, x.meta_id)}.`;
+  if ((x = tem(im))) return `Esse lançamento veio do investimento${nomeDe(state.invs, x.investimento_id)}.`;
+  return null;
+}
 
 /* ---------- editar um lançamento (lápis) ---------- */
 async function openLancEdit(id){
   const ent = state.entries.find(x => x.id === id); if (!ent) return;
-  // lançamentos criados por pagamento de conta ou por meta mudam por lá, para os valores não ficarem diferentes
-  const [pg, mm] = await Promise.all([
-    sb.from('pagamentos').select('conta_id').eq('lancamento_id', id).limit(1),
-    sb.from('meta_movs').select('meta_id').eq('lancamento_id', id).limit(1)
-  ]);
-  if (pg.data && pg.data.length){ const c = findConta(pg.data[0].conta_id); return toast(`Esse lançamento é o pagamento da conta ${c ? '"' + c.nome + '"' : ''}. Para mudar, desfaça o pagamento na aba Contas a pagar.`); }
-  if (mm.data && mm.data.length){ const m = state.metas.find(x => x.id === mm.data[0].meta_id); return toast(`Esse lançamento veio da meta ${m ? '"' + m.nome + '"' : ''}. Para mudar, desfaça o movimento na aba Metas.`); }
+  // lançamentos criados por conta, fatura, meta ou investimento mudam por lá, para os valores não ficarem diferentes
+  const v = await vinculoDoLanc(id);
+  if (v) return toast(`${v} Para mudar, ${v.includes('meta') ? 'desfaça o movimento na aba Metas' : v.includes('investimento') ? 'desfaça o movimento na aba Investimentos' : v.includes('fatura') ? 'desfaça o pagamento na aba Cartões' : 'desfaça o pagamento na aba Contas a pagar'}.`);
   const tipoBtn = (t, lab) => `<button type="button" data-letipo="${t}" aria-pressed="${ent.type === t}">${lab}</button>`;
   openDlg2('Editar lançamento', ent.desc, `
     <div class="seg" id="leTipo" role="group" aria-label="Tipo" style="align-self:flex-start;">${tipoBtn('exp','Saída')}${tipoBtn('inc','Entrada')}</div>
@@ -1515,7 +1629,8 @@ async function openLancEdit(id){
       <div class="field"><label for="leCat">Categoria</label><select class="input" id="leCat"></select></div>
     </div>
     <div class="field"><label for="leData">Data</label><input class="input" id="leData" type="date" value="${esc(ent.date)}"></div>
-    <button class="btn btn-primary" type="button" data-act="leSalvar" style="min-height:44px;">Salvar alterações</button>`,
+    <button class="btn btn-primary" type="button" data-act="leSalvar" style="min-height:44px;">Salvar alterações</button>
+    <button class="btn btn-ghost vn-excluir" type="button" data-act="leExcluir" style="min-height:44px;">Excluir lançamento</button>`,
     { tipo: 'lancEdit', id, letipo: ent.type, cat: ent.cat });
   leCats();
 }
@@ -1527,11 +1642,13 @@ $('dlg2Body').addEventListener('click', async e => {
   if (dlg2.tipo !== 'lancEdit') return;
   const t = e.target.closest('[data-letipo]');
   if (t){ dlg2.letipo = t.dataset.letipo; document.querySelectorAll('#leTipo [data-letipo]').forEach(b => b.setAttribute('aria-pressed', String(b === t))); leCats(); return; }
+  if (e.target.closest('[data-act="leExcluir"]')){ const id = dlg2.id; closeDlg2(); return excluirLanc(id); }
   const b = e.target.closest('[data-act="leSalvar"]'); if (!b) return;
   const desc = $('leDesc').value.trim(), valor = parseAmount($('leValor').value), data = $('leData').value;
   if (!desc) return toast('Escreva uma descrição.');
   if (!(valor > 0)) return toast('Informe um valor maior que zero.');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return toast('Escolha a data.');
+  { const lim = foraDoLimite(valor, data); if (lim) return toast(lim); }
   b.disabled = true;
   const novo = { type: dlg2.letipo, desc, cat: $('leCat').value, amount: valor, date: data };
   const { data: row, error } = await sb.from('lancamentos').update(toRow(novo)).eq('id', dlg2.id).select(colsLanc()).single();
@@ -1736,15 +1853,18 @@ function render(){
   $('empty').hidden = shown.length > 0;
   $('empty').textContent = busca ? `Nada encontrado para “${state.busca.trim()}” neste mês.` : fc ? `Nenhum gasto em ${rotuloCat(fc)} neste mês.` : !f ? 'Nenhum lançamento neste mês. Use o formulário acima para adicionar o primeiro.'
     : f === 'inc' ? 'Nenhuma entrada neste mês.' : 'Nenhuma saída neste mês.';
+  let diaAnt = '';
   $('rows').innerHTML = shown.map(e => {
     const mine = currentUser && e.uid === currentUser.id;
-    return `
-    <tr>
-      <td style="color:var(--muted);">${e.date.slice(8,10)}/${e.date.slice(5,7)}</td>
-      <td><span class="ldesc">${(pc => pc ? `${esc(pc.nome)} ${parcelaTag(pc.n, pc.tot)}` : esc(e.desc))(parcelaDoNome(e.desc))}</span>${origemSelo(e, 'd')}${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<div class="lmeta">${e.date.slice(8,10)}/${e.date.slice(5,7)} · ${esc(rotuloCat(e.cat))}${shared ? ` · ${mine ? 'você' : esc(nameOf(e.uid))}` : ''}${origemSelo(e, 'm')}</div><span class="tag cat-inline ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
-      <td><span class="tag ${e.type === 'inc' ? 'tag-green' : 'tag-neutral'}">${esc(rotuloCat(e.cat))}</span></td>
-      <td style="text-align:right;white-space:nowrap;font-weight:500;color:${e.type === 'inc' ? 'var(--green)' : 'var(--out)'};">${e.type === 'inc' ? '+ ' : '− '}${brl(e.amount)}</td>
-      <td style="text-align:right;white-space:nowrap;">${e.pend ? `<span class="pend-tag" title="Será enviado quando a internet voltar">⏳ aguardando</span><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : mine ? `<button class="btn btn-ghost btn-icon" data-edit="${esc(e.id)}" style="color:var(--muted);" aria-label="Editar ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</td>
+    const abre = mine && !e.pend;   // tocar na linha abre editar (e lá dentro, excluir)
+    const cab = e.date !== diaAnt ? (diaAnt = e.date, `<tr class="vn-dia"><td colspan="5">${diaRotulo(e.date)}</td></tr>`) : '';
+    return cab + `
+    <tr class="vn-l"${abre ? ` data-abrir="${esc(e.id)}" tabindex="0" aria-label="Editar ${esc(e.desc)}"` : ''}>
+      <td class="vn-d">${Number(e.date.slice(8,10))} ${MES_ABR[Number(e.date.slice(5,7)) - 1]}</td>
+      <td><span class="ldesc">${(pc => pc ? `${esc(pc.nome)} ${parcelaTag(pc.n, pc.tot)}` : esc(e.desc))(parcelaDoNome(e.desc))}</span>${origemSelo(e, 'd')}${shared ? `<div class="by">por ${esc(nameOf(e.uid))}</div>` : ''}<div class="lmeta">${catHtml(e.cat)}${shared ? ` · ${mine ? 'você' : esc(nameOf(e.uid))}` : ''}${origemSelo(e, 'm')}</div></td>
+      <td>${catHtml(e.cat)}</td>
+      <td class="${e.type === 'inc' ? 'vn-in' : 'vn-out'}" style="text-align:right;white-space:nowrap;">${e.type === 'inc' ? '+' : '−'}${brl(e.amount)}</td>
+      <td style="text-align:right;white-space:nowrap;">${e.pend ? `<span class="pend-tag" title="Será enviado quando a internet voltar">⏳ aguardando</span><button class="btn btn-ghost btn-icon" data-del="${esc(e.id)}" style="color:var(--muted);" aria-label="Excluir ${esc(e.desc)}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>` : ''}</td>
     </tr>`;
   }).join('');
 
@@ -1767,6 +1887,19 @@ function render(){
   renderInvest();
   vincOpcoes();
   pagComOpcoes();
+  // visual novo: a fita do mês (pra onde foi o dinheiro), as 4 maiores categorias e o resto junto
+  { const el = $('vnFita');
+    el.hidden = !list.length;
+    if (list.length){
+      const cores = ['var(--vn-gold)', 'var(--vn-i2)', 'var(--vn-i3)', 'var(--vn-i4)'];
+      const top = list.slice(0, 4), resto = list.slice(4), vResto = r2(resto.reduce((t, [, v]) => t + v, 0));
+      const pct = v => totalGastos ? v / totalGastos * 100 : 0;
+      const partes = top.map(([n, v], i) => ({ n, v, cor: cores[i] })).concat(resto.length ? [{ n: resto.length === 1 ? resto[0][0] : `mais ${resto.length}`, v: vResto, cor: 'var(--vn-i5)', resto: resto.length > 1 }] : []);
+      el.innerHTML = `<div class="vn-fita-cab"><span>Pra onde foi</span><span class="num">${brl(totalGastos)} em gastos</span></div>
+        <div class="vn-fita-barra" role="img" aria-label="${esc(partes.map(p => `${p.n} ${Math.round(pct(p.v))}%`).join(', '))}">${partes.map(p => `<span style="width:${pct(p.v).toFixed(2)}%;background:${p.cor}"></span>`).join('')}</div>
+        <div class="vn-fita-leg num">${partes.map((p, i) => `<span><i style="background:${p.cor}"></i>${i === 0 ? `<b>${esc(p.n)}</b>` : esc(p.n)} ${Math.round(pct(p.v))}%</span>`).join('')}</div>`;
+    }
+  }
   const fcat = state.filtroCat;
   $('cats').classList.toggle('filtrando', !!fcat);
   $('cats').innerHTML = list.length ? list.map(([name,v]) => `
@@ -1943,9 +2076,9 @@ function alertas(){
 }
 
 const TITULOS = { inicio: 'Geral', lanc: 'Lançamentos', cartoes: 'Cartões', contas: 'Contas a pagar', metas: 'Metas', invest: 'Investimentos' };
-// o aviso de contas vencidas só aparece em Contas a pagar (nas outras abas fica só o número no menu)
+// o aviso de contas vencidas aparece em Contas a pagar e em Lançamentos (nas outras abas fica só o número no menu)
 function syncAlerta(){
-  $('billAlert').hidden = !state.alertaN || !modOn('contas') || state.tab !== 'contas';
+  $('billAlert').hidden = !state.alertaN || !modOn('contas') || !['contas', 'lanc'].includes(state.tab);   // visual novo: também em Lançamentos
 }
 function renderTabs(){
   document.body.classList.toggle('aba-lanc', state.tab === 'lanc');
@@ -1997,7 +2130,7 @@ function itensAtencao(){
   const itens = [], agora = new Date();
   if (modOn('contas') || cartaoOn()){
     const { late, hoje } = alertas();
-    if (late) itens.push({ k: 'Vencidas', b: plural(late, 'conta vencida').replace('contas vencida', 'contas vencidas'), s: 'conta atrasada pode virar dívida', ir: 'contas', vm: true });
+    if (late) itens.push({ k: 'Vencidas', b: late === 1 ? '1 conta vencida' : `${late} contas vencidas`, s: 'conta atrasada pode virar dívida', ir: 'contas', vm: true });
     if (hoje) itens.push({ k: 'Vence hoje', b: hoje === 1 ? '1 conta vence hoje' : `${hoje} contas vencem hoje`, s: 'pague para não atrasar', ir: 'contas' });
   }
   if (cartaoOn()){
@@ -2247,6 +2380,34 @@ function contasListaDoMes(mk){
     .filter(i => !(i.antes && i.c.tipo === 'parcelada' && i.pago === 0))
     .sort((a, b) => (a.paid - b.paid) || (a.due - b.due) || a.c.nome.localeCompare(b.c.nome)));
 }
+// visual novo: quantos dias de atraso (a partir do dia seguinte ao vencimento)
+function atrasoTxt(due){
+  const h = new Date(); h.setHours(0, 0, 0, 0);
+  const d = Math.round((h - new Date(due.getFullYear(), due.getMonth(), due.getDate())) / 864e5);
+  return d <= 0 ? 'Vencida' : `${plural(d, 'dia')} de atraso`;
+}
+// visual novo: a régua do mês. Cada conta é um ponto no dia em que vence (cinza = paga, vermelho = vencida,
+// dourado = em aberto) e uma linha marca hoje, quando é o mês atual
+function desenharRegua(list, fats, mk){
+  const el = $('vnRegua'); if (!el) return;
+  const y = Number(mk.slice(0, 4)), m = Number(mk.slice(5, 7)) - 1, nd = ultimoDia(y, m);
+  const pts = list.filter(i => i.due.getFullYear() === y && i.due.getMonth() === m)
+    .map(i => ({ d: i.due.getDate(), cls: i.paid ? 'paga' : i.st === 'late' ? 'venc' : 'aberta', nome: i.c.nome }))
+    .concat(fats.filter(f => f.vence && f.vence.getMonth() === m && f.vence.getFullYear() === y && f.st !== 'vazia')
+      .map(f => ({ d: f.vence.getDate(), cls: f.st === 'paga' ? 'paga' : f.st === 'vencida' ? 'venc' : 'aberta', nome: 'Fatura ' + f.k.nome })));
+  el.hidden = !pts.length;
+  if (!pts.length){ el.innerHTML = ''; return; }
+  const pos = d => ((d - 1) / Math.max(1, nd - 1) * 100).toFixed(2);
+  const h = new Date(), atual = h.getFullYear() === y && h.getMonth() === m;
+  const falta = nd - h.getDate();
+  el.innerHTML = `<div class="vn-regua-cab"><span>Vencimentos de ${MONTHS[m].toLowerCase()}</span><span>${atual ? (falta ? `faltam ${plural(falta, 'dia')}` : 'último dia do mês') : ''}</span></div>
+    <div class="vn-regua-trilho">
+      <div class="vn-regua-linha"></div>${atual ? `<div class="vn-regua-feito" style="width:${pos(h.getDate())}%"></div>` : ''}
+      ${pts.map(p => `<span class="vn-regua-pt ${p.cls}" style="left:${pos(p.d)}%" title="${esc(p.nome)} · dia ${p.d}"></span>`).join('')}
+      ${atual ? `<div class="vn-regua-hoje" style="left:${pos(h.getDate())}%"><span>hoje</span></div>` : ''}
+    </div>
+    <div class="vn-regua-eixo"><span>1 ${MES_ABR[m]}</span><span>15</span><span>${nd} ${MES_ABR[m]}</span></div>`;
+}
 function renderContas(){
   agendarInicio();
   const { late, hoje } = alertas();
@@ -2293,18 +2454,24 @@ function renderContas(){
 
   $('billEmpty').hidden = nTot > 0;
   $('billEmpty').textContent = 'Nenhuma conta neste mês. Toque em "Nova conta" para cadastrar aluguel, luz, cartão…';
-  $('billList').innerHTML = list.map(i => {
+  const grupoDe = i => i.paid ? 'Pagas' : (i.mk !== mk || i.st === 'late') ? 'Vencidas' : 'Próximas';
+  const ordem = ['Vencidas', 'Próximas', 'Pagas'];
+  const lista = ordem.flatMap(g => list.filter(i => grupoDe(i) === g));
+  let grupoAnt = '';
+  desenharRegua(list, fats, mk);
+  $('billList').innerHTML = lista.map(i => {
+    const g = grupoDe(i), cab = g !== grupoAnt ? (grupoAnt = g, `<div class="vn-grupo">${g}</div>`) : '';
     const c = i.c;
     const dvd = state.contaDivida[c.id];
     const tag = i.paid ? '<span class="tag tag-neutral">Paga ✓</span>'
       : i.mk !== mk ? `<span class="tag tag-red">Atrasada desde ${ddmm(i.due)}</span>`
-      : i.st === 'late' ? `<span class="tag tag-red">Vencida</span>`
+      : i.st === 'late' ? `<span class="tag tag-red">${atrasoTxt(i.due)}</span>`
       : i.antes ? ''
       : i.days === 0 ? '<span class="tag tag-accent">Vence hoje</span>'
       : i.st === 'soon' ? `<span class="tag tag-accent">Vence em ${plural(i.days, 'dia')}</span>`
       : i.pago > 0 ? '<span class="tag tag-neutral">Parcial</span>' : '';
     const linha2 = [esc(rotuloCat(c.categoria)), `vence ${ddmm(i.due)}`, (!i.paid && i.pago > 0) ? `pago ${brl(i.pago)} de ${brl(i.total)}` : ''].filter(Boolean).join(' · ');
-    return `
+    return cab + `
     <div class="bill ${i.mk !== mk ? 'late' : i.st}" data-bill="${esc(c.id)}">
       <div class="bill-day"><b>${i.due.getDate()}</b><small>${MES_CURTO[i.due.getMonth()]}</small></div>
       <div style="min-width:0;">
@@ -2315,7 +2482,7 @@ function renderContas(){
       </div>
       <div class="bill-side">
         <span class="bill-val">${brl(i.total)}</span>
-        <span class="bill-act" style="display:flex;gap:6px;align-items:center;">${tag}${i.paid ? '' : `<button class="btn btn-primary btn-sm" data-pay="${esc(c.id)}" data-mk="${esc(i.mk)}" type="button" aria-label="Pagar ${esc(c.nome)}">Pagar</button>`}</span>
+        <span class="bill-act" style="display:flex;gap:6px;align-items:center;">${tag}${i.paid ? '' : `<button class="btn btn-secondary btn-sm vn-pagar" data-pay="${esc(c.id)}" data-mk="${esc(i.mk)}" type="button" aria-label="Pagar ${esc(c.nome)}">Pagar</button>`}</span>
       </div>
     </div>`;
   }).join('') + (fats.length ? `<div class="kicker" style="margin:var(--space-4) 0 0;">Faturas de cartão</div>` + fats.map(fatHtml).join('') : '');
@@ -2786,7 +2953,7 @@ function infoMeta(m){
 // "Concluída em nov/2026 · levou 3 meses" / "Usada em nov/2026"
 function conquistaMeta(m, i, curto){
   const mk = d => d ? d.slice(0, 7) + '-01' : null;
-  const fim = mk(m.concluida_em) || mk(new Date().toISOString());
+  const fim = mk(m.concluida_em) || mk(todayISO());   // hoje no horário do aparelho (toISOString é de Londres: virava o mês às 21h)
   const n = Math.max(0, mdiff(mk(m.criado_em), fim));
   const levou = n === 0 ? 'em menos de 1 mês' : `levou ${plural(n, 'mês').replace('mêss', 'meses')}`;
   if (i.enc) return curto ? `Em ${mesCurto(mk(m.encerrada_em))}` : `Usada em ${mesCurto(mk(m.encerrada_em))} · ${brl(i.juntado)}`;
@@ -3721,7 +3888,7 @@ function renderCartoes(){
   $('kcProxNote').textContent = faltaMes > 0 ? `A pagar ainda em ${nomeMes}: ${brl(faltaMes)}`
     : um ? ({ vazia: `Fecha ${ddmm(um.fecha)} · vence ${ddmm(um.vence)}`, paga: 'Paga ✓', aberta: `Fecha ${ddmm(um.fecha)} · vence ${ddmm(um.vence)}`,
               fechada: `Fechada · vence ${ddmm(um.vence)}`, vencida: `Vencida em ${ddmm(um.vence)}` })[um.st]
-    : !lista.length ? '' : mesesAbertos.length === 1 ? `Vence em ${mesNome(mesesAbertos[0])}` : plural(lista.length, 'cartão');
+    : !lista.length ? '' : mesesAbertos.length === 1 ? `Vence em ${mesNome(mesesAbertos[0])}` : plural(lista.length, 'cartão').replace('cartãos', 'cartões');
   // 3) limite
   const comLimite = lista.filter(k => Number(k.limite) > 0);
   const limite = r2(comLimite.reduce((s, k) => s + Number(k.limite), 0));
@@ -3789,7 +3956,7 @@ function fatHtml(i, naAbaCartoes){
       </div>
       <div class="bill-side">
         <span class="bill-val">${brl(i.total)}</span>
-        <span class="bill-act" style="display:flex;gap:6px;align-items:center;">${tag}${naAbaCartoes && state.cart2 && i.st !== 'paga' ? `<button class="btn btn-ghost btn-sm" data-kc-ajustar="${esc(k.id)}" data-mk="${esc(i.mk)}" type="button" aria-label="Ajustar fatura ${esc(k.nome)}">Ajustar</button>` : ''}${i.falta > 0 ? `<button class="btn btn-primary btn-sm" data-kc-pagar="${esc(k.id)}" data-mk="${esc(i.mk)}" type="button" aria-label="Pagar fatura ${esc(k.nome)}">Pagar</button>` : ''}</span>
+        <span class="bill-act" style="display:flex;gap:6px;align-items:center;">${tag}${naAbaCartoes && state.cart2 && i.st !== 'paga' ? `<button class="btn btn-ghost btn-sm" data-kc-ajustar="${esc(k.id)}" data-mk="${esc(i.mk)}" type="button" aria-label="Ajustar fatura ${esc(k.nome)}">Ajustar</button>` : ''}${i.falta > 0 ? `<button class="btn btn-secondary btn-sm vn-pagar" data-kc-pagar="${esc(k.id)}" data-mk="${esc(i.mk)}" type="button" aria-label="Pagar fatura ${esc(k.nome)}">Pagar</button>` : ''}</span>
       </div>
     </div>`;
 }
@@ -4703,7 +4870,9 @@ $('dlg2Body').addEventListener('click', async e => {
     if (error){ b.disabled = false; return toast(rpcMsg(error)); }
     closeDlg2();
     toast('Sua conta foi excluída. Até mais!', true);
+    const uid = currentUser && currentUser.id;
     await sb.auth.signOut({ scope: 'local' });
+    limparAparelho(uid, true);   // conta excluída: nada dela fica neste aparelho
     return;
   }
   if (b.dataset.act === 'pfGoogle'){
@@ -5556,8 +5725,9 @@ let dvForm = null;
 function proximaSugerida(d){
   // próxima parcela ainda não paga = 1ª data + parcelas já pagas
   if (!d || !d.proxima) return '';
-  const p = new Date(d.proxima + 'T12:00:00'); p.setMonth(p.getMonth() + Number(d.pagas || 0));
-  return p.toISOString().slice(0, 10);
+  // dia 29 a 31 em mês mais curto fica no último dia (31/jan + 1 mês = 28/fev, igual ao banco), sem pular o mês
+  const [y, m, dia] = d.proxima.split('-').map(Number), t = new Date(y, m - 1 + Number(d.pagas || 0), 1);
+  return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(Math.min(dia, ultimoDia(t.getFullYear(), t.getMonth())))}`;
 }
 function openDivida(id, sitForcada){
   const d = id ? state.dividas.find(x => x.id === id) : null;
@@ -6194,4 +6364,11 @@ $('dlg2Body').addEventListener('click', async e => {
     fi.aviso = `${ok} adicionada${ok === 1 ? '' : 's'}; ${falhas} não deu${falhas === 1 ? '' : 'ram'}: ${esc(ultimo)}`;
     renderFatura();
   }
+});
+
+// visual novo: botão "Lançar" do celular leva ao formulário de novo lançamento
+$('vnLancar').addEventListener('click', () => {
+  const f = $('lancForm'); if (!f) return;
+  f.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  setTimeout(() => { try { $('desc').focus({ preventScroll: true }); } catch(e){} }, 350);
 });
