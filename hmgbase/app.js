@@ -2077,9 +2077,9 @@ function alertas(){
 }
 
 const TITULOS = { inicio: 'Geral', lanc: 'Lançamentos', cartoes: 'Cartões', contas: 'Contas a pagar', metas: 'Metas', invest: 'Investimentos' };
-// o aviso de contas vencidas aparece em Contas a pagar e em Lançamentos (nas outras abas fica só o número no menu)
+// o aviso de contas vencidas só aparece em Contas a pagar (nas outras abas fica só o número no menu)
 function syncAlerta(){
-  $('billAlert').hidden = !state.alertaN || !modOn('contas') || !['contas', 'lanc'].includes(state.tab);   // visual novo: também em Lançamentos
+  $('billAlert').hidden = !state.alertaN || !modOn('contas') || state.tab !== 'contas';   // só em Contas a pagar (o dono tirou de Lançamentos em 26/11)
 }
 function renderTabs(){
   document.body.classList.toggle('aba-lanc', state.tab === 'lanc');
