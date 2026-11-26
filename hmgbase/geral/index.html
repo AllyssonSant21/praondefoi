@@ -2031,6 +2031,37 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
     #viewAuth.cv .cv-fim{padding:72px 18px 8px}
     #viewAuth.cv .cv-q1{display:none !important}   /* no celular o "?" gigante ficava atrás do título */
   }
+  /* ===== capa (prévia): texto corrido em Inter, mesma margem em todas as seções, rodapé e (no celular) textos centralizados ===== */
+
+/* 1) uma letra só para o texto corrido: Inter (igual ao app). Rubik fica nos títulos e na marca; Yellowtail nos destaques */
+#viewAuth.cv :is(.cv-sub,.cv-lista li,.cv-prova-tx p,.cv-cab span,.cv-cats div,.cv-ex,.cv-contas .x,.cv-ft p,.cv-bolha,.cv-rolo .l span,.cv-rodape span,.cv-priv p,.cv-nunca li,.cv-foot,.cv-bal){
+  font-family:Inter,system-ui,sans-serif !important;letter-spacing:0 !important}
+#viewAuth.cv .cv-lista li{font-weight:500 !important}
+
+/* 2) computador: todas as seções na mesma margem do topo (88px), sem "dançar" para a direita no meio */
+@media (min-width:761px){
+  #viewAuth.cv .cv-prova{max-width:none !important;padding-left:88px !important;padding-right:88px !important}
+  #viewAuth.cv .cv-priv{padding-left:88px !important;padding-right:88px !important}
+  #viewAuth.cv .cv-fim{max-width:none !important;padding-left:88px !important;padding-right:88px !important}
+}
+
+/* 3) rodapé centralizado: a marca grande e os links no mesmo eixo */
+#viewAuth.cv .cv-fim{text-align:center !important}
+#viewAuth.cv .cv-foot{text-align:center !important}
+
+/* 4) títulos das seções centralizados sobre o conteúdo no celular; no computador ficam ao lado do cartão */
+@media (max-width:760px){
+  #viewAuth.cv :is(.cv-texto,.cv-prova-tx,.cv-ft,.cv-priv > div:first-child){text-align:center !important}
+  #viewAuth.cv .cv-desc{transform-origin:center !important;margin-left:0 !important}
+  #viewAuth.cv :is(.cv-prova h2,.cv-priv h2,.cv-prova-tx p,.cv-priv p,.cv-sub,.cv-ft p){margin-left:auto !important;margin-right:auto !important}
+  #viewAuth.cv .cv-lista-ic{display:inline-grid !important;text-align:left !important;margin-left:auto;margin-right:auto}
+  #viewAuth.cv .cv-texto{display:flex;flex-direction:column;align-items:center}
+  #viewAuth.cv .cv-rodape{justify-content:center !important;align-items:center !important;text-align:center !important}
+  #viewAuth.cv .cv-marca{justify-content:center !important}
+  #viewAuth.cv #forgot{display:block !important;margin-left:auto !important;margin-right:auto !important;text-align:center !important;align-self:center !important}
+  #viewAuth.cv .cv-msgs{align-items:center !important;justify-items:center !important}
+}
+
   /* Celular: campo com letra menor que 16px faz o iPhone dar zoom ao tocar. Sempre 16px em tela de toque. */
   @media (max-width:900px), (pointer:coarse){
     input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px !important}
