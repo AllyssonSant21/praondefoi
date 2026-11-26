@@ -26,7 +26,7 @@ if not LEGAL:   # política/termos novos ainda sem nome e e-mail: prod fica com 
                 ('concorda com os <a href="termos.html" style="color:inherit;">Termos de uso</a> e a <a href="privacidade.html"','concorda com a <a href="privacidade.html"')]:
         rep(a,b,1)
     assert 'termos.html' not in s
-s,nb=re.subn(r'<!--BOT-->.*?<!--/BOT-->','',s,flags=re.S); assert nb==3   # bolha do bot, card do Detetive e faixa 'Mandou, tá lançado' só quando o bot ligar
+s,nb=re.subn(r'<!--BOT-->.*?<!--/BOT-->','',s,flags=re.S); assert nb==4   # 'ou por mensagem' (subtítulo e faixa de privacidade), bolha do bot e seção 'Mandou? Está lançado.': só quando o bot ligar
 open(R+'index.html','w').write(s)
 j=open(R+'hmgbase/app.js').read()
 for a,b in [("if (false && 'serviceWorker' in navigator && location.protocol === 'https:'){   // HMG: sem app instalável","if ('serviceWorker' in navigator && location.protocol === 'https:'){"),
