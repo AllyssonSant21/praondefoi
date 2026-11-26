@@ -1874,7 +1874,7 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   html body #viewApp .stats.resumo>.stat:first-child .big{font-size:32px !important;font-weight:700 !important}
   html body #viewApp #balCard .big,html body #viewApp #balCard:not(.neg) .big,html:not([data-tema="escuro"]) #viewApp #balCard:not(.neg) .big,html[data-tema="escuro"] #viewApp #balCard:not(.neg) .big{color:var(--text) !important}
   html body #viewApp #balCard.neg .big{color:var(--vn-neg) !important}
-  html body #viewApp .stats.resumo #expVal,html.valores-ocultos body #viewApp .stats.resumo #expVal,html body #viewApp .in-n.in-neg{color:var(--text) !important}
+  html body #viewApp .stats.resumo #expVal,html.valores-ocultos body #viewApp .stats.resumo #expVal,html body #viewApp .in-n.in-neg{color:var(--vn-neg) !important}   /* saídas em vermelho (pedido do dono, 26/11) */
   html body #viewApp #incVal:not(.zero){color:var(--vn-pos) !important}
   html body #viewApp .stats.resumo .note,html body #viewApp .in-d,html body #viewApp .in-it small{font:400 13px/1.45 "Libre Franklin",sans-serif !important;letter-spacing:0 !important;color:var(--muted) !important}
   html body #viewApp .stats.resumo .kicker .seta{display:none}
@@ -1911,7 +1911,7 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   html body #viewApp #billAlert .btn{background:var(--surface) !important;color:var(--text) !important;border:1px solid var(--vn-ctl) !important}
   /* listas: linhas com fio fino; valores na Inter, saída em marinho, entrada em verde */
   html body #viewApp #rows td:nth-child(4){font-family:"Libre Franklin",sans-serif !important;font-weight:600 !important}
-  html body #viewApp .vn-out{color:var(--text) !important}
+  html body #viewApp .vn-out{color:var(--vn-neg) !important}
   html body #viewApp .vn-in{color:var(--vn-pos) !important}
   /* lista de lançamentos: agrupada por dia, linha inteira abre editar, ícone de linha na categoria */
   html body #viewApp #rows tr.vn-dia td{display:table-cell;padding:14px 0 6px !important;font-size:12.5px !important;font-weight:600;color:var(--vn-soft) !important;border-bottom:1px solid var(--vn-rule) !important;background:transparent !important}
@@ -2869,6 +2869,6 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=5"></script>
-<script src="app.js?v=166"></script>
+<script src="app.js?v=167"></script>
 </body>
 </html>
