@@ -31,7 +31,7 @@
 <title>[HMG] Pra Onde Foi? · Controle financeiro para casais e famílias</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@900&family=Inter:wght@400;500;600;700&family=Rubik:wght@400;500;600;800;900&family=Yellowtail&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@900&family=Inter:wght@400;500;600;700&family=Libre+Franklin:wght@400;500;600;700&family=Rubik:wght@400;500;600;800;900&family=Yellowtail&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="../vendor/supabase-2.117.3.js"></script>
 <style>
   /* ===== TEMAS ===== claro é o padrão; escuro (grafite) é opção no Menu → Aparência */
@@ -2031,11 +2031,11 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
     #viewAuth.cv .cv-fim{padding:72px 18px 8px}
     #viewAuth.cv .cv-q1{display:none !important}   /* no celular o "?" gigante ficava atrás do título */
   }
-  /* ===== capa (prévia): texto corrido em Inter, mesma margem em todas as seções, rodapé e (no celular) textos centralizados ===== */
+  /* ===== capa (prévia): texto corrido em Libre Franklin, mesma margem em todas as seções, rodapé e (no celular) textos centralizados ===== */
 
-/* 1) uma letra só para o texto corrido: Inter (igual ao app). Rubik fica nos títulos e na marca; Yellowtail nos destaques */
+/* 1) uma letra só para o texto corrido: Libre Franklin (escolhida pelo dono em 26/11). Rubik fica nos títulos e na marca; Yellowtail nos destaques */
 #viewAuth.cv :is(.cv-sub,.cv-lista li,.cv-prova-tx p,.cv-cab span,.cv-cats div,.cv-ex,.cv-contas .x,.cv-ft p,.cv-bolha,.cv-rolo .l span,.cv-rodape span,.cv-priv p,.cv-nunca li,.cv-foot,.cv-bal){
-  font-family:Inter,system-ui,sans-serif !important;letter-spacing:0 !important}
+  font-family:"Libre Franklin",system-ui,sans-serif !important;letter-spacing:0 !important}
 #viewAuth.cv .cv-lista li{font-weight:500 !important}
 
 /* 2) computador: todas as seções na mesma margem do topo (88px), sem "dançar" para a direita no meio */
@@ -2063,6 +2063,7 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   #viewAuth.cv .cv-msgs{align-items:center !important;justify-items:center !important}
 }
 
+  #viewAuth.cv :is(.auth-card,.auth-card *:not(svg):not(path),.cv-grande){font-family:"Libre Franklin",system-ui,sans-serif !important}
   /* Celular: campo com letra menor que 16px faz o iPhone dar zoom ao tocar. Sempre 16px em tela de toque. */
   @media (max-width:900px), (pointer:coarse){
     input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px !important}
