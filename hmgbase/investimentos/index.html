@@ -48,8 +48,8 @@
     --focus:#b08400; --overlay:rgba(20,20,20,.42); --shadow:0 10px 30px rgba(20,20,20,.12);
     --divider:rgba(var(--fg-rgb),.14);
     --track:rgba(var(--fg-rgb),.08);
-    --font-heading:"Inter",system-ui,sans-serif;
-    --font-body:"Inter",system-ui,sans-serif;
+    --font-heading:"Libre Franklin",system-ui,sans-serif;
+    --font-body:"Libre Franklin",system-ui,sans-serif;
     --space-1:3.4px;--space-2:6.8px;--space-3:10.2px;--space-4:13.6px;--space-6:20.4px;--space-8:27.2px;
     /* formas: menos arredondado */
     --r-btn:8px; --r-campo:8px; --r-cartao:12px; --r-selo:6px;
@@ -755,7 +755,7 @@
   .aparencia .seg button{flex:1;padding:9px 6px}
 
   /* ================= VISUAL B · Space Grotesk, cantos de 4 px, cara de app financeiro ================= */
-  :root{--font-body:"Inter",system-ui,sans-serif;--font-heading:"Inter",system-ui,sans-serif;
+  :root{--font-body:"Libre Franklin",system-ui,sans-serif;--font-heading:"Libre Franklin",system-ui,sans-serif;
         --r-btn:4px;--r-campo:4px;--r-cartao:6px;--r-selo:4px;--track:rgba(var(--fg-rgb),.06)}
   body{font-size:15px;letter-spacing:-.003em}
   h1,h2,h3{font-family:var(--font-body) !important;font-weight:600 !important;text-transform:none !important;letter-spacing:-.015em !important;line-height:1.2 !important}
@@ -1214,8 +1214,8 @@ html[data-tema="escuro"] .dv-sit button[aria-checked="true"]{background:var(--ac
 
   /* ===== VISUAL ESTILO PAINEL (v122): letras Inter, bordas finas, cantos 6–8px ===== */
   :root{
-    --font-body:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-    --font-heading:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --font-body:"Libre Franklin",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --font-heading:"Libre Franklin",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
     --r-btn:6px; --r-campo:6px; --r-cartao:8px; --r-selo:4px;
   }
   html:not([data-tema="escuro"]){
@@ -1622,7 +1622,7 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   @media (min-width:900px){ .so-cel{display:none !important} }
   .in-topo{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
   .in-data{font:400 11.5px "JetBrains Mono",ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-  .in-ola{margin-top:8px;font:900 38px/1.1 Rubik,Inter,sans-serif;letter-spacing:-.02em;text-shadow:1px 1px 0 #d8d4c8,2px 2px 0 #e9e5d9}
+  .in-ola{margin-top:8px;font:900 38px/1.1 Rubik,"Libre Franklin",sans-serif;letter-spacing:-.02em;text-shadow:1px 1px 0 #d8d4c8,2px 2px 0 #e9e5d9}
   html[data-tema="escuro"] .in-ola{text-shadow:none}
   .in-olho{flex:none}
   .in-g{display:grid;gap:12px}
@@ -1682,10 +1682,10 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   .in-car-tx{min-width:0;animation:inCarEntra .35s ease}
   @keyframes inCarEntra{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
   .in-car .cv-k{font:400 10.5px "JetBrains Mono",ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-  .in-car h3{font:700 20px/1.3 Inter,sans-serif;margin:6px 0;letter-spacing:-.01em}
+  .in-car h3{font:700 20px/1.3 "Libre Franklin",sans-serif;margin:6px 0;letter-spacing:-.01em}
   .in-car h3 .vd{color:var(--green)} .in-car h3 .vm{color:var(--out)}
   .in-car p{font-size:13.5px;color:var(--muted);max-width:600px;margin:0}
-  .in-car .cv-lnk{margin-top:10px;border:0;background:none;padding:0;font:600 13.5px Inter,sans-serif;color:var(--accent-text);cursor:pointer}
+  .in-car .cv-lnk{margin-top:10px;border:0;background:none;padding:0;font:600 13.5px "Libre Franklin",sans-serif;color:var(--accent-text);cursor:pointer}
   .in-car-vis{display:flex;align-items:flex-end;gap:10px;height:86px}
   .in-car-vis .cv-b{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;height:100%;font:400 10.5px "JetBrains Mono",ui-monospace,monospace;color:var(--muted)}
   .in-car-vis .cv-b i{display:block;width:30px;border-radius:4px 4px 0 0;background:rgba(var(--fg-rgb),.14)}
@@ -1740,11 +1740,11 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   .bv-av{margin-top:24px;padding-top:18px;border-top:1px dashed rgba(255,255,255,.15)}
   .bv-av p{margin:4px 0 10px;font-size:14px;color:#c9cdd6}
   .bv-av div{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  .bv-av input{width:100%;border:0;border-bottom:1.5px solid rgba(255,255,255,.22);border-radius:0;background:transparent;color:#fff;font:500 16px Inter,sans-serif;padding:6px 0;outline:0}
+  .bv-av input{width:100%;border:0;border-bottom:1.5px solid rgba(255,255,255,.22);border-radius:0;background:transparent;color:#fff;font:500 16px "Libre Franklin",sans-serif;padding:6px 0;outline:0}
   .bv input::placeholder{color:rgba(255,255,255,.35)}
   .bv-ir{margin-top:26px;width:100%;min-height:50px;border:0;border-radius:6px;background:#FED13D;color:#0E1525;font:900 18px Rubik,sans-serif;box-shadow:0 4px 0 #b8901a;cursor:pointer}
   .bv-ir:disabled{opacity:.6}
-  .bv-depois{display:block;margin:14px auto 0;border:0;background:none;color:#8b93a7;font:600 14px Inter,sans-serif;text-decoration:underline;text-underline-offset:3px;cursor:pointer;min-height:36px}
+  .bv-depois{display:block;margin:14px auto 0;border:0;background:none;color:#8b93a7;font:600 14px "Libre Franklin",sans-serif;text-decoration:underline;text-underline-offset:3px;cursor:pointer;min-height:36px}
   html:not([data-tema="escuro"]) .bv{background:#fff;color:#1f1d1e;background-image:radial-gradient(420px 260px at 0% 0%,rgba(254,209,61,.30),transparent 65%)}
   html:not([data-tema="escuro"]) .bv::after{color:rgba(254,209,61,.22)}
   html:not([data-tema="escuro"]) .bv h3{color:#1f1d1e;text-shadow:1px 1px 0 #d8d4c8,2px 2px 0 #e9e5d9,3px 3px 0 #f1eee6}
@@ -1851,13 +1851,13 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
     --text:#EEF1F6 !important;--muted:#A3ACBE !important;--divider:#1F2939 !important;--fg-rgb:238,241,246 !important;
     --vn-rule:#1F2939;--vn-ctl:#2A3446;--vn-soft:#7C8598;--vn-gold:#FED13D;--vn-gold-tx:#FED13D;--vn-pos:#4CC38A;--vn-neg:#FF7A7A;--vn-neg-bg:#3A1C22;
     --vn-i2:#C9D0DC;--vn-i3:#8E97A9;--vn-i4:#5E687C;--vn-i5:#3B4558}
-  :root{--font-body:"Inter",system-ui,sans-serif !important;--font-heading:"Inter",system-ui,sans-serif !important}
-  html body #viewApp,html[data-tema="escuro"] body #viewApp{font-family:Inter,system-ui,sans-serif !important;background:var(--bg) !important;background-image:none !important}
+  :root{--font-body:"Libre Franklin",system-ui,sans-serif !important;--font-heading:"Libre Franklin",system-ui,sans-serif !important}
+  html body #viewApp,html[data-tema="escuro"] body #viewApp{font-family:"Libre Franklin",system-ui,sans-serif !important;background:var(--bg) !important;background-image:none !important}
   html body #viewApp::before,html body #viewApp::after{display:none !important}
   html body #viewApp .num,html body #viewApp .big,html body #viewApp #rows td{font-variant-numeric:tabular-nums}
   /* títulos: Rubik da marca, sem o 3D (o 3D fica só na capa) */
   html body #viewApp h1{font-family:Rubik,sans-serif !important;font-weight:800 !important;font-size:28px !important;letter-spacing:-.01em !important;text-shadow:none !important}
-  html body #viewApp .wrap h2{font-family:Inter,sans-serif !important;font-size:16px !important;font-weight:700 !important;text-transform:none !important;letter-spacing:0 !important}
+  html body #viewApp .wrap h2{font-family:"Libre Franklin",sans-serif !important;font-size:16px !important;font-weight:700 !important;text-transform:none !important;letter-spacing:0 !important}
   /* painéis: brancos sobre o fundo cinza, borda fina (no lugar das seções soltas com linha grossa em cima) */
   html body #viewApp :is(.blueprint,.stats.resumo,.lanc-lista,.lanc-cats,.rp-destaque,.in-c,.in-car),
   html[data-tema="escuro"] body #viewApp :is(.blueprint,.stats.resumo,.lanc-lista,.lanc-cats,.rp-destaque,.in-c,.in-car){
@@ -1869,14 +1869,14 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   html body #viewApp .stats.resumo{padding:0 !important}
   html body #viewApp .stats.resumo>.stat,html body #viewApp .stats.resumo>.stat:first-child{padding:14px 18px !important;background:transparent !important}
   html body #viewApp .stats.resumo .kicker,html body #viewApp .in-k,html body #viewApp .in-sec,html body #viewApp .in-data,html body #viewApp .in-car .cv-k{
-    font:500 13px/1.3 Inter,sans-serif !important;letter-spacing:0 !important;text-transform:none !important;color:var(--muted) !important}
-  html body #viewApp .stats.resumo .big,html body #viewApp .in-n{font-family:Inter,sans-serif !important;font-weight:600 !important;letter-spacing:-.01em !important;color:var(--text)}
+    font:500 13px/1.3 "Libre Franklin",sans-serif !important;letter-spacing:0 !important;text-transform:none !important;color:var(--muted) !important}
+  html body #viewApp .stats.resumo .big,html body #viewApp .in-n{font-family:"Libre Franklin",sans-serif !important;font-weight:600 !important;letter-spacing:-.01em !important;color:var(--text)}
   html body #viewApp .stats.resumo>.stat:first-child .big{font-size:32px !important;font-weight:700 !important}
   html body #viewApp #balCard .big,html body #viewApp #balCard:not(.neg) .big,html:not([data-tema="escuro"]) #viewApp #balCard:not(.neg) .big,html[data-tema="escuro"] #viewApp #balCard:not(.neg) .big{color:var(--text) !important}
   html body #viewApp #balCard.neg .big{color:var(--vn-neg) !important}
   html body #viewApp .stats.resumo #expVal,html.valores-ocultos body #viewApp .stats.resumo #expVal,html body #viewApp .in-n.in-neg{color:var(--text) !important}
   html body #viewApp #incVal:not(.zero){color:var(--vn-pos) !important}
-  html body #viewApp .stats.resumo .note,html body #viewApp .in-d,html body #viewApp .in-it small{font:400 13px/1.45 Inter,sans-serif !important;letter-spacing:0 !important;color:var(--muted) !important}
+  html body #viewApp .stats.resumo .note,html body #viewApp .in-d,html body #viewApp .in-it small{font:400 13px/1.45 "Libre Franklin",sans-serif !important;letter-spacing:0 !important;color:var(--muted) !important}
   html body #viewApp .stats.resumo .kicker .seta{display:none}
   /* campos com borda (de volta) e botões: principal cheio; os outros com contorno cinza */
   html body #viewApp :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not(#busca),select,textarea){
@@ -1910,7 +1910,7 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   html body #viewApp #billAlert .alert-txt{color:var(--vn-neg) !important;font-weight:600}
   html body #viewApp #billAlert .btn{background:var(--surface) !important;color:var(--text) !important;border:1px solid var(--vn-ctl) !important}
   /* listas: linhas com fio fino; valores na Inter, saída em marinho, entrada em verde */
-  html body #viewApp #rows td:nth-child(4){font-family:Inter,sans-serif !important;font-weight:600 !important}
+  html body #viewApp #rows td:nth-child(4){font-family:"Libre Franklin",sans-serif !important;font-weight:600 !important}
   html body #viewApp .vn-out{color:var(--text) !important}
   html body #viewApp .vn-in{color:var(--vn-pos) !important}
   /* lista de lançamentos: agrupada por dia, linha inteira abre editar, ícone de linha na categoria */
@@ -1946,7 +1946,7 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   .vn-fab{display:none}
   @media (max-width:899px){
     body.aba-lanc .vn-fab{display:flex;position:fixed;right:16px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:40;height:52px;padding:0 20px 0 16px;border-radius:12px;align-items:center;gap:8px;
-      background:#0E1525;color:#fff;font:600 15px Inter,sans-serif;border:0;box-shadow:0 6px 16px rgba(14,21,37,.22)}
+      background:#0E1525;color:#fff;font:600 15px "Libre Franklin",sans-serif;border:0;box-shadow:0 6px 16px rgba(14,21,37,.22)}
     html[data-tema="escuro"] body.aba-lanc .vn-fab{background:#FED13D;color:#0E1525;box-shadow:none}
   }
   /* Contas a pagar: régua do mês, grupos e "Pagar" com contorno */
@@ -1985,7 +1985,7 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
   #viewAuth.cv .cv-prova-tx p{font-size:19px;line-height:1.55;color:var(--cv-mut);margin-top:18px;max-width:38ch}
   #viewAuth.cv .cv-cartao{background:var(--cv-cartao);border-radius:20px;padding:32px;font-variant-numeric:tabular-nums}
   #viewAuth.cv .cv-cab{display:flex;justify-content:space-between;gap:12px;font-size:15px;color:var(--cv-mut)}
-  #viewAuth.cv .cv-grande{font:700 clamp(30px,3.4vw,42px)/1.1 Inter,sans-serif;letter-spacing:-.02em;color:var(--cv-forte);margin-top:4px}
+  #viewAuth.cv .cv-grande{font:700 clamp(30px,3.4vw,42px)/1.1 "Libre Franklin",sans-serif;letter-spacing:-.02em;color:var(--cv-forte);margin-top:4px}
   #viewAuth.cv .cv-fita{display:flex;height:26px;border-radius:7px;overflow:hidden;gap:3px;margin:22px 0 16px}
   #viewAuth.cv .cv-fita span{display:block}
   #viewAuth.cv .cv-cats{display:grid;grid-template-columns:repeat(2,1fr);gap:0 32px}
@@ -2869,6 +2869,6 @@ html[data-tema="escuro"] #viewApp .blueprint,html[data-tema="escuro"] #viewApp .
 <div class="hmg-tag">Versão de teste (HMG)</div>
 
 <script src="entender.js?v=5"></script>
-<script src="app.js?v=165"></script>
+<script src="app.js?v=166"></script>
 </body>
 </html>

@@ -2131,7 +2131,7 @@ function itensAtencao(){
   const itens = [], agora = new Date();
   if (modOn('contas') || cartaoOn()){
     const { late, hoje } = alertas();
-    if (late) itens.push({ k: 'Vencidas', b: plural(late, 'conta vencida').replace('contas vencida', 'contas vencidas'), s: 'conta atrasada pode virar dívida', ir: 'contas', vm: true });
+    if (late) itens.push({ k: 'Vencidas', b: late === 1 ? '1 conta vencida' : `${late} contas vencidas`, s: 'conta atrasada pode virar dívida', ir: 'contas', vm: true });
     if (hoje) itens.push({ k: 'Vence hoje', b: hoje === 1 ? '1 conta vence hoje' : `${hoje} contas vencem hoje`, s: 'pague para não atrasar', ir: 'contas' });
   }
   if (cartaoOn()){
@@ -3889,7 +3889,7 @@ function renderCartoes(){
   $('kcProxNote').textContent = faltaMes > 0 ? `A pagar ainda em ${nomeMes}: ${brl(faltaMes)}`
     : um ? ({ vazia: `Fecha ${ddmm(um.fecha)} · vence ${ddmm(um.vence)}`, paga: 'Paga ✓', aberta: `Fecha ${ddmm(um.fecha)} · vence ${ddmm(um.vence)}`,
               fechada: `Fechada · vence ${ddmm(um.vence)}`, vencida: `Vencida em ${ddmm(um.vence)}` })[um.st]
-    : !lista.length ? '' : mesesAbertos.length === 1 ? `Vence em ${mesNome(mesesAbertos[0])}` : plural(lista.length, 'cartão');
+    : !lista.length ? '' : mesesAbertos.length === 1 ? `Vence em ${mesNome(mesesAbertos[0])}` : plural(lista.length, 'cartão').replace('cartãos', 'cartões');
   // 3) limite
   const comLimite = lista.filter(k => Number(k.limite) > 0);
   const limite = r2(comLimite.reduce((s, k) => s + Number(k.limite), 0));
